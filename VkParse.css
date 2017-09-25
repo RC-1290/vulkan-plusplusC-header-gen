@@ -1,0 +1,8 @@
+body {
+	font-family : sans-serif;
+}
+
+pre{
+	-moz-tab-size: 4;
+	tab-size : 4;
+}
