@@ -112,22 +112,13 @@ function parseXml()
 		var typeText = stripVk(protoNode.getElementsByTagName("type").item(0).textContent);
 		var nameText = stripVk(protoNode.getElementsByTagName("name").item(0).textContent);
 		
+		// Function pointer signatures:
 		var pfnEntry = document.createElement("div");
+		pfnDefinitions.appendChild(pfnEntry);
 		pfnEntry.textContent = indentation(2);
 		pfnEntry.textContent += "typedef " + 
 		typeText + "	(VKAPI_PTR *" + 
 		nameText + ")(";
-		
-		var fnDefExt = document.createElement("div");
-		var fnDef = document.createElement("div");
-		
-		var tabCount = Math.floor((64 - nameText.length + 3) / tabSpaceWidth);
-		var definition = "PFN::" + nameText + indentation(tabCount) + nameText;
-		fnDefExt.textContent = indentation(1) + "extern " + definition;
-		functionDefinitionsExt.appendChild(fnDefExt);
-		fnDef.textContent = indentation(1) + definition;
-		functionDefinitions.appendChild(fnDef);
-		
 		
 		var parameterNodes = commandNode.getElementsByTagName("param");
 		
@@ -150,7 +141,21 @@ function parseXml()
 		
 		pfnEntry.textContent += ");"	
 		
-		pfnDefinitions.appendChild(pfnEntry);
+		// Function defintions:
+		var fnDefExt = document.createElement("div");
+		var fnDef = document.createElement("div");
+		var fnLookup = document.createElement("div");
+		
+		functionDefinitionsExt.appendChild(fnDefExt);
+		functionDefinitions.appendChild(fnDef);
+		loadInstanceCommands.appendChild(fnLookup);
+		
+		var tabCount = Math.floor((64 - nameText.length + 3) / tabSpaceWidth);
+		var definition = "PFN::" + nameText + indentation(tabCount) + nameText;
+		
+		fnDefExt.textContent = indentation(1) + "extern " + definition;
+		fnDef.textContent = indentation(1) + definition;
+		addLineOfCode(fnLookup, indentation(3) + vulkanNamespace + '::' + nameText + ' = (' + vulkanNamespace + '::PFN::' + nameText + ') vkGetInstanceProcAddr( instance, "vk' + nameText + ' );');
 	}
 	
 	addLineOfCode(pfnDefinitions, indentation(1) + "}");
