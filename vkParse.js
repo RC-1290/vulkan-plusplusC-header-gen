@@ -82,6 +82,7 @@ function parseXml()
 	var loadInstanceCommands = document.createElement("div");
 	
 	addLineOfCode(vulkanFunctions, 'extern "C" VKAPI_ATTR Vk::PFN::VoidFunction VKAPI_CALL vkGetInstanceProcAddr( Vk::Instance instance, const s8* pName );');
+	addLineOfCode(vulkanFunctions, "	");
 	vulkanFunctions.appendChild(functionDefinitions);
 	vulkanFunctions.appendChild(functionRetrieval);
 	addLineOfCode(functionDefinitions, "namespace " + vulkanNamespace);
@@ -144,24 +145,34 @@ function parseXml()
 		// Function defintions:
 		var fnDefExt = document.createElement("div");
 		var fnDef = document.createElement("div");
-		var fnLookup = document.createElement("div");
 		
 		functionDefinitionsExt.appendChild(fnDefExt);
 		functionDefinitions.appendChild(fnDef);
-		loadInstanceCommands.appendChild(fnLookup);
 		
 		var tabCount = Math.floor((64 - nameText.length + 3) / tabSpaceWidth);
 		var definition = "PFN::" + nameText + indentation(tabCount) + nameText;
 		
 		fnDefExt.textContent = indentation(1) + "extern " + definition;
 		fnDef.textContent = indentation(1) + definition;
-		addLineOfCode(fnLookup, indentation(3) + vulkanNamespace + '::' + nameText + ' = (' + vulkanNamespace + '::PFN::' + nameText + ') vkGetInstanceProcAddr( instance, "vk' + nameText + ' );');
+		
+		if (nameText == "EnumerateInstanceLayerProperties" || nameText == "EnumerateInstanceExtensionProperties" || nameText == "CreateInstance")
+		{
+			addLineOfCode(loadIndependentCommands, indentation(3) + vulkanNamespace + '::' + nameText + ' = (' + vulkanNamespace + '::PFN::' + nameText + ') vkGetInstanceProcAddr( nullptr, "vk' + nameText + '" );');
+			addLineOfCode(loadIndependentCommands, indentation(3) + 'if(!' + vulkanNamespace + '::' +nameText + ') { return false; }');
+		}
+		else 
+		{
+			addLineOfCode(loadInstanceCommands, indentation(3) + vulkanNamespace + '::' + nameText + ' = (' + vulkanNamespace + '::PFN::' + nameText + ') vkGetInstanceProcAddr( instance, "vk' + nameText + '" );');
+			addLineOfCode(loadInstanceCommands, indentation(3) + 'if(!' + vulkanNamespace + '::' +nameText + ') { return false; }');
+		}
 	}
 	
 	addLineOfCode(pfnDefinitions, indentation(1) + "}");
 	addLineOfCode(functionDefinitionsExt, "}");
 	addLineOfCode(functionDefinitions, "}");
+	addLineOfCode(loadIndependentCommands, indentation(3) + "return true;");
 	addLineOfCode(loadIndependentCommands, indentation(2) + "}");
+	addLineOfCode(loadInstanceCommands, indentation(3) + "return true;");
 	addLineOfCode(loadInstanceCommands, indentation(2) + "}");
 	
 }
