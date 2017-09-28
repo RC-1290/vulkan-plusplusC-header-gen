@@ -61,6 +61,9 @@ function parseXml()
 	vulkanFunctions.textContent = "";
 	
 	// Vulkan Header:
+	addLineOfCode(vulkanHeader, "// This header is generated from the Khronos Vulkan XML API Registry,");
+	addLineOfCode(vulkanHeader, "// which is Licensed under the Apache License, Version 2.0 ");
+	addLineOfCode(vulkanHeader, "// The custom header generator was written by Laurens Mathot (@RC_1290).");
 	addLineOfCode(vulkanHeader, "#pragma once");
 	addLineOfCode(vulkanHeader, "namespace " +vulkanNamespace);
 	addLineOfCode(vulkanHeader, "{");
@@ -113,12 +116,14 @@ function parseXml()
 		var typeText = stripVk(protoNode.getElementsByTagName("type").item(0).textContent);
 		var nameText = stripVk(protoNode.getElementsByTagName("name").item(0).textContent);
 		
+		if (nameText == "GetDeviceProcAddr" || nameText == "GetInstanceProcAddr"){ continue; }
+		
 		// Function pointer signatures:
 		var pfnEntry = document.createElement("div");
 		pfnDefinitions.appendChild(pfnEntry);
 		pfnEntry.textContent = indentation(2);
 		pfnEntry.textContent += "typedef " + 
-		typeText + "	(VKAPI_PTR *" + 
+		typeText + "		(VKAPI_PTR *" + 
 		nameText + ")(";
 		
 		var parameterNodes = commandNode.getElementsByTagName("param");
@@ -152,8 +157,8 @@ function parseXml()
 		var tabCount = Math.floor((64 - nameText.length + 3) / tabSpaceWidth);
 		var definition = "PFN::" + nameText + indentation(tabCount) + nameText;
 		
-		fnDefExt.textContent = indentation(1) + "extern " + definition;
-		fnDef.textContent = indentation(1) + definition;
+		fnDefExt.textContent = indentation(1) + "extern " + definition +";";
+		fnDef.textContent = indentation(1) + definition +";";
 		
 		if (nameText == "EnumerateInstanceLayerProperties" || nameText == "EnumerateInstanceExtensionProperties" || nameText == "CreateInstance")
 		{
