@@ -118,7 +118,7 @@ function parseXml()
 		
 		if (nameText == "GetDeviceProcAddr" || nameText == "GetInstanceProcAddr"){ continue; }
 		
-		// Function pointer signatures:
+		// Function pointer signatures (PFN):
 		var pfnEntry = document.createElement("div");
 		pfnDefinitions.appendChild(pfnEntry);
 		pfnEntry.textContent = indentation(2);
@@ -126,19 +126,27 @@ function parseXml()
 		typeText + "		(VKAPI_PTR *" + 
 		nameText + ")(";
 		
-		var parameterNodes = commandNode.getElementsByTagName("param");
+		var commandChildren = commandNode.children;
+		var firstParameter = true;
 		
-		for(var j=0; j < parameterNodes.length; ++j)
+		for(var j=0; j < commandChildren.length; ++j)
 		{
-			if (j != 0)
+			var commandChild = commandChildren.item(j);
+			if (commandChild.tagName != "param")
 			{
-				pfnEntry.textContent += ", ";
+				continue;
 			}
-			var nodes = parameterNodes.item(j).childNodes;
+			
+			if (firstParameter) { firstParameter = false; }
+			else { pfnEntry.textContent += ", "; }
+			
+			var nodes = commandChild.childNodes;
 			
 			for(var k = 0; k < nodes.length; ++k)
 			{
-				var parameterText = stripVk(nodes.item(k).textContent);
+				var node = nodes.item(k);
+				
+				var parameterText = stripVk(node.textContent);
 				parameterText = replaceTypes(parameterText);
 				
 				pfnEntry.textContent += parameterText;
