@@ -49,11 +49,22 @@ function indentation(count)
 	return text;
 }
 
+function padTabs(text, length)
+{
+	var tabCount = Math.floor((length - text.length) / tabSpaceWidth);
+	return text + indentation(tabCount);
+}
+
 function parseXml()
 {
 	var vkxml = xhr.responseXML;
+	
+	var typesNode = vkxml.getElementsByTagName("types").item(0);
+	var types = typesNode.children
+	
 	var commandsNode = vkxml.getElementsByTagName("commands").item(0);
 	var commands = commandsNode.getElementsByTagName("command");
+	
 	
 	// Clear placeholder text:
 	statusText.textContent = commands.length + " commands found: ";
@@ -68,15 +79,36 @@ function parseXml()
 	addLineOfCode(vulkanHeader, "namespace " +vulkanNamespace);
 	addLineOfCode(vulkanHeader, "{");
 	
+	var handleDefinitions = document.createElement("div");
+	var enumDefinitions = document.createElement("div");
+	var funcPointerDefinitions = document.createElement("div");
+	var structDefinitions = document.createElement("div");
+	
 	var pfnDefinitions = document.createElement("div");
 	var functionDefinitionsExt = document.createElement("div");
 	
 	addLineOfCode(pfnDefinitions, indentation(1) + "namespace PFN");
 	addLineOfCode(pfnDefinitions, indentation(1) + "{");
 	
+	vulkanHeader.appendChild(handleDefinitions);
+	vulkanHeader.appendChild(enumDefinitions);
+	vulkanHeader.appendChild(funcPointerDefinitions);
+	vulkanHeader.appendChild(structDefinitions);
 	vulkanHeader.appendChild(pfnDefinitions);
-	
 	vulkanHeader.appendChild(functionDefinitionsExt);
+	
+	// Types
+	for(var i = 0; i < types.length; ++i)
+	{
+		var typeNode = types.item(i);
+		var category = typeNode.getAttribute("category");
+		
+		if (category == "handle")
+		{
+			var name = typeNode.getElementsByTagName("name").item(0).textContent;
+			addLineOfCode(handleDefinitions, padTabs( indentation(1) + "typedef struct " + name + "_T*", 60 ) + name);
+		}
+	}
 	
 	// Proc Address retrieval implementation:
 	var functionDefinitions = document.createElement("div");
@@ -107,6 +139,7 @@ function parseXml()
 	addLineOfCode(loadInstanceCommands, indentation(2) + "bool LoadInstanceCommands( "+ vulkanNamespace +"::Instance instance)");
 	addLineOfCode(loadInstanceCommands, indentation(2) + "{");
 	
+	// Parse commands
 	for(var i = 0; i < commands.length; ++i)
 	{
 		var commandNode = commands.item(i);
@@ -162,11 +195,8 @@ function parseXml()
 		functionDefinitionsExt.appendChild(fnDefExt);
 		functionDefinitions.appendChild(fnDef);
 		
-		var tabCount = Math.floor((64 - nameText.length + 3) / tabSpaceWidth);
-		var definition = "PFN::" + nameText + indentation(tabCount) + nameText;
-		
-		fnDefExt.textContent = indentation(1) + "extern " + definition +";";
-		fnDef.textContent = indentation(1) + definition +";";
+		fnDefExt.textContent = indentation(1) + padTabs("extern PFN::" + nameText, 67) + nameText + ";";
+		fnDef.textContent = indentation(1) + padTabs(" PFN::" + nameText, 67) + nameText + ";";;
 		
 		if (nameText == "EnumerateInstanceLayerProperties" || nameText == "EnumerateInstanceExtensionProperties" || nameText == "CreateInstance")
 		{
@@ -180,6 +210,7 @@ function parseXml()
 		}
 	}
 	
+	// closing braces:
 	addLineOfCode(pfnDefinitions, indentation(1) + "}");
 	addLineOfCode(functionDefinitionsExt, "}");
 	addLineOfCode(functionDefinitions, "}");
