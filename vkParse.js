@@ -1,3 +1,6 @@
+// Vulkan xml parsers, header generator.
+// Written by Laurens Mathot, Code Animo.
+
 var xhr = new XMLHttpRequest();
 var statusText = document.getElementById("statusText");
 var vulkanHeader = document.getElementById("vulkanHeader");
@@ -11,7 +14,11 @@ var tabSpaceWidth = 4;
 
 function stripVk(text)
 {
-	if (text.startsWith("Vk") || text.startsWith("vk"))
+	if (text.startsWith("VK_"))
+	{
+		return text.slice(3);
+	}
+	else if (text.startsWith("Vk") || text.startsWith("vk"))
 	{
 		return text.slice(2);
 	}
@@ -67,15 +74,16 @@ function parseXml()
 	
 	
 	// Clear placeholder text:
-	statusText.textContent = commands.length + " commands found: ";
 	vulkanHeader.textContent = "";
 	vulkanFunctions.textContent = "";
 	
 	// Vulkan Header:
 	addLineOfCode(vulkanHeader, "// This header is generated from the Khronos Vulkan XML API Registry,");
+	addLineOfCode(vulkanHeader, "// https://github.com/KhronosGroup/Vulkan-Docs/blob/1.0/src/spec/vk.xml");
 	addLineOfCode(vulkanHeader, "// which is Licensed under the Apache License, Version 2.0 ");
 	addLineOfCode(vulkanHeader, "// The custom header generator was written by Laurens Mathot (@RC_1290).");
 	addLineOfCode(vulkanHeader, "#pragma once");
+	addLineOfCode(vulkanHeader, indentation(1));
 	addLineOfCode(vulkanHeader, "namespace " +vulkanNamespace);
 	addLineOfCode(vulkanHeader, "{");
 	
@@ -87,6 +95,7 @@ function parseXml()
 	var pfnDefinitions = document.createElement("div");
 	var functionDefinitionsExt = document.createElement("div");
 	
+	addLineOfCode(pfnDefinitions, indentation(1));
 	addLineOfCode(pfnDefinitions, indentation(1) + "namespace PFN");
 	addLineOfCode(pfnDefinitions, indentation(1) + "{");
 	
@@ -97,7 +106,8 @@ function parseXml()
 	vulkanHeader.appendChild(pfnDefinitions);
 	vulkanHeader.appendChild(functionDefinitionsExt);
 	
-	// Types
+	// Handles:
+	addLineOfCode(handleDefinitions, indentation(1) + "//handles: " );
 	for(var i = 0; i < types.length; ++i)
 	{
 		var typeNode = types.item(i);
@@ -105,8 +115,8 @@ function parseXml()
 		
 		if (category == "handle")
 		{
-			var name = typeNode.getElementsByTagName("name").item(0).textContent;
-			addLineOfCode(handleDefinitions, padTabs( indentation(1) + "typedef struct " + name + "_T*", 60 ) + name);
+			var name = stripVk( typeNode.getElementsByTagName("name").item(0).textContent );
+			addLineOfCode(handleDefinitions, padTabs( indentation(1) + "typedef struct " + name + "_T*", 60 ) + name + ";");
 		}
 	}
 	
@@ -219,6 +229,7 @@ function parseXml()
 	addLineOfCode(loadInstanceCommands, indentation(3) + "return true;");
 	addLineOfCode(loadInstanceCommands, indentation(2) + "}");
 	
+	statusText.textContent = "Parsing complete";
 }
 
 function onXhrLoad()
@@ -227,16 +238,18 @@ function onXhrLoad()
 	{
 		if (xhr.status === 200)
 		{
+			statusText.textContent = "parsing xml...";
 			parseXml();	
 		}
 		else 
 		{
+			statusText.textContent = "xhr failed: " + xhr.statusText;
 			console.error("xhr failed: " + xhr.statusText);
 		}
 	}
 }
 
-
+statusText.textContent = "Trying to open vk.xml";
 var async = true;
 xhr.addEventListener("load", onXhrLoad);
 xhr.open("GET", "vk.xml", async);
