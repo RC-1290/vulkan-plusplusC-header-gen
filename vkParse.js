@@ -9,6 +9,8 @@ var vulkanFunctions = document.getElementById("vulkanFunctions");
 var vulkanNamespace = "Vk";
 var newCodeNamespace = "CodeAnimo";
 var newCodeNamespace2 = "Vulkan";
+var u32 = "u32";
+var u64 = "u64";
 
 var tabSpaceWidth = 4;
 
@@ -64,14 +66,7 @@ function padTabs(text, length)
 
 function parseXml()
 {
-	var vkxml = xhr.responseXML;
-	
-	var typesNode = vkxml.getElementsByTagName("types").item(0);
-	var types = typesNode.children
-	
-	var commandsNode = vkxml.getElementsByTagName("commands").item(0);
-	var commands = commandsNode.getElementsByTagName("command");
-	
+	var vkxml = xhr.responseXML;	
 	
 	// Clear placeholder text:
 	vulkanHeader.textContent = "";
@@ -107,7 +102,9 @@ function parseXml()
 	vulkanHeader.appendChild(functionDefinitionsExt);
 	
 	// Handles:
-	addLineOfCode(handleDefinitions, indentation(1) + "//handles: " );
+	var typesNode = vkxml.getElementsByTagName("types").item(0);
+	var types = typesNode.children;
+	addLineOfCode(handleDefinitions, indentation(1) + "// Handles: " );
 	for(var i = 0; i < types.length; ++i)
 	{
 		var typeNode = types.item(i);
@@ -117,6 +114,51 @@ function parseXml()
 		{
 			var name = stripVk( typeNode.getElementsByTagName("name").item(0).textContent );
 			addLineOfCode(handleDefinitions, padTabs( indentation(1) + "typedef struct " + name + "_T*", 60 ) + name + ";");
+		}
+	}
+	addLineOfCode(handleDefinitions, indentation(1));
+	
+	// constants:
+	var enumNodes = vkxml.getElementsByTagName("enums");
+	for(var i = 0; i < enumNodes.length; ++i)
+	{
+		var enumNode = enumNodes.item(i);
+		console.log(enumNode.getAttribute("name"));
+		if (enumNode.getAttribute("name") == "API Constants")
+		{
+			var constants = enumNode.children;
+			for(var j = 0; j < constants.length; ++j)
+			{
+				var constantNode = constants.item(j);
+				var constantName = constantNode.getAttribute("name");
+				var constantValue = constantNode.getAttribute("value");
+				var constantType = "u32";
+				var typeFound = false;
+				
+				// naive type analysis that only recognizes ULL (unsigned 64) or f (float)
+				for(var k = 0; k < constantValue.length; ++k)
+				{					
+					switch(constantValue[k])
+					{
+						case 'U':
+							if (constantValue[k+1] == "L" && constantValue[k+2] == "L")
+							{
+								constantType = u64;
+								typeFound = true;
+								break;
+							}
+						break;
+						case 'f':
+							constantType = "float";
+							typeFound = true;
+						break;
+					}
+					if (typeFound) { break; }
+				}
+				
+				addLineOfCode(enumDefinitions, indentation(1) + "const " + constantType + " " + stripVk(constantName) + " = " + constantValue + ";");
+			}
+			addLineOfCode(enumDefinitions, indentation(1));
 		}
 	}
 	
@@ -150,6 +192,8 @@ function parseXml()
 	addLineOfCode(loadInstanceCommands, indentation(2) + "{");
 	
 	// Parse commands
+	var commandsNode = vkxml.getElementsByTagName("commands").item(0);
+	var commands = commandsNode.getElementsByTagName("command");
 	for(var i = 0; i < commands.length; ++i)
 	{
 		var commandNode = commands.item(i);
