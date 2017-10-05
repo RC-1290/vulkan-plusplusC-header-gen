@@ -1,5 +1,18 @@
-// Vulkan xml parsers, header generator.
-// Written by Laurens Mathot, Code Animo.
+/*
+Copyright 2017 Code Animo.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 
 var vulkanNamespace = "Vk";
 var newCodeNamespace = "CodeAnimo";
@@ -29,6 +42,35 @@ function stripVk(text)
 	{
 		return text;
 	}
+}
+
+function stripEnumName(enumName, entryName)
+{
+	var nameIndex = 0;
+	var entryIndex = 0;
+	for(entryIndex = 0; entryIndex < entryName.length; ++entryIndex)
+	{
+		if (entryName[entryIndex] == "_")
+		{
+			continue;
+		}
+		else if(entryName[entryIndex].toUpperCase() == enumName.charAt(nameIndex).toUpperCase())
+		{
+			++nameIndex;
+			continue;
+		}
+		else
+		{
+			break;
+		}
+	}
+	
+	if (!isNaN(entryName.charAt(entryIndex)))
+	{
+		--entryIndex;
+	}
+	
+	return entryName.slice(entryIndex);
 }
 
 function replaceTypes(text)
@@ -77,8 +119,10 @@ function parseXml()
 	// Vulkan Header:
 	addLineOfCode(vulkanHeader, "// This header is generated from the Khronos Vulkan XML API Registry,");
 	addLineOfCode(vulkanHeader, "// https://github.com/KhronosGroup/Vulkan-Docs/blob/1.0/src/spec/vk.xml");
-	addLineOfCode(vulkanHeader, "// which is Licensed under the Apache License, Version 2.0 ");
 	addLineOfCode(vulkanHeader, "// The custom header generator was written by Laurens Mathot (@RC_1290).");
+	addLineOfCode(vulkanHeader, "// This generated code is also licensed under the Appache License, Version 2.0.");
+	addLineOfCode(vulkanHeader, "// http://www.apache.org/licenses/LICENSE-2.0");
+	addLineOfCode(vulkanHeader, indentation(1));
 	addLineOfCode(vulkanHeader, "#pragma once");
 	addLineOfCode(vulkanHeader, indentation(1));
 	addLineOfCode(vulkanHeader, "namespace " +vulkanNamespace);
@@ -190,7 +234,7 @@ function parseXml()
 					constantValue = "(1 << " + constantBitPos + ")";
 				}
 
-				lastEntry = addLineOfCode(enumDefinitions, indentation(2) + stripVk(constantName) + " = " + constantValue);
+				lastEntry = addLineOfCode(enumDefinitions, padTabs(indentation(2) + stripEnumName(enumName, constantName) + " = ", 57) + constantValue);
 			}
 				
 			addLineOfCode( enumDefinitions, indentation(1) + "};");
