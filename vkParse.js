@@ -1,11 +1,6 @@
 // Vulkan xml parsers, header generator.
 // Written by Laurens Mathot, Code Animo.
 
-var xhr = new XMLHttpRequest();
-var statusText = document.getElementById("statusText");
-var vulkanHeader = document.getElementById("vulkanHeader");
-var vulkanFunctions = document.getElementById("vulkanFunctions");
-
 var vulkanNamespace = "Vk";
 var newCodeNamespace = "CodeAnimo";
 var newCodeNamespace2 = "Vulkan";
@@ -13,6 +8,12 @@ var u32 = "u32";
 var u64 = "u64";
 
 var tabSpaceWidth = 4;
+
+
+var xhr = new XMLHttpRequest();
+var statusText = document.getElementById("statusText");
+var vulkanHeader = document.getElementById("vulkanHeader");
+var vulkanFunctions = document.getElementById("vulkanFunctions");
 
 function stripVk(text)
 {
@@ -33,8 +34,8 @@ function stripVk(text)
 function replaceTypes(text)
 {
 	var replaced = text.replace(/\bchar\b/, "s8");
-	replaced = replaced.replace(/\buint32_t\b/, "u32");
-	replaced = replaced.replace(/\buint64_t\b/, "u64");
+	replaced = replaced.replace(/\buint32_t\b/, u32);
+	replaced = replaced.replace(/\buint64_t\b/, u64);
 	replaced = replaced.replace(/\bBool32\b/, "ub32");
 	return replaced;
 }
@@ -44,6 +45,7 @@ function addLineOfCode(node, code)
 	var codeLine = document.createElement("div");
 	codeLine.textContent = code;
 	node.appendChild(codeLine);
+	return codeLine;
 }
 
 function indentation(count)
@@ -119,14 +121,14 @@ function parseXml()
 	addLineOfCode(handleDefinitions, indentation(1));
 	
 	// constants:
-	var enumNodes = vkxml.getElementsByTagName("enums");
-	for(var i = 0; i < enumNodes.length; ++i)
+	var enumsNodes = vkxml.getElementsByTagName("enums");
+	for(var i = 0; i < enumsNodes.length; ++i)
 	{
-		var enumNode = enumNodes.item(i);
-		console.log(enumNode.getAttribute("name"));
-		if (enumNode.getAttribute("name") == "API Constants")
+		var enumsNode = enumsNodes.item(i);
+		var enumName = enumsNode.getAttribute("name");
+		if (enumName == "API Constants")
 		{
-			var constants = enumNode.children;
+			var constants = enumsNode.children;
 			for(var j = 0; j < constants.length; ++j)
 			{
 				var constantNode = constants.item(j);
@@ -159,6 +161,40 @@ function parseXml()
 				addLineOfCode(enumDefinitions, indentation(1) + "const " + constantType + " " + stripVk(constantName) + " = " + constantValue + ";");
 			}
 			addLineOfCode(enumDefinitions, indentation(1));
+		}
+		else
+		{
+			// enum classes 
+			addLineOfCode( enumDefinitions, indentation(1) + "enum class " + stripVk(enumName));
+			addLineOfCode( enumDefinitions, indentation(1) + "{");
+			
+			var lastEntry;
+			var enumEntry = enumsNode.children;
+			for(var j = 0; j < enumEntry.length; ++j)
+			{
+				var constantNode = enumEntry.item(j);
+				if (constantNode.tagName != "enum")
+				{
+					break;
+				}
+				if (j > 0 && lastEntry)
+				{
+					lastEntry.textContent += ",";
+				}
+				
+				var constantName = constantNode.getAttribute("name");
+				var constantValue = constantNode.getAttribute("value");
+				var constantBitPos = constantNode.getAttribute("bitpos");
+				if (constantBitPos)
+				{
+					constantValue = "(1 << " + constantBitPos + ")";
+				}
+
+				lastEntry = addLineOfCode(enumDefinitions, indentation(2) + stripVk(constantName) + " = " + constantValue);
+			}
+				
+			addLineOfCode( enumDefinitions, indentation(1) + "};");
+			addLineOfCode( enumDefinitions, indentation(1));
 		}
 	}
 	
