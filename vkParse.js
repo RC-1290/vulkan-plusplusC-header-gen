@@ -107,6 +107,55 @@ function parseXml()
 			var name = stripVk( typeNode.getElementsByTagName("name").item(0).textContent );
 			addLineOfCode(handleDefinitions, padTabs( indentation(1) + "typedef struct " + name + "_T*", 60 ) + name + ";");
 		}
+		else if (category == "struct")
+		{
+			var structName = stripVk(typeNode.getAttribute("name"));
+			addLineOfCode(structDefinitions, indentation(1) + "struct " + structName + " {");
+			
+			var memberNodes = typeNode.children;
+			
+			for(var j = 0; j < memberNodes.length; ++j)
+			{
+				
+				var memberNode = memberNodes.item(j);
+				if (memberNode.tagName != "member")
+				{
+					continue;
+				}
+				
+				var typeName;
+				var memberName;
+				
+				var memberTags = memberNode.children;
+				for(var h = 0; h < memberTags.length; ++h)
+				{
+					var memberTag = memberTags.item(h);
+					if (memberTag.tagName == "type")
+					{
+						typeName = memberTag.textContent;
+					}
+					else if (memberTag.tagName == "name")
+					{
+						memberName = memberTag.textContent;
+					}
+					else 
+					{
+						continue;
+					}
+				}
+				
+				
+				addLineOfCode(structDefinitions, padTabs(indentation(2) + typeName, 57) + memberName);
+				
+			}
+			
+			addLineOfCode(structDefinitions, indentation(1) + "};");
+			addLineOfCode(structDefinitions, indentation(1));
+		}
+		else if (category == "union")
+		{
+			
+		}
 	}
 	addLineOfCode(handleDefinitions, indentation(1));
 	
@@ -203,7 +252,8 @@ function parseXml()
 						maxName = stripEnumName(enumName, constantName);
 						maxValue = constantValue;
 					}
-
+				}
+				
 				addLineOfCode(enumDefinitions, padTabs(indentation(2) + stripEnumName(enumName, constantName) + " =", 57) + constantValue + ",");
 			}
 			if (!isBitMask)
