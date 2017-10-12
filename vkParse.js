@@ -161,6 +161,11 @@ function parseXml()
 			var enumType = enumsNode.getAttribute("type");
 			var isBitMask = enumType == "bitmask";
 			
+			var minName = "";
+			var minValue = 0;
+			var maxName = minName;
+			var maxValue = minValue;
+			
 			var enumEntry = enumsNode.children;
 			for(var j = 0; j < enumEntry.length; ++j)
 			{
@@ -171,7 +176,7 @@ function parseXml()
 				}
 				
 				var constantName = constantNode.getAttribute("name");
-				var constantValue = constantNode.getAttribute("value");
+				var constantValue = parseInt(constantNode.getAttribute("value"), 10);
 				
 				if (isBitMask)
 				{
@@ -181,8 +186,36 @@ function parseXml()
 						constantValue = "(1 << " + constantBitPos + ")";
 					}
 				}
+				else 
+				{
+					if (!minName)
+					{
+						minName = maxName = stripEnumName(enumName, constantName);
+						minValue = maxValue = constantValue;
+					}
+					else if (constantValue < minValue)
+					{
+						minName = stripEnumName(enumName, constantName);
+						minValue = constantValue;
+					}
+					else if (constantValue > maxValue) 
+					{
+						maxName = stripEnumName(enumName, constantName);
+						maxValue = constantValue;
+					}
+					else 
+					{
+						console.log("constant value: " + constantValue + ", max: " + maxValue);
+					}
+				}
 
 				addLineOfCode(enumDefinitions, padTabs(indentation(2) + stripEnumName(enumName, constantName) + " =", 57) + constantValue + ",");
+			}
+			if (!isBitMask)
+			{
+				addLineOfCode( enumDefinitions, padTabs(indentation(2) + "BEGIN_RANGE =", 57) + minName + ",");
+				addLineOfCode( enumDefinitions, padTabs(indentation(2) + "END_RANGE =", 57) + maxName + ",");
+				addLineOfCode( enumDefinitions, padTabs(indentation(2) + "RANGE_SIZE =", 57) + "(" + maxName + " - " + minName + " + 1),");
 			}
 			addLineOfCode( enumDefinitions, padTabs(indentation(2) + "MAX_ENUM =", 57) + max_enum);
 				
