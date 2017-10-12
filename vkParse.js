@@ -203,11 +203,6 @@ function parseXml()
 						maxName = stripEnumName(enumName, constantName);
 						maxValue = constantValue;
 					}
-					else 
-					{
-						console.log("constant value: " + constantValue + ", max: " + maxValue);
-					}
-				}
 
 				addLineOfCode(enumDefinitions, padTabs(indentation(2) + stripEnumName(enumName, constantName) + " =", 57) + constantValue + ",");
 			}
