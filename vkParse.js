@@ -20,6 +20,9 @@ var newCodeNamespace2 = "Vulkan";
 var u32 = "u32";
 var u64 = "u64";
 
+var max_enum = "0x7FFFFFFF";
+
+var tab = "	";
 var tabSpaceWidth = 4;
 
 // Startup code:
@@ -151,11 +154,13 @@ function parseXml()
 		}
 		else
 		{
-			// enum classes 
+			// enum classes
 			addLineOfCode( enumDefinitions, indentation(1) + "enum class " + stripVk(enumName));
 			addLineOfCode( enumDefinitions, indentation(1) + "{");
 			
-			var lastEntry;
+			var enumType = enumsNode.getAttribute("type");
+			var isBitMask = enumType == "bitmask";
+			
 			var enumEntry = enumsNode.children;
 			for(var j = 0; j < enumEntry.length; ++j)
 			{
@@ -164,21 +169,22 @@ function parseXml()
 				{
 					continue;
 				}
-				if (j > 0 && lastEntry)
-				{
-					lastEntry.textContent += ",";
-				}
 				
 				var constantName = constantNode.getAttribute("name");
 				var constantValue = constantNode.getAttribute("value");
-				var constantBitPos = constantNode.getAttribute("bitpos");
-				if (constantBitPos)
+				
+				if (isBitMask)
 				{
-					constantValue = "(1 << " + constantBitPos + ")";
+					var constantBitPos = constantNode.getAttribute("bitpos");
+					if (constantBitPos)
+					{
+						constantValue = "(1 << " + constantBitPos + ")";
+					}
 				}
 
-				lastEntry = addLineOfCode(enumDefinitions, padTabs(indentation(2) + stripEnumName(enumName, constantName) + " = ", 57) + constantValue);
+				addLineOfCode(enumDefinitions, padTabs(indentation(2) + stripEnumName(enumName, constantName) + " =", 57) + constantValue + ",");
 			}
+			addLineOfCode( enumDefinitions, padTabs(indentation(2) + "MAX_ENUM =", 57) + max_enum);
 				
 			addLineOfCode( enumDefinitions, indentation(1) + "};");
 			addLineOfCode( enumDefinitions, indentation(1));
@@ -367,7 +373,7 @@ function indentation(count)
 	
 	for(var i = 0; i < count; ++i)
 	{
-		text += "	";
+		text += tab;
 	}
 	
 	return text;
