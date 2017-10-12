@@ -22,90 +22,33 @@ var u64 = "u64";
 
 var tabSpaceWidth = 4;
 
-
+// Startup code:
 var xhr = new XMLHttpRequest();
 var statusText = document.getElementById("statusText");
 var vulkanHeader = document.getElementById("vulkanHeader");
 var vulkanFunctions = document.getElementById("vulkanFunctions");
 
-function stripVk(text)
-{
-	if (text.startsWith("VK_"))
-	{
-		return text.slice(3);
-	}
-	else if (text.startsWith("Vk") || text.startsWith("vk"))
-	{
-		return text.slice(2);
-	}
-	else 
-	{
-		return text;
-	}
-}
+statusText.textContent = "Trying to open vk.xml";
+var async = true;
+xhr.addEventListener("load", onXhrLoad);
+xhr.open("GET", "vk.xml", async);
+xhr.send();
 
-function stripEnumName(enumName, entryName)
+function onXhrLoad()
 {
-	var nameIndex = 0;
-	var entryIndex = 0;
-	for(entryIndex = 0; entryIndex < entryName.length; ++entryIndex)
+	if (xhr.readyState === 4)
 	{
-		if (entryName[entryIndex] == "_")
+		if (xhr.status === 200)
 		{
-			continue;
+			statusText.textContent = "parsing xml...";
+			parseXml();	
 		}
-		else if(entryName[entryIndex].toUpperCase() == enumName.charAt(nameIndex).toUpperCase())
+		else 
 		{
-			++nameIndex;
-			continue;
-		}
-		else
-		{
-			break;
+			statusText.textContent = "xhr failed: " + xhr.statusText;
+			console.error("xhr failed: " + xhr.statusText);
 		}
 	}
-	
-	if (!isNaN(entryName.charAt(entryIndex)))
-	{
-		--entryIndex;
-	}
-	
-	return entryName.slice(entryIndex);
-}
-
-function replaceTypes(text)
-{
-	var replaced = text.replace(/\bchar\b/, "s8");
-	replaced = replaced.replace(/\buint32_t\b/, u32);
-	replaced = replaced.replace(/\buint64_t\b/, u64);
-	replaced = replaced.replace(/\bBool32\b/, "ub32");
-	return replaced;
-}
-
-function addLineOfCode(node, code)
-{
-	var codeLine = document.createElement("div");
-	codeLine.textContent = code;
-	node.appendChild(codeLine);
-	return codeLine;
-}
-
-function indentation(count)
-{
-	var text = "";
-	
-	for(var i = 0; i < count; ++i)
-	{
-		text += "	";
-	}
-	
-	return text;
-}
-
-function padTabs(text, length)
-{
-	var tabCount = Math.floor((length - text.length) / tabSpaceWidth);
-	return text + indentation(tabCount);
 }
 
 function parseXml()
@@ -219,7 +162,7 @@ function parseXml()
 				var constantNode = enumEntry.item(j);
 				if (constantNode.tagName != "enum")
 				{
-					break;
+					continue;
 				}
 				if (j > 0 && lastEntry)
 				{
@@ -356,25 +299,82 @@ function parseXml()
 	statusText.textContent = "Parsing complete";
 }
 
-function onXhrLoad()
+function stripVk(text)
 {
-	if (xhr.readyState === 4)
+	if (text.startsWith("VK_"))
 	{
-		if (xhr.status === 200)
-		{
-			statusText.textContent = "parsing xml...";
-			parseXml();	
-		}
-		else 
-		{
-			statusText.textContent = "xhr failed: " + xhr.statusText;
-			console.error("xhr failed: " + xhr.statusText);
-		}
+		return text.slice(3);
+	}
+	else if (text.startsWith("Vk") || text.startsWith("vk"))
+	{
+		return text.slice(2);
+	}
+	else 
+	{
+		return text;
 	}
 }
 
-statusText.textContent = "Trying to open vk.xml";
-var async = true;
-xhr.addEventListener("load", onXhrLoad);
-xhr.open("GET", "vk.xml", async);
-xhr.send();
+function stripEnumName(enumName, entryName)
+{
+	var nameIndex = 0;
+	var entryIndex = 0;
+	for(entryIndex = 0; entryIndex < entryName.length; ++entryIndex)
+	{
+		if (entryName[entryIndex] == "_")
+		{
+			continue;
+		}
+		else if(entryName[entryIndex].toUpperCase() == enumName.charAt(nameIndex).toUpperCase())
+		{
+			++nameIndex;
+			continue;
+		}
+		else
+		{
+			break;
+		}
+	}
+	
+	if (!isNaN(entryName.charAt(entryIndex)))
+	{
+		--entryIndex;
+	}
+	
+	return entryName.slice(entryIndex);
+}
+
+function replaceTypes(text)
+{
+	var replaced = text.replace(/\bchar\b/, "s8");
+	replaced = replaced.replace(/\buint32_t\b/, u32);
+	replaced = replaced.replace(/\buint64_t\b/, u64);
+	replaced = replaced.replace(/\bBool32\b/, "ub32");
+	return replaced;
+}
+
+function addLineOfCode(node, code)
+{
+	var codeLine = document.createElement("div");
+	codeLine.textContent = code;
+	node.appendChild(codeLine);
+	return codeLine;
+}
+
+function indentation(count)
+{
+	var text = "";
+	
+	for(var i = 0; i < count; ++i)
+	{
+		text += "	";
+	}
+	
+	return text;
+}
+
+function padTabs(text, length)
+{
+	var tabCount = Math.floor((length - text.length) / tabSpaceWidth);
+	return text + indentation(tabCount);
+}
