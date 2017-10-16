@@ -93,7 +93,7 @@ function parseXml()
 	vulkanHeader.appendChild(pfnDefinitions);
 	vulkanHeader.appendChild(functionDefinitionsExt);
 	
-	// Handles:
+	// Types:
 	var typesNode = vkxml.getElementsByTagName("types").item(0);
 	var types = typesNode.children;
 	addLineOfCode(handleDefinitions, indentation(1) + "// Handles: " );
@@ -112,8 +112,7 @@ function parseXml()
 			var structName = stripVk(typeNode.getAttribute("name"));
 			addLineOfCode(structDefinitions, indentation(1) + "struct " + structName + " {");
 			
-			var memberNodes = typeNode.children;
-			
+			var memberNodes = typeNode.children;			
 			for(var j = 0; j < memberNodes.length; ++j)
 			{
 				
@@ -123,29 +122,43 @@ function parseXml()
 					continue;
 				}
 				
-				var typeName;
-				var memberName;
+				var codeLine = indentation(2);
+				var lastWasText = false;
 				
-				var memberTags = memberNode.children;
+				var memberTags = memberNode.childNodes;
 				for(var h = 0; h < memberTags.length; ++h)
 				{
 					var memberTag = memberTags.item(h);
-					if (memberTag.tagName == "type")
+					
+					switch(memberTag.nodeType)
 					{
-						typeName = memberTag.textContent;
-					}
-					else if (memberTag.tagName == "name")
-					{
-						memberName = memberTag.textContent;
-					}
-					else 
-					{
-						continue;
+						case 1:// Element
+							if (memberTag.tagName == "type")
+							{
+								if (lastWasText)
+								{
+									codeLine += " ";
+								}
+								codeLine += memberTag.textContent;
+							}
+							else if (memberTag.tagName == "enum")
+							{
+								codeLine += memberTag.textContent;
+							}
+							else if (memberTag.tagName == "name")
+							{
+								codeLine = padTabs(codeLine, 57) + memberTag.textContent;
+							}
+							lastWasText = false;
+						break;
+						case 3:// Text Node
+							codeLine += memberTag.textContent.trim();
+							lastWasText = true;
+						break;
 					}
 				}
 				
-				
-				addLineOfCode(structDefinitions, padTabs(indentation(2) + typeName, 57) + memberName);
+				addLineOfCode(structDefinitions, codeLine + ";");
 				
 			}
 			
