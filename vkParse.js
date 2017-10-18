@@ -28,6 +28,7 @@ var tabSpaceWidth = 4;
 // Startup code:
 var xhr = new XMLHttpRequest();
 var statusText = document.getElementById("statusText");
+var symbolList = document.getElementById("symbols");
 var vulkanHeader = document.getElementById("vulkanHeader");
 var vulkanFunctions = document.getElementById("vulkanFunctions");
 
@@ -36,6 +37,9 @@ var async = true;
 xhr.addEventListener("load", onXhrLoad);
 xhr.open("GET", "vk.xml", async);
 xhr.send();
+
+var headerSelectBtn = document.getElementById("headerSelectBtn");
+headerSelectBtn.addEventListener( "click", selectHeader);
 
 function onXhrLoad()
 {
@@ -59,8 +63,41 @@ function parseXml()
 	var vkxml = xhr.responseXML;	
 	
 	// Clear placeholder text:
+	symbolList.textContent = "";
 	vulkanHeader.textContent = "";
 	vulkanFunctions.textContent = "";
+	
+	// Symbol list:
+	// Features:
+	var featureNodes = vkxml.getElementsByTagName("feature");
+	for(var i = 0; i < featureNodes.length; ++i)
+	{
+		var featureNode = featureNodes.item(i);
+		var featureName = featureNode.getAttribute("api");
+		var featureVersion = featureNode.getAttribute("number");
+		var featureDescription = featureNode.getAttribute("comment");
+		addLineOfCode(symbolList, "Feature: " + featureName + ", version: " + featureVersion + ", description: " + featureDescription);
+		
+		
+	}
+	// Extensions:
+	var extensionsNode = vkxml.getElementsByTagName("extensions").item(0);
+	var extensionNodes = extensionsNode.children;
+	for(var i = 0; i < extensionNodes.length; ++i)
+	{
+		var extensionNode = extensionNodes.item(i);
+		
+		var extensionSupport = extensionNode.getAttribute("supported");
+		if (extensionSupport == "disabled") { continue; }
+		
+		var extensionName = extensionNode.getAttribute("name");
+		var extensionVersion = extensionNode.getAttribute("number");
+		var extensionType = extensionNode.getAttribute("type");
+		
+		addLineOfCode(symbolList, padTabs("#" + extensionVersion,11) + padTabs(extensionName + ",", 55) + "support: " + extensionSupport + ", type: " + extensionType);
+		
+		
+	}
 	
 	// Vulkan Header:
 	addLineOfCode(vulkanHeader, "// This header is generated from the Khronos Vulkan XML API Registry,");
@@ -107,7 +144,7 @@ function parseXml()
 			var name = stripVk( typeNode.getElementsByTagName("name").item(0).textContent );
 			addLineOfCode(handleDefinitions, padTabs( indentation(1) + "typedef struct " + name + "_T*", 60 ) + name + ";");
 		}
-		else if (category == "struct")
+		else if (category == "struct" || category == "union")
 		{
 			var structName = stripVk(typeNode.getAttribute("name"));
 			addLineOfCode(structDefinitions, indentation(1) + "struct " + structName + " {");
@@ -139,7 +176,7 @@ function parseXml()
 								{
 									codeLine += " ";
 								}
-								codeLine += memberTag.textContent;
+								codeLine += replaceTypes(stripVk(memberTag.textContent));
 							}
 							else if (memberTag.tagName == "enum")
 							{
@@ -164,10 +201,6 @@ function parseXml()
 			
 			addLineOfCode(structDefinitions, indentation(1) + "};");
 			addLineOfCode(structDefinitions, indentation(1));
-		}
-		else if (category == "union")
-		{
-			
 		}
 	}
 	addLineOfCode(handleDefinitions, indentation(1));
@@ -396,6 +429,15 @@ function parseXml()
 	statusText.textContent = "Parsing complete";
 }
 
+function selectHeader()
+{
+	var sel = window.getSelection();
+	var range = document.createRange();
+	range.selectNodeContents(vulkanHeader);
+	sel.removeAllRanges();
+	sel.addRange(range);
+}
+
 function stripVk(text)
 {
 	if (text.startsWith("VK_"))
@@ -446,7 +488,10 @@ function replaceTypes(text)
 	var replaced = text.replace(/\bchar\b/, "s8");
 	replaced = replaced.replace(/\buint32_t\b/, u32);
 	replaced = replaced.replace(/\buint64_t\b/, u64);
+	replaced = replaced.replace(/\VkDeviceSize\b/, u64);
 	replaced = replaced.replace(/\bBool32\b/, "ub32");
+	replaced = replaced.replace(/\bint32_t\b/, "s32");
+	replaced = replaced.replace(/\uint8_t\b/, "s8");
 	return replaced;
 }
 
