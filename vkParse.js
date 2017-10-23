@@ -67,6 +67,20 @@ function parseXml()
 	vulkanHeader.textContent = "";
 	vulkanFunctions.textContent = "";
 	
+	// Find API Constants node
+	var enumsNodes = vkxml.getElementsByTagName("enums");
+	var apiConstantsNode;
+	for(var i = 0; i < enumsNodes.length; ++i)
+	{
+		var enumsNode = enumsNodes.item(i);
+		var enumName = enumsNode.getAttribute("name");
+		if (enumName == "API Constants")
+		{
+			apiConstantsNode = enumsNode;
+			break;
+		}
+	}
+	
 	// Symbol list:
 	// Features:
 	var featureNodes = vkxml.getElementsByTagName("feature");
@@ -78,26 +92,69 @@ function parseXml()
 		var featureDescription = featureNode.getAttribute("comment");
 		addLineOfCode(symbolList, "Feature: " + featureName + ", version: " + featureVersion + ", description: " + featureDescription);
 		
+		// Extensions:
+		var extensionsNode = vkxml.getElementsByTagName("extensions").item(0);
+		var extensionNodes = extensionsNode.children;
+		for(var j = 0; j < extensionNodes.length; ++j)
+		{
+			var extensionNode = extensionNodes.item(j);
+			
+			var extensionSupport = extensionNode.getAttribute("supported");
+			if (extensionSupport == "disabled" || extensionSupport != featureName) { continue; }
+			
+			var extensionName = extensionNode.getAttribute("name");
+			var extensionVersion = extensionNode.getAttribute("number");
+			var extensionType = extensionNode.getAttribute("type");
+			var extensionRequires = extensionNode.getAttribute("requires");
+			
+			//addLineOfCode(symbolList, padTabs("#" + extensionVersion,11) + padTabs(extensionName + ",", 55) + "type: " + extensionType + ", requires: " + extensionRequires);
+			
+			var extensionChildren = extensionNode.children;
+			for(var k = 0; k < extensionChildren.length; ++k)
+			{
+				var requireOrRemove = extensionChildren.item(k);
+				var interfaces = requireOrRemove.childNodes;
+				if (requireOrRemove.tagName == "require")
+				{
+					for(var l = 0; l < interfaces.length; ++l)
+					{
+						var interfaceNode = interfaces.item(l);
+						var tagName = interfaceNode.tagName;
+						
+						if (tagName == "enum")
+						{
+							var extending = interfaceNode.getAttribute("extends");
+							if (extending)
+							{
+								//TODO: find appropriate enum and add it.
+							}
+							else 
+							{
+								apiConstantsNode.appendChild(interfaceNode);
+							}							
+						}
+						else if (tagName == "command")
+						{
+							
+						}
+						else if (tagName == "type")
+						{
+							
+						}
+					}
+				}
+				else 
+				{
+					console.error("extension remove tags aren't supported yet. (They weren't used when this generator was written");
+				}
+				
+			}
+			
+			
+		}
 		
 	}
-	// Extensions:
-	var extensionsNode = vkxml.getElementsByTagName("extensions").item(0);
-	var extensionNodes = extensionsNode.children;
-	for(var i = 0; i < extensionNodes.length; ++i)
-	{
-		var extensionNode = extensionNodes.item(i);
-		
-		var extensionSupport = extensionNode.getAttribute("supported");
-		if (extensionSupport == "disabled") { continue; }
-		
-		var extensionName = extensionNode.getAttribute("name");
-		var extensionVersion = extensionNode.getAttribute("number");
-		var extensionType = extensionNode.getAttribute("type");
-		
-		addLineOfCode(symbolList, padTabs("#" + extensionVersion,11) + padTabs(extensionName + ",", 55) + "support: " + extensionSupport + ", type: " + extensionType);
-		
-		
-	}
+	
 	
 	// Vulkan Header:
 	addLineOfCode(vulkanHeader, "// This header is generated from the Khronos Vulkan XML API Registry,");
@@ -206,7 +263,6 @@ function parseXml()
 	addLineOfCode(handleDefinitions, indentation(1));
 	
 	// constants:
-	var enumsNodes = vkxml.getElementsByTagName("enums");
 	for(var i = 0; i < enumsNodes.length; ++i)
 	{
 		var enumsNode = enumsNodes.item(i);
@@ -222,13 +278,25 @@ function parseXml()
 				var constantType = "u32";
 				var typeFound = false;
 				
-				// naive type analysis that only recognizes ULL (unsigned 64) or f (float)
+				if (!constantValue)
+				{
+					console.log(constantName);
+					continue;
+				}
+				
+				if (constantValue.startsWith("VK_"))
+				{
+					// Probably an enum alias, skip it:
+					continue;
+				}
+				
+				// naive type analysis that only recognizes ULL (unsigned 64), f (float) or " (char* / c-string)
 				for(var k = 0; k < constantValue.length; ++k)
 				{					
 					switch(constantValue[k])
 					{
 						case 'U':
-							if (constantValue[k+1] == "L" && constantValue[k+2] == "L")
+							if (k > 0 && !isNaN(constantValue[k-1]) && constantValue[k+1] == "L" && constantValue[k+2] == "L")
 							{
 								constantType = u64;
 								typeFound = true;
@@ -237,6 +305,10 @@ function parseXml()
 						break;
 						case 'f':
 							constantType = "float";
+							typeFound = true;
+						break;
+						case '"':
+							constantType = "u8*";
 							typeFound = true;
 						break;
 					}
