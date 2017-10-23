@@ -103,11 +103,9 @@ function parseXml()
 			if (extensionSupport == "disabled" || extensionSupport != featureName) { continue; }
 			
 			var extensionName = extensionNode.getAttribute("name");
-			var extensionVersion = extensionNode.getAttribute("number");
+			var extensionNumber = parseInt(extensionNode.getAttribute("number"));
 			var extensionType = extensionNode.getAttribute("type");
 			var extensionRequires = extensionNode.getAttribute("requires");
-			
-			//addLineOfCode(symbolList, padTabs("#" + extensionVersion,11) + padTabs(extensionName + ",", 55) + "type: " + extensionType + ", requires: " + extensionRequires);
 			
 			var extensionChildren = extensionNode.children;
 			for(var k = 0; k < extensionChildren.length; ++k)
@@ -127,6 +125,29 @@ function parseXml()
 							if (extending)
 							{
 								//TODO: find appropriate enum and add it.
+								
+								for(var m = 0; m < enumsNodes.length; ++m)
+								{
+									var enumsNode = enumsNodes.item(m);
+									if (enumsNode.getAttribute("name") == extending)
+									{
+										var offsetAttribute = interfaceNode.getAttribute("offset");
+										if (offsetAttribute)
+										{
+											var offset = parseInt(interfaceNode.getAttribute("offset"));
+											var valueAttribute = 1000000000 + offset + (1000 * (extensionNumber - 1))
+											if (interfaceNode.getAttribute("dir") == "-")
+											{
+												valueAttribute = -valueAttribute;
+											}
+											
+											interfaceNode.setAttribute("value", valueAttribute);
+										}
+										interfaceNode.setAttribute("extends", extending);
+										enumsNode.appendChild(interfaceNode);
+									}
+								}
+								
 							}
 							else 
 							{
@@ -237,7 +258,7 @@ function parseXml()
 							}
 							else if (memberTag.tagName == "enum")
 							{
-								codeLine += memberTag.textContent;
+								codeLine += stripVk(memberTag.textContent);
 							}
 							else if (memberTag.tagName == "name")
 							{
@@ -278,11 +299,7 @@ function parseXml()
 				var constantType = "u32";
 				var typeFound = false;
 				
-				if (!constantValue)
-				{
-					console.log(constantName);
-					continue;
-				}
+				if (!constantValue){ continue; }
 				
 				if (constantValue.startsWith("VK_"))
 				{
@@ -353,7 +370,7 @@ function parseXml()
 						constantValue = "(1 << " + constantBitPos + ")";
 					}
 				}
-				else 
+				else if (!constantNode.getAttribute("extends"))
 				{
 					if (!minName)
 					{
@@ -372,15 +389,15 @@ function parseXml()
 					}
 				}
 				
-				addLineOfCode(enumDefinitions, padTabs(indentation(2) + stripEnumName(enumName, constantName) + " =", 57) + constantValue + ",");
+				addLineOfCode(enumDefinitions, padTabs(indentation(2) + stripEnumName(enumName, constantName) + " =", 89) + constantValue + ",");
 			}
 			if (!isBitMask)
 			{
-				addLineOfCode( enumDefinitions, padTabs(indentation(2) + "BEGIN_RANGE =", 57) + minName + ",");
-				addLineOfCode( enumDefinitions, padTabs(indentation(2) + "END_RANGE =", 57) + maxName + ",");
-				addLineOfCode( enumDefinitions, padTabs(indentation(2) + "RANGE_SIZE =", 57) + "(" + maxName + " - " + minName + " + 1),");
+				addLineOfCode( enumDefinitions, padTabs(indentation(2) + "BEGIN_RANGE =", 89) + minName + ",");
+				addLineOfCode( enumDefinitions, padTabs(indentation(2) + "END_RANGE =", 89) + maxName + ",");
+				addLineOfCode( enumDefinitions, padTabs(indentation(2) + "RANGE_SIZE =", 89) + "(" + maxName + " - " + minName + " + 1),");
 			}
-			addLineOfCode( enumDefinitions, padTabs(indentation(2) + "MAX_ENUM =", 57) + max_enum);
+			addLineOfCode( enumDefinitions, padTabs(indentation(2) + "MAX_ENUM =", 89) + max_enum);
 				
 			addLineOfCode( enumDefinitions, indentation(1) + "};");
 			addLineOfCode( enumDefinitions, indentation(1));
