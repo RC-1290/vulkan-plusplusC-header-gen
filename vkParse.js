@@ -30,7 +30,6 @@ var xhr = new XMLHttpRequest();
 var statusText = document.getElementById("statusText");
 var symbolList = document.getElementById("symbols");
 var vulkanHeader = document.getElementById("vulkanHeader");
-var vulkanFunctions = document.getElementById("vulkanFunctions");
 
 statusText.textContent = "Trying to open vk.xml";
 var async = true;
@@ -65,7 +64,6 @@ function parseXml()
 	// Clear placeholder text:
 	symbolList.textContent = "";
 	vulkanHeader.textContent = "";
-	vulkanFunctions.textContent = "";
 	
 	// Find API Constants node
 	var enumsNodes = vkxml.getElementsByTagName("enums");
@@ -405,13 +403,16 @@ function parseXml()
 	}
 	
 	// Proc Address retrieval implementation:
+	var vulkanFunctions = document.createElement("div");
 	var functionDefinitions = document.createElement("div");
 	var functionRetrieval = document.createElement("div");
 	var loadIndependentCommands = document.createElement("div");
 	var loadInstanceCommands = document.createElement("div");
 	
+	addLineOfCode(vulkanFunctions, "#ifdef IMPLEMENT_VK_COMMAND_LOOKUP");
 	addLineOfCode(vulkanFunctions, 'extern "C" VKAPI_ATTR Vk::PFN::VoidFunction VKAPI_CALL vkGetInstanceProcAddr( Vk::Instance instance, const s8* pName );');
 	addLineOfCode(vulkanFunctions, "	");
+	vulkanHeader.appendChild(vulkanFunctions);
 	vulkanFunctions.appendChild(functionDefinitions);
 	vulkanFunctions.appendChild(functionRetrieval);
 	addLineOfCode(functionDefinitions, "namespace " + vulkanNamespace);
@@ -487,10 +488,10 @@ function parseXml()
 		// Function defintions:
 		var fnDefExt = document.createElement("div");
 		var fnDef = document.createElement("div");
-		
+				
 		functionDefinitionsExt.appendChild(fnDefExt);
 		functionDefinitions.appendChild(fnDef);
-		
+				
 		fnDefExt.textContent = indentation(1) + padTabs("extern PFN::" + nameText, 67) + nameText + ";";
 		fnDef.textContent = indentation(1) + padTabs(" PFN::" + nameText, 67) + nameText + ";";;
 		
@@ -514,6 +515,7 @@ function parseXml()
 	addLineOfCode(loadIndependentCommands, indentation(2) + "}");
 	addLineOfCode(loadInstanceCommands, indentation(3) + "return true;");
 	addLineOfCode(loadInstanceCommands, indentation(2) + "}");
+	addLineOfCode(vulkanFunctions, "#endif");
 	
 	statusText.textContent = "Parsing complete";
 }
