@@ -17,20 +17,21 @@ limitations under the License.
 var vulkanNamespace = "Vk";
 var newCodeNamespace = "CodeAnimo";
 var newCodeNamespace2 = "Vulkan";
-var u32 = "u32";
-var u64 = "u64";
-var DeviceSize = u64;
+var s8 = "s8";// signed 8-bit
+var u32 = "u32";// unsigned 32-bit
+var s32 = "s32";// signed 32-bit
+var ub32 = "ub32";// unsigned 32-bit boolean
+var u64 = "u64";// unsigned 64-bit
+var DeviceSize = u64;// GPU pointer size
 
-var VKAPI_ATTR = "";
-var VKAPI_CALL = "__stdcall";
-var VKAPI_PTR = "__stdcall";
-
-
+var VKAPI_ATTR = "";// used on Android
+var VKAPI_CALL = "__stdcall";// calling convention
+var VKAPI_PTR = VKAPI_CALL;
 
 var max_enum = "0x7FFFFFFF";
 
 var tab = "	";
-var tabSpaceWidth = 4;
+var tabSpaceWidth = 4;// If you change this, you might want to change the css too.
 
 // Startup code:
 var xhr = new XMLHttpRequest();
@@ -86,8 +87,7 @@ function parseXml()
 		}
 	}
 	
-	// Symbol list:
-	// Features:
+	// Parse feature and extensions:
 	var featureNodes = vkxml.getElementsByTagName("feature");
 	for(var i = 0; i < featureNodes.length; ++i)
 	{
@@ -129,8 +129,7 @@ function parseXml()
 							var extending = interfaceNode.getAttribute("extends");
 							if (extending)
 							{
-								//TODO: find appropriate enum and add it.
-								
+								// Find appropriate enum and add it:
 								for(var m = 0; m < enumsNodes.length; ++m)
 								{
 									var enumsNode = enumsNodes.item(m);
@@ -609,15 +608,15 @@ function replaceFlagTypes(text, flagTypes)
 
 function replaceTypes(text)
 {	
-	var replaced = text.replace(/\bchar\b/, "s8");
+	var replaced = text.replace(/\bchar\b/, s8);
+	replaced = replaced.replace(/\uint8_t\b/, s8);
 	replaced = replaced.replace(/\buint32_t\b/, u32);
+	replaced = replaced.replace(/\SampleMask\b/, u32);
+	replaced = replaced.replace(/\bint32_t\b/, s32);
 	replaced = replaced.replace(/\buint64_t\b/, u64);
-	replaced = replaced.replace(/\VkDeviceSize\b/, u64);
-	replaced = replaced.replace(/\bBool32\b/, "ub32");
-	replaced = replaced.replace(/\bint32_t\b/, "s32");
-	replaced = replaced.replace(/\uint8_t\b/, "s8");
+	replaced = replaced.replace(/\bBool32\b/, ub32);
+	
 	replaced = replaced.replace(/\DeviceSize\b/, DeviceSize);
-	replaced = replaced.replace(/\VkSampleMask\b/, u32);
 	
 	return replaced;
 }
