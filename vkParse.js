@@ -19,6 +19,13 @@ var newCodeNamespace = "CodeAnimo";
 var newCodeNamespace2 = "Vulkan";
 var u32 = "u32";
 var u64 = "u64";
+var DeviceSize = u64;
+
+var VKAPI_ATTR = "";
+var VKAPI_CALL = "__stdcall";
+var VKAPI_PTR = "__stdcall";
+
+
 
 var max_enum = "0x7FFFFFFF";
 
@@ -209,6 +216,7 @@ function parseXml()
 	// Types:
 	var typesNode = vkxml.getElementsByTagName("types").item(0);
 	var types = typesNode.children;
+	var flagTypes = [];
 	addLineOfCode(handleDefinitions, indentation(1) + "// Handles: " );
 	for(var i = 0; i < types.length; ++i)
 	{
@@ -219,6 +227,20 @@ function parseXml()
 		{
 			var name = stripVk( typeNode.getElementsByTagName("name").item(0).textContent );
 			addLineOfCode(handleDefinitions, padTabs( indentation(1) + "typedef struct " + name + "_T*", 60 ) + name + ";");
+		}
+		else if (category == "bitmask")
+		{
+			var typeChildNodes = typeNode.childNodes;
+			for (var j = 0; j < typeChildNodes.length; ++j)
+			{
+				var typeChildNode = typeChildNodes.item(j);
+				if (typeChildNode.tagName == "name")
+				{
+					var flagName = typeChildNode.textContent;
+					flagTypes.push(flagName);
+					break;
+				}
+			}			
 		}
 		else if (category == "struct" || category == "union")
 		{
@@ -252,7 +274,7 @@ function parseXml()
 								{
 									codeLine += " ";
 								}
-								codeLine += replaceTypes(stripVk(memberTag.textContent));
+								codeLine += replaceTypes(stripVk(replaceFlagTypes(memberTag.textContent, flagTypes)));
 							}
 							else if (memberTag.tagName == "enum")
 							{
@@ -410,7 +432,7 @@ function parseXml()
 	var loadInstanceCommands = document.createElement("div");
 	
 	addLineOfCode(vulkanFunctions, "#ifdef IMPLEMENT_VK_COMMAND_LOOKUP");
-	addLineOfCode(vulkanFunctions, 'extern "C" VKAPI_ATTR Vk::PFN::VoidFunction VKAPI_CALL vkGetInstanceProcAddr( Vk::Instance instance, const s8* pName );');
+	addLineOfCode(vulkanFunctions, 'extern "C" ' + VKAPI_ATTR + ' Vk::PFN::VoidFunction '+ VKAPI_CALL +' vkGetInstanceProcAddr( Vk::Instance instance, const s8* pName );');
 	addLineOfCode(vulkanFunctions, "	");
 	vulkanHeader.appendChild(vulkanFunctions);
 	vulkanFunctions.appendChild(functionDefinitions);
@@ -453,7 +475,7 @@ function parseXml()
 		pfnDefinitions.appendChild(pfnEntry);
 		pfnEntry.textContent = indentation(2);
 		pfnEntry.textContent += "typedef " + 
-		typeText + "		(VKAPI_PTR *" + 
+		typeText + indentation(2) + "(" + VKAPI_PTR + " *" + 
 		nameText + ")(";
 		
 		var commandChildren = commandNode.children;
@@ -476,8 +498,7 @@ function parseXml()
 			{
 				var node = nodes.item(k);
 				
-				var parameterText = stripVk(node.textContent);
-				parameterText = replaceTypes(parameterText);
+				parameterText = replaceTypes(stripVk(replaceFlagTypes( node.textContent, flagTypes)));
 				
 				pfnEntry.textContent += parameterText;
 			}
@@ -574,8 +595,20 @@ function stripEnumName(enumName, entryName)
 	return entryName.slice(entryIndex);
 }
 
-function replaceTypes(text)
+function replaceFlagTypes(text, flagTypes)
 {
+	for(var i = 0; i < flagTypes.length; ++i)
+	{
+		if (text == flagTypes[i])
+		{
+			return u32;
+		}
+	}
+	return text;
+}
+
+function replaceTypes(text)
+{	
 	var replaced = text.replace(/\bchar\b/, "s8");
 	replaced = replaced.replace(/\buint32_t\b/, u32);
 	replaced = replaced.replace(/\buint64_t\b/, u64);
@@ -583,8 +616,13 @@ function replaceTypes(text)
 	replaced = replaced.replace(/\bBool32\b/, "ub32");
 	replaced = replaced.replace(/\bint32_t\b/, "s32");
 	replaced = replaced.replace(/\uint8_t\b/, "s8");
+	replaced = replaced.replace(/\DeviceSize\b/, DeviceSize);
+	replaced = replaced.replace(/\VkSampleMask\b/, u32);
+	
 	return replaced;
 }
+
+
 
 function addLineOfCode(node, code)
 {
