@@ -195,7 +195,7 @@ function parseXml()
 	
 	var handleDefinitions = document.createElement("div");
 	var enumDefinitions = document.createElement("div");
-	var funcPointerDefinitions = document.createElement("div");
+	var earlyPfnDefinitions = document.createElement("div");
 	var structDefinitions = document.createElement("div");
 	
 	var pfnDefinitions = document.createElement("div");
@@ -207,7 +207,7 @@ function parseXml()
 	
 	vulkanHeader.appendChild(handleDefinitions);
 	vulkanHeader.appendChild(enumDefinitions);
-	vulkanHeader.appendChild(funcPointerDefinitions);
+	vulkanHeader.appendChild(earlyPfnDefinitions);
 	vulkanHeader.appendChild(structDefinitions);
 	vulkanHeader.appendChild(pfnDefinitions);
 	vulkanHeader.appendChild(functionDefinitionsExt);
@@ -227,8 +227,21 @@ function parseXml()
 			var name = stripVk( typeNode.getElementsByTagName("name").item(0).textContent );
 			addLineOfCode(handleDefinitions, padTabs( indentation(1) + "typedef struct " + name + "_T*", 60 ) + name + ";");
 		}
+		else if (category == "funcpointer")
+		{
+			var funcpointer = indentation(1);
+			var childNodes = typeNode.childNodes;
+			
+			for( var j = 0; j < childNodes.length; ++j)
+			{
+				funcpointer +=  stripVk(replaceTypes(replaceFlagTypes(childNodes.item(j).textContent, flagTypes)));
+			}
+			addLineOfCode(earlyPfnDefinitions, funcpointer);
+			addLineOfCode(earlyPfnDefinitions, indentation(1));
+		}
 		else if (category == "bitmask")
 		{
+			// Add to list so we can replace each occurance:
 			var typeChildNodes = typeNode.childNodes;
 			for (var j = 0; j < typeChildNodes.length; ++j)
 			{
@@ -273,7 +286,7 @@ function parseXml()
 								{
 									codeLine += " ";
 								}
-								codeLine += replaceTypes(stripVk(replaceFlagTypes(memberTag.textContent, flagTypes)));
+								codeLine += stripVk(replaceTypes(replaceFlagTypes(memberTag.textContent, flagTypes)));
 							}
 							else if (memberTag.tagName == "enum")
 							{
@@ -431,7 +444,7 @@ function parseXml()
 	var loadInstanceCommands = document.createElement("div");
 	
 	addLineOfCode(vulkanFunctions, "#ifdef IMPLEMENT_VK_COMMAND_LOOKUP");
-	addLineOfCode(vulkanFunctions, 'extern "C" ' + VKAPI_ATTR + ' Vk::PFN::VoidFunction '+ VKAPI_CALL +' vkGetInstanceProcAddr( Vk::Instance instance, const s8* pName );');
+	addLineOfCode(vulkanFunctions, 'extern "C" ' + VKAPI_ATTR + ' Vk::PFN_vkVoidFunction '+ VKAPI_CALL +' vkGetInstanceProcAddr( Vk::Instance instance, const s8* pName );');
 	addLineOfCode(vulkanFunctions, "	");
 	vulkanHeader.appendChild(vulkanFunctions);
 	vulkanFunctions.appendChild(functionDefinitions);
@@ -497,7 +510,7 @@ function parseXml()
 			{
 				var node = nodes.item(k);
 				
-				parameterText = replaceTypes(stripVk(replaceFlagTypes( node.textContent, flagTypes)));
+				parameterText = stripVk(replaceTypes(replaceFlagTypes( node.textContent, flagTypes)));
 				
 				pfnEntry.textContent += parameterText;
 			}
@@ -611,10 +624,12 @@ function replaceTypes(text)
 	var replaced = text.replace(/\bchar\b/, s8);
 	replaced = replaced.replace(/\uint8_t\b/, s8);
 	replaced = replaced.replace(/\buint32_t\b/, u32);
-	replaced = replaced.replace(/\SampleMask\b/, u32);
 	replaced = replaced.replace(/\bint32_t\b/, s32);
 	replaced = replaced.replace(/\buint64_t\b/, u64);
-	replaced = replaced.replace(/\bBool32\b/, ub32);
+	
+	replaced = replaced.replace(/\VkSampleMask\b/, u32);
+	replaced = replaced.replace(/\bVkBool32\b/, ub32);
+	replaced = replaced.replace(/\VKAPI_PTR\b/, VKAPI_PTR);
 	
 	replaced = replaced.replace(/\DeviceSize\b/, DeviceSize);
 	
