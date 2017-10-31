@@ -28,6 +28,13 @@ var VKAPI_ATTR = "";// used on Android
 var VKAPI_CALL = "__stdcall";// calling convention
 var VKAPI_PTR = VKAPI_CALL;
 
+// Windows types:
+var WindowsHandle = "Windows::Handle";
+var HINSTANCE = WindowsHandle;
+var HWND = WindowsHandle;
+var SECURITY_ATTRIBUTES = "Windows::SecurityAttributes";
+var LPCWSTR = "const wchar_t*";
+
 var max_enum = "0x7FFFFFFF";
 
 var tab = "	";
@@ -357,7 +364,7 @@ function parseXml()
 							typeFound = true;
 						break;
 						case '"':
-							constantType = "u8*";
+							constantType = s8 + "*";
 							typeFound = true;
 						break;
 					}
@@ -477,7 +484,7 @@ function parseXml()
 		if (!commandNode){ break;}
 		var protoNode = commandNode.getElementsByTagName("proto").item(0);
 		if (!protoNode){ break;}
-		var typeText = stripVk(protoNode.getElementsByTagName("type").item(0).textContent);
+		var typeText = stripVk(replaceTypes(protoNode.getElementsByTagName("type").item(0).textContent));
 		var nameText = stripVk(protoNode.getElementsByTagName("name").item(0).textContent);
 		
 		if (nameText == "GetDeviceProcAddr" || nameText == "GetInstanceProcAddr"){ continue; }
@@ -632,6 +639,13 @@ function replaceTypes(text)
 	replaced = replaced.replace(/\VKAPI_PTR\b/, VKAPI_PTR);
 	
 	replaced = replaced.replace(/\DeviceSize\b/, DeviceSize);
+	
+	replaced = replaced.replace(/\HANDLE\b/, WindowsHandle);
+	replaced = replaced.replace(/\HINSTANCE\b/, HINSTANCE);
+	replaced = replaced.replace(/\HWND\b/, HWND);
+	replaced = replaced.replace(/\SECURITY_ATTRIBUTES\b/, SECURITY_ATTRIBUTES);
+	replaced = replaced.replace(/\DWORD\b/, u32);
+	replaced = replaced.replace(/\LPCWSTR\b/, LPCWSTR);
 	
 	return replaced;
 }
