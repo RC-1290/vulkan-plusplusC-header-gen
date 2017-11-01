@@ -532,8 +532,8 @@ function parseXml()
 		functionDefinitionsExt.appendChild(fnDefExt);
 		functionDefinitions.appendChild(fnDef);
 				
-		fnDefExt.textContent = indentation(1) + padTabs("extern PFN::" + nameText, 67) + nameText + ";";
-		fnDef.textContent = indentation(1) + padTabs(" PFN::" + nameText, 67) + nameText + ";";;
+		fnDefExt.textContent = padTabs(indentation(1) + "extern PFN::" + nameText, 68) + nameText + ";";
+		fnDef.textContent = padTabs(indentation(1) + " PFN::" + nameText, 68) + nameText + ";";;
 		
 		if (nameText == "EnumerateInstanceLayerProperties" || nameText == "EnumerateInstanceExtensionProperties" || nameText == "CreateInstance")
 		{
