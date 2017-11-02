@@ -18,6 +18,8 @@ limitations under the License.
 var vulkanNamespace = "Vk";
 var newCodeNamespace = "CodeAnimo";
 var newCodeNamespace2 = "Vulkan";// nested namespace.
+var ProccAddrLookupImplDefine = "IMPLEMENT_VK_COMMAND_LOOKUP";
+
 
 // Replacement Types:
 var s8 = "s8";// signed 8-bit
@@ -131,11 +133,12 @@ function parseXml()
 			var extensionNumber = parseInt(extensionNode.getAttribute("number"));
 			var extensionType = extensionNode.getAttribute("type");
 			var extensionRequires = extensionNode.getAttribute("requires");
+			var extensionContact = extensionNode.getAttribute("contact");
 			
 			var extensionLi = document.createElement("li");
 			extensionUl.appendChild(extensionLi);
 			
-			addCheckbox(extensionLi, extensionName, extensionName, extensionName + ", Type: " + extensionType);
+			addCheckbox(extensionLi, extensionName, extensionName, "Type: " + extensionType + ", Contact: " + extensionContact);
 			
 			
 			var extensionChildren = extensionNode.children;
@@ -208,16 +211,24 @@ function parseXml()
 	
 	
 	// Vulkan Header:
-	addLineOfCode(vulkanHeader, "// This header is generated from the Khronos Vulkan XML API Registry,");
-	addLineOfCode(vulkanHeader, "// https://github.com/KhronosGroup/Vulkan-Docs/blob/1.0/src/spec/vk.xml");
-	addLineOfCode(vulkanHeader, "// The custom header generator was written by Laurens Mathot (@RC_1290).");
-	addLineOfCode(vulkanHeader, "// This generated code is also licensed under the Appache License, Version 2.0.");
-	addLineOfCode(vulkanHeader, "// http://www.apache.org/licenses/LICENSE-2.0");
-	addLineOfCode(vulkanHeader, indentation(1));
-	addLineOfCode(vulkanHeader, "#pragma once");
-	addLineOfCode(vulkanHeader, indentation(1));
-	addLineOfCode(vulkanHeader, "namespace " +vulkanNamespace);
-	addLineOfCode(vulkanHeader, "{");
+	var topOfFile = document.createElement("div");
+	
+	
+	addLineOfCode(topOfFile, "// This header is generated from the Khronos Vulkan XML API Registry,");
+	addLineOfCode(topOfFile, "// https://github.com/KhronosGroup/Vulkan-Docs/blob/1.0/src/spec/vk.xml");
+	addLineOfCode(topOfFile, "// The custom header generator was written by Laurens Mathot (@RC_1290).");
+	addLineOfCode(topOfFile, "// This generated code is also licensed under the Appache License, Version 2.0.");
+	addLineOfCode(topOfFile, "// http://www.apache.org/licenses/LICENSE-2.0");
+	addLineOfCode(topOfFile, indentation(1));
+	addLineOfCode(topOfFile, "// Vulkan Header for C++ compilers.");
+	addLineOfCode(topOfFile, "// A single translation unit (e.g.: a .cpp file) that includes this header, must have " + ProccAddrLookupImplDefine + " defined.");
+	
+	
+	addLineOfCode(topOfFile, indentation(1));
+	addLineOfCode(topOfFile, "#pragma once");
+	addLineOfCode(topOfFile, indentation(1));
+	addLineOfCode(topOfFile, "namespace " +vulkanNamespace);
+	addLineOfCode(topOfFile, "{");
 	
 	var handleDefinitions = document.createElement("div");
 	var enumDefinitions = document.createElement("div");
@@ -227,10 +238,26 @@ function parseXml()
 	var pfnDefinitions = document.createElement("div");
 	var functionDefinitionsExt = document.createElement("div");
 	
-	addLineOfCode(pfnDefinitions, indentation(1));
+	topOfFile.setAttribute("id", "topOfFile");
+	handleDefinitions.setAttribute("id", "handleDefinitions");
+	enumDefinitions.setAttribute("id", "enumDefinitions");
+	earlyPfnDefinitions.setAttribute("id", "earlyPfnDefinitions");
+	structDefinitions.setAttribute("id", "structDefinitions");
+	pfnDefinitions.setAttribute("id", "pfnDefinitions");
+	functionDefinitionsExt.setAttribute("id", "functionDefinitionsExt");
+
+	addLineOfCode(handleDefinitions, indentation(1) + "// Handles: " );
+	addLineOfCode(enumDefinitions, indentation(1) + "// Constants and enums:");
+	addLineOfCode(earlyPfnDefinitions, indentation(1) + "// Function pointers that need to be defined before structs:");
+	addLineOfCode(structDefinitions, indentation(1) + "// Structs:");
+	
+	addLineOfCode(pfnDefinitions, indentation(1) + "// Function pointer type definitions:");
 	addLineOfCode(pfnDefinitions, indentation(1) + "namespace PFN");
 	addLineOfCode(pfnDefinitions, indentation(1) + "{");
 	
+	addLineOfCode(functionDefinitionsExt, indentation(1) + "// Function pointer declarations (external):");
+	
+	vulkanHeader.appendChild(topOfFile);
 	vulkanHeader.appendChild(handleDefinitions);
 	vulkanHeader.appendChild(enumDefinitions);
 	vulkanHeader.appendChild(earlyPfnDefinitions);
@@ -238,12 +265,12 @@ function parseXml()
 	vulkanHeader.appendChild(pfnDefinitions);
 	vulkanHeader.appendChild(functionDefinitionsExt);
 	
+	
+	
 	// Types:
 	var typesNode = vkxml.getElementsByTagName("types").item(0);
 	var types = typesNode.children;
 	var flagTypes = [];
-	
-	addLineOfCode(handleDefinitions, indentation(1) + "// Handles: " );
 	for(var i = 0; i < types.length; ++i)
 	{
 		var typeNode = types.item(i);
@@ -471,7 +498,15 @@ function parseXml()
 	var loadIndependentCommands = document.createElement("div");
 	var loadInstanceCommands = document.createElement("div");
 	
-	addLineOfCode(vulkanFunctions, "#ifdef IMPLEMENT_VK_COMMAND_LOOKUP");
+	vulkanFunctions.setAttribute("id", "vulkanFunctions");
+	functionDefinitions.setAttribute("id", "functionDefinitions");
+	functionRetrieval.setAttribute("id", "functionRetrieval");
+	loadIndependentCommands.setAttribute("id", "loadIndependentCommands");
+	loadInstanceCommands.setAttribute("id", "loadInstanceCommands");
+	
+	addLineOfCode(vulkanFunctions, "// Proc address retrieval implementation:");
+	
+	addLineOfCode(vulkanFunctions, "#ifdef " + ProccAddrLookupImplDefine);
 	addLineOfCode(vulkanFunctions, 'extern "C" ' + VKAPI_ATTR + ' Vk::PFN_vkVoidFunction '+ VKAPI_CALL +' vkGetInstanceProcAddr( Vk::Instance instance, const s8* pName );');
 	addLineOfCode(vulkanFunctions, "	");
 	vulkanHeader.appendChild(vulkanFunctions);
