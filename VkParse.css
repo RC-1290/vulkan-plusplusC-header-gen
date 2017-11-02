@@ -6,3 +6,7 @@ pre{
 	-moz-tab-size: 4;
 	tab-size : 4;
 }
+
+#extensionList{
+	column-width: 350px;
+}

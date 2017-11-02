@@ -14,9 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// namespaces:
 var vulkanNamespace = "Vk";
 var newCodeNamespace = "CodeAnimo";
-var newCodeNamespace2 = "Vulkan";
+var newCodeNamespace2 = "Vulkan";// nested namespace.
+
+// Replacement Types:
 var s8 = "s8";// signed 8-bit
 var u32 = "u32";// unsigned 32-bit
 var s32 = "s32";// signed 32-bit
@@ -24,21 +27,26 @@ var ub32 = "ub32";// unsigned 32-bit boolean
 var u64 = "u64";// unsigned 64-bit
 var DeviceSize = u64;// GPU pointer size
 
-var VKAPI_ATTR = "";// used on Android
-var VKAPI_CALL = "__stdcall";// calling convention
-var VKAPI_PTR = VKAPI_CALL;
-
 // Windows types:
 var WindowsHandle = "Windows::Handle";
 var HINSTANCE = WindowsHandle;
 var HWND = WindowsHandle;
 var SECURITY_ATTRIBUTES = "Windows::SecurityAttributes";
+var DWORD = u32;
 var LPCWSTR = "const wchar_t*";
 
+// Vulkan function call settings:
+var VKAPI_ATTR = "";// used on Android
+var VKAPI_CALL = "__stdcall";// calling convention
+var VKAPI_PTR = VKAPI_CALL;
+
+// 
 var max_enum = "0x7FFFFFFF";
 
+// Formatting settings:
 var tab = "	";
 var tabSpaceWidth = 4;// If you change this, you might want to change the css too.
+
 
 // Startup code:
 var xhr = new XMLHttpRequest();
@@ -94,7 +102,7 @@ function parseXml()
 		}
 	}
 	
-	// Parse feature and extensions:
+	// Apply extensions:
 	var featureNodes = vkxml.getElementsByTagName("feature");
 	for(var i = 0; i < featureNodes.length; ++i)
 	{
@@ -102,7 +110,12 @@ function parseXml()
 		var featureName = featureNode.getAttribute("api");
 		var featureVersion = featureNode.getAttribute("number");
 		var featureDescription = featureNode.getAttribute("comment");
-		addLineOfCode(symbolList, "Feature: " + featureName + ", version: " + featureVersion + ", description: " + featureDescription);
+		
+		addCheckbox(symbolList, featureName, featureDescription, featureName + ", version: " + featureVersion);
+		var extensionUl = document.createElement("ul");
+		extensionUl.setAttribute("id", "extensionList");
+		symbolList.appendChild(extensionUl);
+
 		
 		// Extensions:
 		var extensionsNode = vkxml.getElementsByTagName("extensions").item(0);
@@ -118,6 +131,12 @@ function parseXml()
 			var extensionNumber = parseInt(extensionNode.getAttribute("number"));
 			var extensionType = extensionNode.getAttribute("type");
 			var extensionRequires = extensionNode.getAttribute("requires");
+			
+			var extensionLi = document.createElement("li");
+			extensionUl.appendChild(extensionLi);
+			
+			addCheckbox(extensionLi, extensionName, extensionName, extensionName + ", Type: " + extensionType);
+			
 			
 			var extensionChildren = extensionNode.children;
 			for(var k = 0; k < extensionChildren.length; ++k)
@@ -223,6 +242,7 @@ function parseXml()
 	var typesNode = vkxml.getElementsByTagName("types").item(0);
 	var types = typesNode.children;
 	var flagTypes = [];
+	
 	addLineOfCode(handleDefinitions, indentation(1) + "// Handles: " );
 	for(var i = 0; i < types.length; ++i)
 	{
@@ -264,6 +284,7 @@ function parseXml()
 		else if (category == "struct" || category == "union")
 		{
 			var structName = stripVk(typeNode.getAttribute("name"));
+			
 			addLineOfCode(structDefinitions, indentation(1) + "struct " + structName + " {");
 			
 			var memberNodes = typeNode.children;			
@@ -644,13 +665,28 @@ function replaceTypes(text)
 	replaced = replaced.replace(/\HINSTANCE\b/, HINSTANCE);
 	replaced = replaced.replace(/\HWND\b/, HWND);
 	replaced = replaced.replace(/\SECURITY_ATTRIBUTES\b/, SECURITY_ATTRIBUTES);
-	replaced = replaced.replace(/\DWORD\b/, u32);
+	replaced = replaced.replace(/\DWORD\b/, DWORD);
 	replaced = replaced.replace(/\LPCWSTR\b/, LPCWSTR);
 	
 	return replaced;
 }
 
-
+function addCheckbox(parent, name, label, tooltip)
+{
+	var checkboxId = name + "Checkbox";
+	var featureCheckbox = document.createElement("input");
+	featureCheckbox.setAttribute("type", "checkbox");
+	featureCheckbox.setAttribute("id", checkboxId);
+	var featureLabel = document.createElement("label");
+	featureLabel.setAttribute("for", checkboxId);
+	featureLabel.setAttribute("title", tooltip);
+	featureLabel.textContent = label;
+	
+	parent.appendChild(featureCheckbox);
+	parent.appendChild(featureLabel);
+	
+	return featureCheckbox;
+}
 
 function addLineOfCode(node, code)
 {
@@ -674,6 +710,6 @@ function indentation(count)
 
 function padTabs(text, length)
 {
-	var tabCount = Math.floor((length - text.length) / tabSpaceWidth);
+	var tabCount = Math.floor((length - text.length) / tabSpaceWidth);// Note, it would be more consistent by actually calculating character widths.
 	return text + indentation(tabCount);
 }
