@@ -115,7 +115,7 @@ function parseXml()
 		
 		addCheckbox(symbolList, featureName, featureDescription, featureName + ", version: " + featureVersion);
 		var extensionUl = document.createElement("ul");
-		extensionUl.setAttribute("id", "extensionList");
+		extensionUl.setAttribute("class", "extensionList");
 		symbolList.appendChild(extensionUl);
 
 		
@@ -138,7 +138,7 @@ function parseXml()
 			var extensionLi = document.createElement("li");
 			extensionUl.appendChild(extensionLi);
 			
-			addCheckbox(extensionLi, extensionName, extensionName, "Type: " + extensionType + ", Contact: " + extensionContact);
+			var extensionCheckbox = addCheckbox(extensionLi, extensionName, extensionName, "Type: " + extensionType + ", Contact: " + extensionContact);
 			
 			
 			var extensionChildren = extensionNode.children;

@@ -7,6 +7,6 @@ pre{
 	tab-size : 4;
 }
 
-#extensionList{
+.extensionList{
 	column-width: 350px;
 }
