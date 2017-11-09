@@ -56,6 +56,8 @@ var statusText = document.getElementById("statusText");
 var symbolList = document.getElementById("symbols");
 var vulkanHeader = document.getElementById("vulkanHeader");
 
+var features = new Map();
+
 statusText.textContent = "Trying to open vk.xml";
 var async = true;
 xhr.addEventListener("load", onXhrLoad);
@@ -93,7 +95,7 @@ function parseXml()
 	// Find API Constants node
 	var enumsNodes = vkxml.getElementsByTagName("enums");
 	var apiConstantsNode;
-	for(var i = 0; i < enumsNodes.length; ++i)
+	for(let i = 0; i < enumsNodes.length; ++i)
 	{
 		var enumsNode = enumsNodes.item(i);
 		var enumName = enumsNode.getAttribute("name");
@@ -104,112 +106,110 @@ function parseXml()
 		}
 	}
 	
-	// Apply extensions:
+	// List features:
 	var featureNodes = vkxml.getElementsByTagName("feature");
-	for(var i = 0; i < featureNodes.length; ++i)
+	for(let i = 0; i < featureNodes.length; ++i)
 	{
-		var featureNode = featureNodes.item(i);
-		var featureName = featureNode.getAttribute("api");
-		var featureVersion = featureNode.getAttribute("number");
-		var featureDescription = featureNode.getAttribute("comment");
+		var feature = {};
+
+		feature.node = featureNodes.item(i);
+		feature.name = feature.node.getAttribute("api");
+		feature.version = feature.node.getAttribute("number");
+		feature.description = feature.node.getAttribute("comment");
+
+		features.set(feature.name, feature);
 		
-		addCheckbox(symbolList, featureName, featureDescription, featureName + ", version: " + featureVersion);
+		addCheckbox(symbolList, feature.name, feature.description, feature.name + ", version: " + feature.version);
 		var extensionUl = document.createElement("ul");
 		extensionUl.setAttribute("class", "extensionList");
 		symbolList.appendChild(extensionUl);
 
-		
+		feature.availableExtensions = new Map();
+
 		// Extensions:
 		var extensionsNode = vkxml.getElementsByTagName("extensions").item(0);
 		var extensionNodes = extensionsNode.children;
-		for(var j = 0; j < extensionNodes.length; ++j)
+		for(let j = 0; j < extensionNodes.length; ++j)
 		{
-			var extensionNode = extensionNodes.item(j);
+			var extension = {};
+
+			extension.node = extensionNodes.item(j);
 			
-			var extensionSupport = extensionNode.getAttribute("supported");
-			if (extensionSupport == "disabled" || extensionSupport != featureName) { continue; }
+			extension.support = extension.node.getAttribute("supported");
+			if (extension.support == "disabled" || extension.support != feature.name) { continue; }
+
 			
-			var extensionName = extensionNode.getAttribute("name");
-			var extensionNumber = parseInt(extensionNode.getAttribute("number"));
-			var extensionType = extensionNode.getAttribute("type");
-			var extensionRequires = extensionNode.getAttribute("requires");
-			var extensionContact = extensionNode.getAttribute("contact");
+			extension.name = extension.node.getAttribute("name");
+			extension.number = parseInt(extension.node.getAttribute("number"));
+			extension.type = extension.node.getAttribute("type");
+			extension.requires = extension.node.getAttribute("requires");
+			extension.contact = extension.node.getAttribute("contact");
 			
 			var extensionLi = document.createElement("li");
 			extensionUl.appendChild(extensionLi);
+
+			feature.availableExtensions.set(extension.name, extension);
 			
-			var extensionCheckbox = addCheckbox(extensionLi, extensionName, extensionName, "Type: " + extensionType + ", Contact: " + extensionContact);
-			
-			
-			var extensionChildren = extensionNode.children;
-			for(var k = 0; k < extensionChildren.length; ++k)
-			{
-				var requireOrRemove = extensionChildren.item(k);
-				var interfaces = requireOrRemove.childNodes;
-				if (requireOrRemove.tagName == "require")
-				{
-					for(var l = 0; l < interfaces.length; ++l)
-					{
-						var interfaceNode = interfaces.item(l);
-						var tagName = interfaceNode.tagName;
-						
-						if (tagName == "enum")
-						{
-							var extending = interfaceNode.getAttribute("extends");
-							if (extending)
-							{
-								// Find appropriate enum and add it:
-								for(var m = 0; m < enumsNodes.length; ++m)
-								{
-									var enumsNode = enumsNodes.item(m);
-									if (enumsNode.getAttribute("name") == extending)
-									{
-										var offsetAttribute = interfaceNode.getAttribute("offset");
-										if (offsetAttribute)
-										{
-											var offset = parseInt(interfaceNode.getAttribute("offset"));
-											var valueAttribute = 1000000000 + offset + (1000 * (extensionNumber - 1))
-											if (interfaceNode.getAttribute("dir") == "-")
-											{
-												valueAttribute = -valueAttribute;
-											}
-											
-											interfaceNode.setAttribute("value", valueAttribute);
-										}
-										interfaceNode.setAttribute("extends", extending);
-										enumsNode.appendChild(interfaceNode);
-									}
-								}
-								
-							}
-							else 
-							{
-								apiConstantsNode.appendChild(interfaceNode);
-							}							
-						}
-						else if (tagName == "command")
-						{
-							
-						}
-						else if (tagName == "type")
-						{
-							
-						}
-					}
-				}
-				else 
-				{
-					console.error("extension remove tags aren't supported yet. (They weren't used when this generator was written");
-				}
-				
-			}
-			
-			
+			extension.checkbox = addCheckbox(extensionLi, extension.name, extension.name, "Type: " + extension.type + ", Contact: " + extension.contact);
+			extension.checkbox.setAttribute("extensionName", extension.name);
+			extension.checkbox.setAttribute("featureName", feature.name);
+			extension.checkbox.addEventListener("change", applyDependencies);
 		}
 		
+		let checkAllButton = document.createElement("button");
+		checkAllButton.textContent = "Check all";
+		checkAllButton.setAttribute("featureName", feature.name);
+		checkAllButton.addEventListener("click", checkAll);
+		
+		let uncheckAllButton = document.createElement("button");
+		uncheckAllButton.textContent = "Uncheck all";
+		uncheckAllButton.setAttribute("featureName", feature.name);
+		uncheckAllButton.addEventListener("click", uncheckAll);
+
+		symbolList.appendChild(checkAllButton);
+		symbolList.appendChild(uncheckAllButton);
 	}
+}
+
+function checkAll()
+{
+	var feature = features.get(this.getAttribute("featureName"));
 	
+	for(let extension of feature.availableExtensions.values())
+	{
+		extension.checkbox.checked = true;
+	}
+}
+
+function uncheckAll()
+{
+	var feature = features.get(this.getAttribute("featureName"));
 	
+	for(let extension of feature.availableExtensions.values())
+	{
+		extension.checkbox.checked = false;
+	}
+}
+
+function applyDependencies()
+{
+	var feature = features.get(this.getAttribute("featureName"));
+	var extension = feature.availableExtensions.get(this.getAttribute("extensionName"));
+	
+	if (extension.checkbox.checked)
+	{
+		var requiredExtension = feature.availableExtensions.get(extension.requires);
+		if (requiredExtension)
+		{
+			requiredExtension.checkbox.checked = true;
+		}
+	}
+}
+
+
+
+function writeHeader()
+{	
 	// Vulkan Header:
 	var topOfFile = document.createElement("div");
 	
@@ -271,7 +271,7 @@ function parseXml()
 	var typesNode = vkxml.getElementsByTagName("types").item(0);
 	var types = typesNode.children;
 	var flagTypes = [];
-	for(var i = 0; i < types.length; ++i)
+	for(let i = 0; i < types.length; ++i)
 	{
 		var typeNode = types.item(i);
 		var category = typeNode.getAttribute("category");
@@ -371,14 +371,14 @@ function parseXml()
 	addLineOfCode(handleDefinitions, indentation(1));
 	
 	// constants:
-	for(var i = 0; i < enumsNodes.length; ++i)
+	for(let i = 0; i < enumsNodes.length; ++i)
 	{
 		var enumsNode = enumsNodes.item(i);
 		var enumName = enumsNode.getAttribute("name");
 		if (enumName == "API Constants")
 		{
 			var constants = enumsNode.children;
-			for(var j = 0; j < constants.length; ++j)
+			for(let j = 0; j < constants.length; ++j)
 			{
 				var constantNode = constants.item(j);
 				var constantName = constantNode.getAttribute("name");
@@ -395,7 +395,7 @@ function parseXml()
 				}
 				
 				// naive type analysis that only recognizes ULL (unsigned 64), f (float) or " (char* / c-string)
-				for(var k = 0; k < constantValue.length; ++k)
+				for(let k = 0; k < constantValue.length; ++k)
 				{					
 					switch(constantValue[k])
 					{
@@ -438,7 +438,7 @@ function parseXml()
 			var maxValue = minValue;
 			
 			var enumEntry = enumsNode.children;
-			for(var j = 0; j < enumEntry.length; ++j)
+			for(let j = 0; j < enumEntry.length; ++j)
 			{
 				var constantNode = enumEntry.item(j);
 				if (constantNode.tagName != "enum")
@@ -534,7 +534,7 @@ function parseXml()
 	// Parse commands
 	var commandsNode = vkxml.getElementsByTagName("commands").item(0);
 	var commands = commandsNode.getElementsByTagName("command");
-	for(var i = 0; i < commands.length; ++i)
+	for(let i = 0; i < commands.length; ++i)
 	{
 		var commandNode = commands.item(i);
 		if (!commandNode){ break;}
@@ -556,7 +556,7 @@ function parseXml()
 		var commandChildren = commandNode.children;
 		var firstParameter = true;
 		
-		for(var j=0; j < commandChildren.length; ++j)
+		for(let j=0; j < commandChildren.length; ++j)
 		{
 			var commandChild = commandChildren.item(j);
 			if (commandChild.tagName != "param")
@@ -569,7 +569,7 @@ function parseXml()
 			
 			var nodes = commandChild.childNodes;
 			
-			for(var k = 0; k < nodes.length; ++k)
+			for(let k = 0; k < nodes.length; ++k)
 			{
 				var node = nodes.item(k);
 				
@@ -748,3 +748,74 @@ function padTabs(text, length)
 	var tabCount = Math.floor((length - text.length) / tabSpaceWidth);// Note, it would be more consistent by actually calculating character widths.
 	return text + indentation(tabCount);
 }
+
+/*
+function extensionStuffThatWasTemporarilyRemoved()
+{
+
+
+			var extensionChildren = extensionNode.children;
+			for(var k = 0; k < extensionChildren.length; ++k)
+			{
+				var requireOrRemove = extensionChildren.item(k);
+				var interfaces = requireOrRemove.childNodes;
+				if (requireOrRemove.tagName == "require")
+				{
+					for(var l = 0; l < interfaces.length; ++l)
+					{
+						var interfaceNode = interfaces.item(l);
+						var tagName = interfaceNode.tagName;
+						
+						if (tagName == "enum")
+						{
+							var extending = interfaceNode.getAttribute("extends");
+							if (extending)
+							{
+								// Find appropriate enum and add it:
+								for(var m = 0; m < enumsNodes.length; ++m)
+								{
+									var enumsNode = enumsNodes.item(m);
+									if (enumsNode.getAttribute("name") == extending)
+									{
+										var offsetAttribute = interfaceNode.getAttribute("offset");
+										if (offsetAttribute)
+										{
+											var offset = parseInt(interfaceNode.getAttribute("offset"));
+											var valueAttribute = 1000000000 + offset + (1000 * (extensionNumber - 1))
+											if (interfaceNode.getAttribute("dir") == "-")
+											{
+												valueAttribute = -valueAttribute;
+											}
+											
+											interfaceNode.setAttribute("value", valueAttribute);
+										}
+										interfaceNode.setAttribute("extends", extending);
+										enumsNode.appendChild(interfaceNode);
+									}
+								}
+								
+							}
+							else 
+							{
+								apiConstantsNode.appendChild(interfaceNode);
+							}							
+						}
+						else if (tagName == "command")
+						{
+							
+						}
+						else if (tagName == "type")
+						{
+							
+						}
+					}
+				}
+				else 
+				{
+					console.error("extension remove tags aren't supported yet. (They weren't used when this generator was written");
+				}
+				
+			}
+			
+}
+*/
