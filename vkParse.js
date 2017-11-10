@@ -56,6 +56,7 @@ var statusText = document.getElementById("statusText");
 var symbolList = document.getElementById("symbols");
 var vulkanHeader = document.getElementById("vulkanHeader");
 
+var vkxml;
 var features = new Map();
 
 statusText.textContent = "Trying to open vk.xml";
@@ -74,7 +75,7 @@ function onXhrLoad()
 		if (xhr.status === 200)
 		{
 			statusText.textContent = "parsing xml...";
-			parseXml();	
+			listFeaturesAndExtensions();	
 		}
 		else 
 		{
@@ -84,27 +85,13 @@ function onXhrLoad()
 	}
 }
 
-function parseXml()
+function listFeaturesAndExtensions()
 {
-	var vkxml = xhr.responseXML;	
+	vkxml = xhr.responseXML;
 	
 	// Clear placeholder text:
 	symbolList.textContent = "";
 	vulkanHeader.textContent = "";
-	
-	// Find API Constants node
-	var enumsNodes = vkxml.getElementsByTagName("enums");
-	var apiConstantsNode;
-	for(let i = 0; i < enumsNodes.length; ++i)
-	{
-		var enumsNode = enumsNodes.item(i);
-		var enumName = enumsNode.getAttribute("name");
-		if (enumName == "API Constants")
-		{
-			apiConstantsNode = enumsNode;
-			break;
-		}
-	}
 	
 	// List features:
 	var featureNodes = vkxml.getElementsByTagName("feature");
@@ -119,7 +106,7 @@ function parseXml()
 
 		features.set(feature.name, feature);
 		
-		addCheckbox(symbolList, feature.name, feature.description, feature.name + ", version: " + feature.version);
+		feature.checkbox = addCheckbox(symbolList, feature.name, feature.description, feature.name + ", version: " + feature.version);
 		var extensionUl = document.createElement("ul");
 		extensionUl.setAttribute("class", "extensionList");
 		symbolList.appendChild(extensionUl);
@@ -153,25 +140,31 @@ function parseXml()
 			extension.checkbox = addCheckbox(extensionLi, extension.name, extension.name, "Type: " + extension.type + ", Contact: " + extension.contact);
 			extension.checkbox.setAttribute("extensionName", extension.name);
 			extension.checkbox.setAttribute("featureName", feature.name);
-			extension.checkbox.addEventListener("change", applyDependencies);
+			extension.checkbox.addEventListener("change", checkRequiredExtensions);
 		}
 		
 		let checkAllButton = document.createElement("button");
 		checkAllButton.textContent = "Check all";
 		checkAllButton.setAttribute("featureName", feature.name);
-		checkAllButton.addEventListener("click", checkAll);
+		checkAllButton.addEventListener("click", checkAllFeatureExtensions);
 		
 		let uncheckAllButton = document.createElement("button");
 		uncheckAllButton.textContent = "Uncheck all";
 		uncheckAllButton.setAttribute("featureName", feature.name);
-		uncheckAllButton.addEventListener("click", uncheckAll);
-
+		uncheckAllButton.addEventListener("click", uncheckAllFeatureExtensions);
+		
 		symbolList.appendChild(checkAllButton);
 		symbolList.appendChild(uncheckAllButton);
 	}
+	
+		let writeHeaderButton = document.createElement("button");
+		writeHeaderButton.textContent = "Create Header";
+		writeHeaderButton.addEventListener("click", writeHeader);
+		
+		symbolList.appendChild(writeHeaderButton);
 }
 
-function checkAll()
+function checkAllFeatureExtensions()
 {
 	var feature = features.get(this.getAttribute("featureName"));
 	
@@ -181,7 +174,7 @@ function checkAll()
 	}
 }
 
-function uncheckAll()
+function uncheckAllFeatureExtensions()
 {
 	var feature = features.get(this.getAttribute("featureName"));
 	
@@ -191,7 +184,7 @@ function uncheckAll()
 	}
 }
 
-function applyDependencies()
+function checkRequiredExtensions()
 {
 	var feature = features.get(this.getAttribute("featureName"));
 	var extension = feature.availableExtensions.get(this.getAttribute("extensionName"));
@@ -207,9 +200,101 @@ function applyDependencies()
 }
 
 
-
 function writeHeader()
 {	
+	// Find API Constants node
+	var enumsNodes = vkxml.getElementsByTagName("enums");
+	var apiConstantsNode;
+	for(let i = 0; i < enumsNodes.length; ++i)
+	{
+		var enumsNode = enumsNodes.item(i);
+		var enumName = enumsNode.getAttribute("name");
+		if (enumName == "API Constants")
+		{
+			apiConstantsNode = enumsNode;
+			break;
+		}
+	}
+
+	for(let feature of features.values())
+	{
+		console.log(feature.name);
+		if (!feature.checkbox.checked) { continue; }
+		
+		for (let extension of feature.availableExtensions.values())
+		{
+			if (!extension.checkbox.checked) { continue; }
+			
+			// Apply extension changes.
+			// NOTE: this assumes there's only one feature. If there are multiple, they'll all be affected.
+			var extensionChildren = extension.node.children;
+			for(var k = 0; k < extensionChildren.length; ++k)
+			{
+				var requireOrRemove = extensionChildren.item(k);
+				var interfaces = requireOrRemove.childNodes;
+				if (requireOrRemove.tagName == "require")
+				{
+					for(var l = 0; l < interfaces.length; ++l)
+					{
+						var interfaceNode = interfaces.item(l);
+						var tagName = interfaceNode.tagName;
+						
+						if (tagName == "enum")
+						{
+							var extending = interfaceNode.getAttribute("extends");
+							if (extending)
+							{
+								// Find appropriate enum and add it:
+								for(var m = 0; m < enumsNodes.length; ++m)
+								{
+									var enumsNode = enumsNodes.item(m);
+									if (enumsNode.getAttribute("name") == extending)
+									{
+										var offsetAttribute = interfaceNode.getAttribute("offset");
+										if (offsetAttribute)
+										{
+											var offset = parseInt(interfaceNode.getAttribute("offset"));
+											var valueAttribute = 1000000000 + offset + (1000 * (extension.number - 1))
+											if (interfaceNode.getAttribute("dir") == "-")
+											{
+												valueAttribute = -valueAttribute;
+											}
+											
+											interfaceNode.setAttribute("value", valueAttribute);
+										}
+										interfaceNode.setAttribute("extends", extending);
+										enumsNode.appendChild(interfaceNode);
+									}
+								}
+								
+							}
+							else 
+							{
+								apiConstantsNode.appendChild(interfaceNode);
+							}							
+						}
+						else if (tagName == "command")
+						{
+							
+						}
+						else if (tagName == "type")
+						{
+							
+						}
+					}
+				}
+				else 
+				{
+					console.error("extension remove tags aren't supported yet. (They weren't used when this generator was written");
+				}
+				
+			}
+		}
+		
+		
+	}
+
+
 	// Vulkan Header:
 	var topOfFile = document.createElement("div");
 	
@@ -748,74 +833,3 @@ function padTabs(text, length)
 	var tabCount = Math.floor((length - text.length) / tabSpaceWidth);// Note, it would be more consistent by actually calculating character widths.
 	return text + indentation(tabCount);
 }
-
-/*
-function extensionStuffThatWasTemporarilyRemoved()
-{
-
-
-			var extensionChildren = extensionNode.children;
-			for(var k = 0; k < extensionChildren.length; ++k)
-			{
-				var requireOrRemove = extensionChildren.item(k);
-				var interfaces = requireOrRemove.childNodes;
-				if (requireOrRemove.tagName == "require")
-				{
-					for(var l = 0; l < interfaces.length; ++l)
-					{
-						var interfaceNode = interfaces.item(l);
-						var tagName = interfaceNode.tagName;
-						
-						if (tagName == "enum")
-						{
-							var extending = interfaceNode.getAttribute("extends");
-							if (extending)
-							{
-								// Find appropriate enum and add it:
-								for(var m = 0; m < enumsNodes.length; ++m)
-								{
-									var enumsNode = enumsNodes.item(m);
-									if (enumsNode.getAttribute("name") == extending)
-									{
-										var offsetAttribute = interfaceNode.getAttribute("offset");
-										if (offsetAttribute)
-										{
-											var offset = parseInt(interfaceNode.getAttribute("offset"));
-											var valueAttribute = 1000000000 + offset + (1000 * (extensionNumber - 1))
-											if (interfaceNode.getAttribute("dir") == "-")
-											{
-												valueAttribute = -valueAttribute;
-											}
-											
-											interfaceNode.setAttribute("value", valueAttribute);
-										}
-										interfaceNode.setAttribute("extends", extending);
-										enumsNode.appendChild(interfaceNode);
-									}
-								}
-								
-							}
-							else 
-							{
-								apiConstantsNode.appendChild(interfaceNode);
-							}							
-						}
-						else if (tagName == "command")
-						{
-							
-						}
-						else if (tagName == "type")
-						{
-							
-						}
-					}
-				}
-				else 
-				{
-					console.error("extension remove tags aren't supported yet. (They weren't used when this generator was written");
-				}
-				
-			}
-			
-}
-*/
