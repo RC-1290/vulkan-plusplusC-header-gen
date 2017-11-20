@@ -51,15 +51,33 @@ var tabSpaceWidth = 4;// If you change this, you might want to change the css to
 
 
 // Startup code:
-var xhr = new XMLHttpRequest();
-var statusText = document.getElementById("statusText");
-var symbolList = document.getElementById("symbols");
-var vulkanHeader = document.getElementById("vulkanHeader");
+var statusText =				document.getElementById("statusText");
+var featureList =				document.getElementById("featureSelection");
+var symbolList =				document.getElementById("symbols");
 
+var handlesDiv =				document.getElementById("handles");
+var enumsDiv =					document.getElementById("enums");
+var earlyPfnDiv =				document.getElementById("earlyPfn");
+var structsDiv =				document.getElementById("structs");
+var commandTypeDefsDiv =		document.getElementById("commandTypeDefs");
+var externPfnDiv =				document.getElementById("externPfns");
+var cmdDefsDiv =				document.getElementById("cmdDefs");
+var independentCmdLoadingDiv =	document.getElementById("independentCmdLoading");
+var instanceCmdLoadingDiv =		document.getElementById("instanceCmdLoading");
+
+var xhr = new XMLHttpRequest();
 var vkxml;
 var features = new Map();
 
+var commands = [];
+var structs = [];
+var earlyPfns = [];
+var handles = [];
+var constants = [];
+var enums = [];
+
 statusText.textContent = "Trying to open vk.xml";
+
 var async = true;
 xhr.addEventListener("load", onXhrLoad);
 xhr.open("GET", "vk.xml", async);
@@ -90,8 +108,7 @@ function listFeaturesAndExtensions()
 	vkxml = xhr.responseXML;
 	
 	// Clear placeholder text:
-	symbolList.textContent = "";
-	vulkanHeader.textContent = "";
+	featureList.textContent = "";
 	
 	// List features:
 	var featureNodes = vkxml.getElementsByTagName("feature");
@@ -106,10 +123,10 @@ function listFeaturesAndExtensions()
 
 		features.set(feature.name, feature);
 		
-		feature.checkbox = addCheckbox(symbolList, feature.name, feature.description, feature.name + ", version: " + feature.version);
+		feature.checkbox = addCheckbox(featureList, feature.name, feature.description, feature.name + ", version: " + feature.version);
 		var extensionUl = document.createElement("ul");
 		extensionUl.setAttribute("class", "extensionList");
-		symbolList.appendChild(extensionUl);
+		featureList.appendChild(extensionUl);
 
 		feature.availableExtensions = new Map();
 
@@ -153,15 +170,69 @@ function listFeaturesAndExtensions()
 		uncheckAllButton.setAttribute("featureName", feature.name);
 		uncheckAllButton.addEventListener("click", uncheckAllFeatureExtensions);
 		
-		symbolList.appendChild(checkAllButton);
-		symbolList.appendChild(uncheckAllButton);
+		featureList.appendChild(checkAllButton);
+		featureList.appendChild(uncheckAllButton);
 	}
 	
-		let writeHeaderButton = document.createElement("button");
-		writeHeaderButton.textContent = "Create Header";
-		writeHeaderButton.addEventListener("click", writeHeader);
+	let writeHeaderButton = document.createElement("button");
+	writeHeaderButton.textContent = "Create Header";
+	writeHeaderButton.addEventListener("click", writeHeader);
+	
+	featureList.appendChild(writeHeaderButton);
+	
+	// example handles:
+	handles.push("exampleHandle");
+	
+	// example enums:
+	var constant = {};
+	constant.type = "u32";
+	constant.name = "TEST_CONSTANT";
+	constant.value = 256;
+	constants.push(constant);
+	
+	let cEnum = {};
+	cEnum.name = "ExampleEnum";
+	cEnum.isBitMask = false;
+	cEnum.minName = "EXAMPLE_MIN";
+	cEnum.maxName = "EXAMPLE_MAX";
+	cEnum.constants = [];
+	let minConstant = {};
+	minConstant.name = "EXAMPLE_MIN";
+	minConstant.value = 0;
+	let maxConstant = {};
+	maxConstant.name = "EXAMPLE_MAX";
+	maxConstant.value = 1;
+	cEnum.constants.push(minConstant);
+	cEnum.constants.push(maxConstant);
+	enums.push(cEnum);
+	
+	// example early function pointers:
+	var earlyPfn = {};
+	earlyPfn.code = "typedef void* (VKAPI_PTR *PFN_vkAllocationFunction)(\n    void*                                       pUserData, \n    size_t                                      size,\n    size_t                                      alignment,\n    VkSystemAllocationScope                     allocationScope);";
+	earlyPfns.push(earlyPfn);
+	
+	// example struct:
+	var struct = {};
+	var member = {};
+	
+	struct.name = "someStruct";
+	struct.members = [];
+	
+	member.name = "sampler";
+	member.type = "Sampler";
+	
+	struct.members.push(member);
+	structs.push(struct);
 		
-		symbolList.appendChild(writeHeaderButton);
+		
+	// example command:
+	var command = {};
+	command.name = "something";
+	command.originalName = "vkSomething";
+	command.returnType = "void";
+	command.parameters = [];
+	command.parameters.push("void* example");
+	commands.push(command);
 }
 
 function checkAllFeatureExtensions()
@@ -199,8 +270,109 @@ function checkRequiredExtensions()
 	}
 }
 
-
 function writeHeader()
+{
+	document.getElementById("setupStuff").setAttribute("class", "hidden");
+	document.getElementById("hiddenUntilCreation").removeAttribute("class");
+	document.getElementById("vkGetInstanceProcAddrDefine").textContent = vulkanNamespace + "::PFN_vkVoidFunction" + VKAPI_CALL + " vkGetInstanceProcAddr( " + vulkanNamespace + "::Instance instance, const " + s8 + "* pName );";
+	
+	// Write Handles:
+	for(let i = 0; i < handles.length; ++i)
+	{
+		addLineOfCode(handlesDiv, padTabs(indentation(1) + "typedef struct " + handles[i] + "_Handle*", 60) + handles[i] + ";");
+	}
+	
+	// Write constants:
+	for(let i = 0; i < constants.length; ++i)
+	{
+		let constant = constants[i];
+		addLineOfCode(enumsDiv, indentation(1) + "const " + constant.type + " " + constant.name + " = " + constant.value + ";");
+	}
+	
+	// Write enums:
+	addLineOfCode(enumsDiv, indentation(1));
+	for(let i = 0; i < enums.length; ++i)
+	{		
+		let cEnum = enums[i];
+		let enumDiv = document.createElement("div");
+		enumDiv.setAttribute("id", cEnum.name);
+		enumsDiv.appendChild(enumDiv);
+		
+		addLineOfCode(enumDiv, indentation(1) + "enum class " + cEnum.name);
+		addLineOfCode(enumDiv, indentation(1) + "{");
+		
+		for( let j = 0; j < cEnum.constants.length; ++j)
+		{
+			let constant = cEnum.constants[j];
+			addLineOfCode(enumDiv,  padTabs(indentation(2) + constant.name + " =", 89) + constant.value + ",");
+		}
+		
+		if (!cEnum.isBitMask)
+		{
+			addLineOfCode( enumDiv, padTabs(indentation(2) + "BEGIN_RANGE =", 89) + cEnum.minName + ",");
+			addLineOfCode( enumDiv, padTabs(indentation(2) + "END_RANGE =", 89) + cEnum.maxName + ",");
+			addLineOfCode( enumDiv, padTabs(indentation(2) + "RANGE_SIZE =", 89) + "(" + cEnum.maxName + " - " + cEnum.minName + " + 1),");
+		}
+		
+		addLineOfCode( enumDiv, padTabs(indentation(2) + "MAX_ENUM =", 89) + max_enum);
+			
+		addLineOfCode( enumDiv, indentation(1) + "};");
+		addLineOfCode( enumDiv, indentation(1));
+	}
+	
+	// Write early function pointers:
+	for(let i = 0; i < earlyPfns.length; ++i)
+	{
+		let earlyPfn = earlyPfns[i];
+		addLineOfCode( earlyPfnDiv, indentation(1) + earlyPfn.code);
+	}
+	
+	// Write out structs:
+	for (let i = 0; i < structs.length; ++i)
+	{
+		let struct = structs[i];
+		addLineOfCode(structsDiv, indentation(1) + "struct " + struct.name + " {");
+		for (let j = 0; j < struct.members.length; ++j)
+		{
+			addLineOfCode(structsDiv, padTabs(indentation(2) + struct.members[j].type, 57) + struct.members[j].name + ";");
+		}
+		addLineOfCode(structsDiv, indentation(1) + "};");
+		addLineOfCode(structsDiv, indentation(1));
+	}
+	
+	// Write out commands:
+	for(let i = 0; i < commands.length; ++i)
+	{
+		let command = commands[i];
+	
+		let parametersText = "";
+		for(let j=0;j < command.parameters.length; ++j)
+		{
+			if (j > 0) { parametersText += ", "; }
+			parametersText += command.parameters[j];
+		}
+		
+		addLineOfCode( commandTypeDefsDiv, indentation(2) + "typedef " + command.returnType + indentation(2) + "(" + VKAPI_PTR + " *" + command.name + ")(" + parametersText + ");" );
+		
+		// Function defintions:
+		addLineOfCode(externPfnDiv, padTabs(indentation(1) + "extern PFN::" + command.name, 68) + command.name + ";");
+		addLineOfCode(cmdDefsDiv,	padTabs(indentation(1) + " PFN::" + command.name, 68) + command.name + ";");
+		
+		if (command.originalName == "vkEnumerateInstanceLayerProperties" || command.originalName == "vkEnumerateInstanceExtensionProperties" || command.originalName == "vkCreateInstance")
+		{
+			addLineOfCode(independentCmdLoadingDiv, indentation(3) + vulkanNamespace + '::' + command.name + ' = (' + vulkanNamespace + '::PFN::' + command.name + ') vkGetInstanceProcAddr( nullptr, "' + command.originalName + '" );');
+			addLineOfCode(independentCmdLoadingDiv, indentation(3) + 'if(!' + vulkanNamespace + '::' + command.name + ') { return false; }');
+		}
+		else 
+		{
+			addLineOfCode(instanceCmdLoadingDiv, indentation(3) + vulkanNamespace + '::' + command.name + ' = (' + vulkanNamespace + '::PFN::' + command.name + ') vkGetInstanceProcAddr( instance, "' + command.originalName + '" );');
+			addLineOfCode(instanceCmdLoadingDiv, indentation(3) + 'if(!' + vulkanNamespace + '::' + command.name + ') { return false; }');
+		}
+	}
+}
+
+
+function writeHeaderOld()
 {	
 	// Find API Constants node
 	var enumsNodes = vkxml.getElementsByTagName("enums");
@@ -218,8 +390,35 @@ function writeHeader()
 
 	for(let feature of features.values())
 	{
-		console.log(feature.name);
 		if (!feature.checkbox.checked) { continue; }
+		
+		for (let requireOrRemove of feature.node.childNodes.values())
+		{
+			if (requireOrRemove.tagName == "remove")
+			{ console.error("feature remove tags aren't supported yet. (They weren't used when this generator was written"); }
+			else if (requireOrRemove.tagName == "require")
+			{
+				for (const tag of requireOrRemove.childNodes.values())
+				{
+					if (tag.tagName == "command")
+					{
+						var commandName = tag.getAttribute("name");
+						addLineOfCode(symbolList, "command: " + commandName);
+					}
+					else if (tag.tagName == "enum")
+					{
+						var enumName = tag.getAttribute("name");
+						addLineOfCode(symbolList, "enum: " + enumName);
+					}
+					else if (tag.tagName == "type")
+					{
+						var typeName = tag.getAttribute("name");
+						addLineOfCode(symbolList, "type: " + typeName);
+					}
+				}
+			}
+		}
+		
 		
 		for (let extension of feature.availableExtensions.values())
 		{
@@ -241,6 +440,9 @@ function writeHeader()
 						
 						if (tagName == "enum")
 						{
+							var enumName = interfaceNode.getAttribute("name");
+							addLineOfCode(symbolList, "enum: " + enumName);
+							
 							var extending = interfaceNode.getAttribute("extends");
 							if (extending)
 							{
@@ -296,86 +498,52 @@ function writeHeader()
 
 
 	// Vulkan Header:
-	var topOfFile = document.createElement("div");
-	
-	
-	addLineOfCode(topOfFile, "// This header is generated from the Khronos Vulkan XML API Registry,");
-	addLineOfCode(topOfFile, "// https://github.com/KhronosGroup/Vulkan-Docs/blob/1.0/src/spec/vk.xml");
-	addLineOfCode(topOfFile, "// The custom header generator was written by Laurens Mathot (@RC_1290).");
-	addLineOfCode(topOfFile, "// This generated code is also licensed under the Appache License, Version 2.0.");
-	addLineOfCode(topOfFile, "// http://www.apache.org/licenses/LICENSE-2.0");
-	addLineOfCode(topOfFile, indentation(1));
-	addLineOfCode(topOfFile, "// Vulkan Header for C++ compilers.");
-	addLineOfCode(topOfFile, "// A single translation unit (e.g.: a .cpp file) that includes this header, must have " + ProccAddrLookupImplDefine + " defined.");
-	
-	
-	addLineOfCode(topOfFile, indentation(1));
-	addLineOfCode(topOfFile, "#pragma once");
-	addLineOfCode(topOfFile, indentation(1));
-	addLineOfCode(topOfFile, "namespace " +vulkanNamespace);
-	addLineOfCode(topOfFile, "{");
-	
-	var handleDefinitions = document.createElement("div");
-	var enumDefinitions = document.createElement("div");
-	var earlyPfnDefinitions = document.createElement("div");
-	var structDefinitions = document.createElement("div");
-	
-	var pfnDefinitions = document.createElement("div");
-	var functionDefinitionsExt = document.createElement("div");
-	
-	topOfFile.setAttribute("id", "topOfFile");
-	handleDefinitions.setAttribute("id", "handleDefinitions");
-	enumDefinitions.setAttribute("id", "enumDefinitions");
-	earlyPfnDefinitions.setAttribute("id", "earlyPfnDefinitions");
-	structDefinitions.setAttribute("id", "structDefinitions");
-	pfnDefinitions.setAttribute("id", "pfnDefinitions");
-	functionDefinitionsExt.setAttribute("id", "functionDefinitionsExt");
-
-	addLineOfCode(handleDefinitions, indentation(1) + "// Handles: " );
-	addLineOfCode(enumDefinitions, indentation(1) + "// Constants and enums:");
-	addLineOfCode(earlyPfnDefinitions, indentation(1) + "// Function pointers that need to be defined before structs:");
-	addLineOfCode(structDefinitions, indentation(1) + "// Structs:");
-	
-	addLineOfCode(pfnDefinitions, indentation(1) + "// Function pointer type definitions:");
-	addLineOfCode(pfnDefinitions, indentation(1) + "namespace PFN");
-	addLineOfCode(pfnDefinitions, indentation(1) + "{");
-	
-	addLineOfCode(functionDefinitionsExt, indentation(1) + "// Function pointer declarations (external):");
-	
-	vulkanHeader.appendChild(topOfFile);
-	vulkanHeader.appendChild(handleDefinitions);
-	vulkanHeader.appendChild(enumDefinitions);
-	vulkanHeader.appendChild(earlyPfnDefinitions);
-	vulkanHeader.appendChild(structDefinitions);
-	vulkanHeader.appendChild(pfnDefinitions);
-	vulkanHeader.appendChild(functionDefinitionsExt);
-	
 	
 	
 	// Types:
-	var typesNode = vkxml.getElementsByTagName("types").item(0);
-	var types = typesNode.children;
+	var handles = new Map();
+	var funcPointers = new Map();
 	var flagTypes = [];
-	for(let i = 0; i < types.length; ++i)
+	var structs = new Map();
+	
+	
+	var typesNode = vkxml.getElementsByTagName("types").item(0);
+	var typeNodes = typesNode.children;
+	for(let i = 0; i < typeNodes.length; ++i)
 	{
-		var typeNode = types.item(i);
+		var typeNode = typeNodes.item(i);
 		var category = typeNode.getAttribute("category");
 		
 		if (category == "handle")
 		{
-			var name = stripVk( typeNode.getElementsByTagName("name").item(0).textContent );
-			addLineOfCode(handleDefinitions, padTabs( indentation(1) + "typedef struct " + name + "_T*", 60 ) + name + ";");
+			var handle = {};
+			handle.originalName = typeNode.getElementsByTagName("name").item(0).textContent;
+			handle.name = stripVk(handle.originalName);
+			handle.code = padTabs( indentation(1) + "typedef struct " + handle.name + "_Handle*", 60 ) + handle.name + ";";
+			handles.set(handle.originalName, handle);
+			addLineOfCode(handleDefinitions, handle.code);
 		}
 		else if (category == "funcpointer")
 		{
-			var funcpointer = indentation(1);
+			var funcPointer = {};
+			funcPointer.code = indentation(1);
+			
 			var childNodes = typeNode.childNodes;
 			
 			for( var j = 0; j < childNodes.length; ++j)
 			{
-				funcpointer +=  stripVk(replaceTypes(replaceFlagTypes(childNodes.item(j).textContent, flagTypes)));
+				var textContent = childNodes.item(j).textContent;
+				if (childNodes.tagName == "name")
+				{
+					funcPointer.originalName = textContent;
+				}
+				
+				funcPointer.code +=  stripVk(replaceTypes(replaceFlagTypes(textContent, flagTypes)));
 			}
-			addLineOfCode(earlyPfnDefinitions, funcpointer);
+			
+			funcPointers.set(funcPointer.originalName, funcPointer);
+			
+			addLineOfCode(earlyPfnDefinitions, funcPointer.code);
 			addLineOfCode(earlyPfnDefinitions, indentation(1));
 		}
 		else if (category == "bitmask")
@@ -395,9 +563,12 @@ function writeHeader()
 		}
 		else if (category == "struct" || category == "union")
 		{
-			var structName = stripVk(typeNode.getAttribute("name"));
-			
-			addLineOfCode(structDefinitions, indentation(1) + "struct " + structName + " {");
+			var struct = {};
+			struct.name = stripVk(typeNode.getAttribute("name"));
+			structs.set(struct.name, struct);
+			struct.members = [];
+				
+			addLineOfCode(structDefinitions, indentation(1) + "struct " + struct.name + " {");
 			
 			var memberNodes = typeNode.children;			
 			for(var j = 0; j < memberNodes.length; ++j)
@@ -409,7 +580,9 @@ function writeHeader()
 					continue;
 				}
 				
-				var codeLine = indentation(2);
+				var member = "";
+				struct.members.push(member);
+				
 				var lastWasText = false;
 				
 				var memberTags = memberNode.childNodes;
@@ -424,28 +597,28 @@ function writeHeader()
 							{
 								if (lastWasText)
 								{
-									codeLine += " ";
+									member += " ";
 								}
-								codeLine += stripVk(replaceTypes(replaceFlagTypes(memberTag.textContent, flagTypes)));
+								member += stripVk(replaceTypes(replaceFlagTypes(memberTag.textContent, flagTypes)));
 							}
 							else if (memberTag.tagName == "enum")
 							{
-								codeLine += stripVk(memberTag.textContent);
+								member += stripVk(memberTag.textContent);
 							}
 							else if (memberTag.tagName == "name")
 							{
-								codeLine = padTabs(codeLine, 57) + memberTag.textContent;
+								member = padTabs(member, 57) + memberTag.textContent;
 							}
 							lastWasText = false;
 						break;
 						case 3:// Text Node
-							codeLine += memberTag.textContent.trim();
+							member += memberTag.textContent.trim();
 							lastWasText = true;
 						break;
 					}
 				}
 				
-				addLineOfCode(structDefinitions, codeLine + ";");
+				addLineOfCode(structDefinitions, member + ";");
 				
 			}
 			

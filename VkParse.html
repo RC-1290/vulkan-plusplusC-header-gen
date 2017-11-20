@@ -7,15 +7,75 @@
 </head>
 
 <body>
+
 <h1>Vulkan Spec Parser</h1>
 <p>This parser tries to turn vk.xml into a ++C header file and implementation file. It's developed to work in Mozilla Firefox 55 and above.</p>
 <p id="statusText">This status text will be replaced by javascript, if the script works.</p>
+<div id="setupStuff">
 <h2>Features and Extensions</h2>
-<div id="symbols">This is where features and extensions should show up (using Javascript)</div>
+<div id="featureSelection">This is where features and extensions should show up (using Javascript)</div>
+
+<h2>Imported stuff</h2>
+<div id="symbols"></div>
+</div>
+
+<div id="hiddenUntilCreation" class="hidden">
 
 <h2>Vulkan Header</h2>
 <button id="headerSelectBtn">Select Header Text</button>
-<pre><code id="vulkanHeader">This is where the header will be placed (using Javascript).</code></pre>
+<pre><code id="vulkanHeader">// This header is generated from the Khronos Vulkan XML API Registry,
+// https://github.com/KhronosGroup/Vulkan-Docs/blob/1.0/src/spec/vk.xml
+// The custom header generator was written by Laurens Mathot (@RC_1290).
+// This generated code is also licensed under the Appache License, Version 2.0.
+// http://www.apache.org/licenses/LICENSE-2.0
+	
+// Vulkan Header for C++ compilers.
+// A single translation unit (e.g.: a .cpp file) that includes this header, must have <span class="ProccAddrLookupImplDefine">IMPLEMENT_VK_COMMAND_LOOKUP</span> defined.
+	
+#pragma once
+<div id="extraIncludes"></div>
+	
+namespace <span class="namespaceVulkan">Vk</span>
+{
+	// Handles:<div id ="handles"></div>
+	
+	// constants and enums:<div id="enums"></div>
+	
+	// Function pointers that need to be defined before structs:<div id="earlyPfn"></div>
+	
+	// Structs:<div id="structs"></div>
+	
+	// Function pointer type definitions:
+	namespace PFN
+	{<div id="commandTypeDefs"></div>	}
+	<div id="externPfns"></div>
+}
+
+// Proc address retrieval implementation:
+#ifdef <span class="ProccAddrLookupImplDefine">IMPLEMENT_VK_COMMAND_LOOKUP</span>
+
+extern "C" <span id="vkGetInstanceProcAddrDefine"></span>
+
+namespace <span class="namespaceVulkan">Vk</span>
+{<div id="cmdDefs"></div>}
+namespace <span class="namespaceNewCode">CodeAnimo</span>
+{
+	namespace <span class="namespaceNewCode2">Vulkan</span>
+	{
+		bool LoadIndependentCommands()
+		{<div id="independentCmdLoading"></div>
+			return true;
+		}
+		bool LoadInstanceCommands( Vk::Instance instance)
+		{<div id="instanceCmdLoading"></div>
+			return true;
+		}
+	}
+}
+#endif
+</code></pre>
+
+</div>
 <script src="vkParse.js" type="text/javascript"></script>
 </body>
 </html>

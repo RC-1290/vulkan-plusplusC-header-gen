@@ -17,3 +17,8 @@ pre{
 .extensionList{
 	column-width: 350px;
 }
+
+.hidden
+{
+	display : none;
+}
