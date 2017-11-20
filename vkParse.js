@@ -231,7 +231,14 @@ function listFeaturesAndExtensions()
 	command.originalName = "vkSomething";
 	command.returnType = "void";
 	command.parameters = [];
-	command.parameters.push("void* example");
+	
+	let parameter = {};
+	parameter.preType = "";
+	parameter.type = "void";
+	parameter.postType = "*";
+	parameter.name = "example";
+	
+	command.parameters.push(parameter);
 	commands.push(command);
 }
 
@@ -270,8 +277,151 @@ function checkRequiredExtensions()
 	}
 }
 
+function addType(typeName)
+{
+	let found = availableStructs.get(typeName);
+	if (found)
+	{
+		for (let i = 0; i < found.members.length; ++i)
+		{
+			addType(found.members.type);
+		}
+		pushIfNew(structs, found);
+		
+	}
+	else
+	{
+		found = availableFlags.get(typeName);
+		if (found)
+		{
+			console.log("ignoring flag, it'll be replaced by a basic type anyway.");
+		}
+		
+		else {	console.error("type not found: " + typeName); }
+	}
+}
+
 function writeHeader()
 {
+	/*for(let feature of features.values())
+	{
+		if (!feature.checkbox.checked) { continue; }
+		
+		for (let requireOrRemove of feature.node.childNodes.values())
+		{
+			if (requireOrRemove.tagName == "remove")
+			{ console.error("feature remove tags aren't supported yet. (They weren't used when this generator was written"); }
+			else if (requireOrRemove.tagName == "require")
+			{
+				for (const tag of requireOrRemove.childNodes.values())
+				{
+					if (tag.tagName == "command")
+					{
+						let commandName = tag.getAttribute("name");
+						addLineOfCode(symbolList, "command: " + commandName);
+					}
+					else if (tag.tagName == "enum")
+					{
+						let enumName = tag.getAttribute("name");
+						let found = availableEnums.get(enumName);
+						if (found){ pushIfNew(enums, found);	}
+						else
+						{
+							found = availableConstants.get(enumName);
+							if (found)
+							{
+								pushIfNew(constants, found);
+							}
+							else {	console.error("enum not found: " + enumName);	}
+						}
+					}
+					else if (tag.tagName == "type")
+					{
+						addType(tag.getAttribute("name"));						
+					}
+				}
+			}
+		}
+		
+		
+		for (let extension of feature.availableExtensions.values())
+		{
+			if (!extension.checkbox.checked) { continue; }
+			
+			// Apply extension changes.
+			// NOTE: this assumes there's only one feature. If there are multiple, they'll all be affected.
+			var extensionChildren = extension.node.children;
+			for(var k = 0; k < extensionChildren.length; ++k)
+			{
+				var requireOrRemove = extensionChildren.item(k);
+				var interfaces = requireOrRemove.childNodes;
+				if (requireOrRemove.tagName == "require")
+				{
+					for(var l = 0; l < interfaces.length; ++l)
+					{
+						var interfaceNode = interfaces.item(l);
+						var tagName = interfaceNode.tagName;
+						
+						if (tagName == "enum")
+						{
+							var enumName = interfaceNode.getAttribute("name");
+							addLineOfCode(symbolList, "enum: " + enumName);
+							
+							var extending = interfaceNode.getAttribute("extends");
+							if (extending)
+							{
+								// Find appropriate enum and add it:
+								for(var m = 0; m < enumsNodes.length; ++m)
+								{
+									var enumsNode = enumsNodes.item(m);
+									if (enumsNode.getAttribute("name") == extending)
+									{
+										var offsetAttribute = interfaceNode.getAttribute("offset");
+										if (offsetAttribute)
+										{
+											var offset = parseInt(interfaceNode.getAttribute("offset"));
+											var valueAttribute = 1000000000 + offset + (1000 * (extension.number - 1))
+											if (interfaceNode.getAttribute("dir") == "-")
+											{
+												valueAttribute = -valueAttribute;
+											}
+											
+											interfaceNode.setAttribute("value", valueAttribute);
+										}
+										interfaceNode.setAttribute("extends", extending);
+										enumsNode.appendChild(interfaceNode);
+									}
+								}
+								
+							}
+							else 
+							{
+								apiConstantsNode.appendChild(interfaceNode);
+							}							
+						}
+						else if (tagName == "command")
+						{
+							
+						}
+						else if (tagName == "type")
+						{
+							
+						}
+					}
+				}
+				else 
+				{
+					console.error("extension remove tags aren't supported yet. (They weren't used when this generator was written");
+				}
+				
+			}
+		}
+		
+		
+	}*/
+	
+	
+	// Write header:
 	document.getElementById("setupStuff").setAttribute("class", "hidden");
 	document.getElementById("hiddenUntilCreation").removeAttribute("class");
 	document.getElementById("vkGetInstanceProcAddrDefine").textContent = vulkanNamespace + "::PFN_vkVoidFunction" + VKAPI_CALL + " vkGetInstanceProcAddr( " + vulkanNamespace + "::Instance instance, const " + s8 + "* pName );";
@@ -349,7 +499,8 @@ function writeHeader()
 		for(let j=0;j < command.parameters.length; ++j)
 		{
 			if (j > 0) { parametersText += ", "; }
-			parametersText += command.parameters[j];
+			let parameter = command.parameters[j];
+			parametersText += parameter.preType + parameter.type + parameter.postType + " " + parameter.name;
 		}
 		
 		addLineOfCode( commandTypeDefsDiv, indentation(2) + "typedef " + command.returnType + indentation(2) + "(" + VKAPI_PTR + " *" + command.name + ")(" + parametersText + ");" );
@@ -1005,4 +1156,9 @@ function padTabs(text, length)
 {
 	var tabCount = Math.floor((length - text.length) / tabSpaceWidth);// Note, it would be more consistent by actually calculating character widths.
 	return text + indentation(tabCount);
+}
+
+function pushIfNew( targetArray, targetObject)
+{
+	if (targetArray.indexOf(targetObject) == -1){	return targetArray.push(targetObject);	}
 }
