@@ -69,10 +69,10 @@ var xhr = new XMLHttpRequest();
 var vkxml;
 var features = new Map();
 
-var availableCommands = new Map();
-var availableEnums = new Map();
 var availableTypes = new Map();
-var availableFlags = new Map();
+var availableEnums = new Map();
+var availableCommands = new Map();
+var availableFlags = [];
 
 var commands = [];
 var structs = [];
@@ -114,6 +114,314 @@ function listFeaturesAndExtensions()
 	
 	// Clear placeholder text:
 	featureList.textContent = "";
+	
+	// Parse Types and Enums:	
+	var typesNode = vkxml.getElementsByTagName("types").item(0);
+	var typeNodes = typesNode.children;
+	for(let i = 0; i < typeNodes.length; ++i)
+	{
+		var typeNode = typeNodes.item(i);
+		var category = typeNode.getAttribute("category");
+		
+		if (category == "handle")
+		{			
+			var handle = {};
+			handle.originalName = typeNode.getElementsByTagName("name").item(0).textContent;
+			handle.name = stripVk(handle.originalName);
+			handle.category = "handle";
+			availableTypes.set(handle.originalName, handle);
+		}
+		else if (category == "funcPointer")
+		{		
+			var funcPointer = {};
+			funcPointer.category = "funcPointer";
+			funcPointer.code = indentation(1);
+			
+			var childNodes = typeNode.childNodes;
+			
+			for( var j = 0; j < childNodes.length; ++j)
+			{
+				var textContent = childNodes.item(j).textContent;
+				if (childNodes.tagName == "name")
+				{
+					funcPointer.originalName = textContent;
+				}
+				
+				funcPointer.code +=  stripVk(replaceTypes(replaceFlagTypes(textContent, availableFlags)));
+			}
+			
+			availableTypes.set(funcPointer.originalName, funcPointer);
+		}
+		else if (category == "bitmask")
+		{
+			// Add to list so we can replace each occurance:
+			var typeChildNodes = typeNode.childNodes;
+			for (var j = 0; j < typeChildNodes.length; ++j)
+			{
+				var typeChildNode = typeChildNodes.item(j);
+				if (typeChildNode.tagName == "name")
+				{
+					var flagName = typeChildNode.textContent;
+					availableFlags.push(flagName);
+					break;
+				}
+			}			
+		}
+		else if (category == "struct" || category == "union")
+		{			
+			var struct = {};
+			struct.category = "struct";
+			struct.originalName = typeNode.getAttribute("name");
+			struct.name = stripVk(struct.originalName);
+			availableTypes.set(struct.originalName, struct);
+			struct.members = [];
+			
+			
+			var memberNodes = typeNode.children;			
+			for(var j = 0; j < memberNodes.length; ++j)
+			{
+				
+				var memberNode = memberNodes.item(j);
+				if (memberNode.tagName != "member")
+				{
+					continue;
+				}
+				
+				var member = {};
+				member.type = "";
+				struct.members.push(member);
+				let lastWasText = false;
+				
+				var memberTags = memberNode.childNodes;
+				for(var h = 0; h < memberTags.length; ++h)
+				{
+					var memberTag = memberTags.item(h);
+					
+					switch(memberTag.nodeType)
+					{
+						case 1:// Element
+							if (memberTag.tagName == "type")
+							{
+								if (lastWasText) { member.type += " "; };
+								member.type += stripVk(replaceTypes(replaceFlagTypes(memberTag.textContent, availableFlags)));
+							}
+							else if (memberTag.tagName == "name")
+							{
+								member.name = memberTag.textContent;
+							}
+							else if (memberTag.tagName == "enum")
+							{
+								member.name += stripVk(memberTag.textContent);
+							}
+							
+							lastWasText = false;
+						break;
+						case 3:// Text Node
+							if (!member.name)
+							{
+								lastWasText = true;	
+								member.type += memberTag.textContent.trim();
+							}
+							else 
+							{ member.name += memberTag.textContent.trim(); }
+						break;
+					}
+				}
+				
+			}
+		}
+	}
+	
+	// constants:
+	let enumsNodes = vkxml.getElementsByTagName("enums");
+	for(let i = 0; i < enumsNodes.length; ++i)
+	{
+		// example enums:
+		var enumsNode = enumsNodes.item(i);
+		var enumName = enumsNode.getAttribute("name");
+		if (enumName == "API Constants")
+		{
+			var constants = enumsNode.children;
+			for(let j = 0; j < constants.length; ++j)
+			{
+				var constantNode = constants.item(j);
+				
+				var constant = {};
+				
+				constant.category = "constant";
+				constant.name = constantNode.getAttribute("name");
+				constant.value = constantNode.getAttribute("value");
+				constant.type = "u32";
+				
+				let typeFound = false;
+				
+				if (!constant.value){ continue; }
+				availableEnums.set(constant.name, constant);
+				
+				if (constant.value.startsWith("VK_"))
+				{
+					// Probably an enum alias, skip it:
+					continue;
+				}
+				
+				// naive type analysis that only recognizes ULL (unsigned 64), f (float) or " (char* / c-string)
+				for(let k = 0; k < constant.value.length; ++k)
+				{					
+					switch(constant.value[k])
+					{
+						case 'U':
+							if (k > 0 && !isNaN(constant.value[k-1]) && constant.value[k+1] == "L" && constant.value[k+2] == "L")
+							{
+								constant.type = u64;
+								typeFound = true;
+								break;
+							}
+						break;
+						case 'f':
+							constant.type = "float";
+							typeFound = true;
+						break;
+						case '"':
+							constant.type = s8 + "*";
+							typeFound = true;
+						break;
+					}
+					if (typeFound) { break; }
+				}	
+			}
+		}
+		else
+		{
+			// enum classes	
+			let cEnum = {};
+			constant.category = "enum";
+			cEnum.name = enumName;
+			cEnum.constants = [];
+			
+			availableEnums.set(cEnum.name, cEnum);		
+			
+			let enumType = enumsNode.getAttribute("type");
+			cEnum.isBitMask = enumType == "bitmask";
+			
+			cEnum.minName = "";
+			let minValue = 0;
+			cEnum.maxName = cEnum.minName;
+			let maxValue = minValue;
+			
+			let enumEntry = enumsNode.children;
+			for(let j = 0; j < enumEntry.length; ++j)
+			{
+				let constantNode = enumEntry.item(j);
+				if (constantNode.tagName != "enum")
+				{
+					continue;
+				}
+				let constant = {};
+				constant.name = constantNode.getAttribute("name");
+				constant.value = parseInt(constantNode.getAttribute("value"), 10);
+				
+				if (cEnum.isBitMask)
+				{
+					var constantBitPos = constantNode.getAttribute("bitpos");
+					if (constantBitPos)
+					{
+						constant.value = "(1 << " + constantBitPos + ")";
+					}
+				}
+				else if (!constantNode.getAttribute("extends"))
+				{
+					if (!cEnum.minName)
+					{
+						cEnum.minName = cEnum.maxName = stripEnumName(enumName, constant.name);
+						minValue = maxValue = constant.value;
+					}
+					else if (constant.value < minValue)
+					{
+						cEnum.minName = stripEnumName(enumName, constant.name);
+						minValue = constant.value;
+					}
+					else if (constant.value > maxValue) 
+					{
+						cEnum.maxName = stripEnumName(enumName, constant.name);
+						maxValue = constant.value;
+					}
+				}
+				cEnum.constants.push(constant);
+			}
+		}
+	}
+	
+	// Parse commands
+	/*var commandsNode = vkxml.getElementsByTagName("commands").item(0);
+	var commands = commandsNode.getElementsByTagName("command");
+	for(let i = 0; i < commands.length; ++i)
+	{
+		var commandNode = commands.item(i);
+		if (!commandNode){ break;}
+		var protoNode = commandNode.getElementsByTagName("proto").item(0);
+		if (!protoNode){ break;}
+		var typeText = stripVk(replaceTypes(protoNode.getElementsByTagName("type").item(0).textContent));
+		var nameText = stripVk(protoNode.getElementsByTagName("name").item(0).textContent);
+		
+		if (nameText == "GetDeviceProcAddr" || nameText == "GetInstanceProcAddr"){ continue; }
+		
+		// Function pointer signatures (PFN):
+		var pfnEntry = document.createElement("div");
+		pfnDefinitions.appendChild(pfnEntry);
+		pfnEntry.textContent = indentation(2);
+		pfnEntry.textContent += "typedef " + 
+		typeText + indentation(2) + "(" + VKAPI_PTR + " *" + 
+		nameText + ")(";
+		
+		var commandChildren = commandNode.children;
+		var firstParameter = true;
+		
+		for(let j=0; j < commandChildren.length; ++j)
+		{
+			var commandChild = commandChildren.item(j);
+			if (commandChild.tagName != "param")
+			{
+				continue;
+			}
+			
+			if (firstParameter) { firstParameter = false; }
+			else { pfnEntry.textContent += ", "; }
+			
+			var nodes = commandChild.childNodes;
+			
+			for(let k = 0; k < nodes.length; ++k)
+			{
+				var node = nodes.item(k);
+				
+				parameterText = stripVk(replaceTypes(replaceFlagTypes( node.textContent, flagTypes)));
+				
+				pfnEntry.textContent += parameterText;
+			}
+		}
+		
+		pfnEntry.textContent += ");"	
+		
+		// Function defintions:
+		var fnDefExt = document.createElement("div");
+		var fnDef = document.createElement("div");
+				
+		functionDefinitionsExt.appendChild(fnDefExt);
+		functionDefinitions.appendChild(fnDef);
+				
+		fnDefExt.textContent = padTabs(indentation(1) + "extern PFN::" + nameText, 68) + nameText + ";";
+		fnDef.textContent = padTabs(indentation(1) + " PFN::" + nameText, 68) + nameText + ";";;
+		
+		if (nameText == "EnumerateInstanceLayerProperties" || nameText == "EnumerateInstanceExtensionProperties" || nameText == "CreateInstance")
+		{
+			addLineOfCode(loadIndependentCommands, indentation(3) + vulkanNamespace + '::' + nameText + ' = (' + vulkanNamespace + '::PFN::' + nameText + ') vkGetInstanceProcAddr( nullptr, "vk' + nameText + '" );');
+			addLineOfCode(loadIndependentCommands, indentation(3) + 'if(!' + vulkanNamespace + '::' +nameText + ') { return false; }');
+		}
+		else 
+		{
+			addLineOfCode(loadInstanceCommands, indentation(3) + vulkanNamespace + '::' + nameText + ' = (' + vulkanNamespace + '::PFN::' + nameText + ') vkGetInstanceProcAddr( instance, "vk' + nameText + '" );');
+			addLineOfCode(loadInstanceCommands, indentation(3) + 'if(!' + vulkanNamespace + '::' +nameText + ') { return false; }');
+		}
+	}*/
 	
 	// List features:
 	statusText.textContent = "Listing Features...";
@@ -186,50 +494,6 @@ function listFeaturesAndExtensions()
 	
 	featureList.appendChild(writeHeaderButton);
 	
-	// example handles:
-	handles.push("exampleHandle");
-	
-	// example enums:
-	var constant = {};
-	constant.type = "u32";
-	constant.name = "TEST_CONSTANT";
-	constant.value = 256;
-	constants.push(constant);
-	
-	let cEnum = {};
-	cEnum.name = "ExampleEnum";
-	cEnum.isBitMask = false;
-	cEnum.minName = "EXAMPLE_MIN";
-	cEnum.maxName = "EXAMPLE_MAX";
-	cEnum.constants = [];
-	let minConstant = {};
-	minConstant.name = "EXAMPLE_MIN";
-	minConstant.value = 0;
-	let maxConstant = {};
-	maxConstant.name = "EXAMPLE_MAX";
-	maxConstant.value = 1;
-	cEnum.constants.push(minConstant);
-	cEnum.constants.push(maxConstant);
-	enums.push(cEnum);
-	
-	// example early function pointers:
-	var earlyPfn = {};
-	earlyPfn.code = "typedef void* (VKAPI_PTR *PFN_vkAllocationFunction)(\n    void*                                       pUserData, \n    size_t                                      size,\n    size_t                                      alignment,\n    VkSystemAllocationScope                     allocationScope);";
-	earlyPfns.push(earlyPfn);
-	
-	// example struct:
-	var struct = {};
-	var member = {};
-	
-	struct.name = "someStruct";
-	struct.members = [];
-	
-	member.name = "sampler";
-	member.type = "Sampler";
-	
-	struct.members.push(member);
-	structs.push(struct);
-		
 		
 	// example command:
 	var command = {};
@@ -433,7 +697,8 @@ function writeHeader()
 	// Write Handles:
 	for(let i = 0; i < handles.length; ++i)
 	{
-		addLineOfCode(handlesDiv, padTabs(indentation(1) + "typedef struct " + handles[i] + "_Handle*", 60) + handles[i] + ";");
+		let handleName = handles[i].name;
+		addLineOfCode(handlesDiv, padTabs(indentation(1) + "typedef struct " + handleName + "_Handle*", 60) + handleName + ";");
 	}
 	
 	// Write constants:
@@ -539,7 +804,7 @@ function addType(typeName)
 				for (let i = 0; i < found.members.length; ++i)
 				{
 					// Let's hope there's no circular references in the XML, otherwise this won't complete.
-					addType(found.members.type);
+					addType(found.members[i].type);
 				}
 				pushIfNew(structs, found);
 			break;
@@ -556,509 +821,6 @@ function addType(typeName)
 		}		
 	}	
 	else {	console.error("type not found: " + typeName); }
-}
-
-
-function writeHeaderOld()
-{	
-	// Find API Constants node
-	var enumsNodes = vkxml.getElementsByTagName("enums");
-	var apiConstantsNode;
-	for(let i = 0; i < enumsNodes.length; ++i)
-	{
-		var enumsNode = enumsNodes.item(i);
-		var enumName = enumsNode.getAttribute("name");
-		if (enumName == "API Constants")
-		{
-			apiConstantsNode = enumsNode;
-			break;
-		}
-	}
-
-	for(let feature of features.values())
-	{
-		if (!feature.checkbox.checked) { continue; }
-		
-		for (let requireOrRemove of feature.node.childNodes.values())
-		{
-			if (requireOrRemove.tagName == "remove")
-			{ console.error("feature remove tags aren't supported yet. (They weren't used when this generator was written"); }
-			else if (requireOrRemove.tagName == "require")
-			{
-				for (const tag of requireOrRemove.childNodes.values())
-				{
-					if (tag.tagName == "command")
-					{
-						var commandName = tag.getAttribute("name");
-						addLineOfCode(symbolList, "command: " + commandName);
-					}
-					else if (tag.tagName == "enum")
-					{
-						var enumName = tag.getAttribute("name");
-						addLineOfCode(symbolList, "enum: " + enumName);
-					}
-					else if (tag.tagName == "type")
-					{
-						var typeName = tag.getAttribute("name");
-						addLineOfCode(symbolList, "type: " + typeName);
-					}
-				}
-			}
-		}
-		
-		
-		for (let extension of feature.availableExtensions.values())
-		{
-			if (!extension.checkbox.checked) { continue; }
-			
-			// Apply extension changes.
-			// NOTE: this assumes there's only one feature. If there are multiple, they'll all be affected.
-			var extensionChildren = extension.node.children;
-			for(var k = 0; k < extensionChildren.length; ++k)
-			{
-				var requireOrRemove = extensionChildren.item(k);
-				var interfaces = requireOrRemove.childNodes;
-				if (requireOrRemove.tagName == "require")
-				{
-					for(var l = 0; l < interfaces.length; ++l)
-					{
-						var interfaceNode = interfaces.item(l);
-						var tagName = interfaceNode.tagName;
-						
-						if (tagName == "enum")
-						{
-							var enumName = interfaceNode.getAttribute("name");
-							addLineOfCode(symbolList, "enum: " + enumName);
-							
-							var extending = interfaceNode.getAttribute("extends");
-							if (extending)
-							{
-								// Find appropriate enum and add it:
-								for(var m = 0; m < enumsNodes.length; ++m)
-								{
-									var enumsNode = enumsNodes.item(m);
-									if (enumsNode.getAttribute("name") == extending)
-									{
-										var offsetAttribute = interfaceNode.getAttribute("offset");
-										if (offsetAttribute)
-										{
-											var offset = parseInt(interfaceNode.getAttribute("offset"));
-											var valueAttribute = 1000000000 + offset + (1000 * (extension.number - 1))
-											if (interfaceNode.getAttribute("dir") == "-")
-											{
-												valueAttribute = -valueAttribute;
-											}
-											
-											interfaceNode.setAttribute("value", valueAttribute);
-										}
-										interfaceNode.setAttribute("extends", extending);
-										enumsNode.appendChild(interfaceNode);
-									}
-								}
-								
-							}
-							else 
-							{
-								apiConstantsNode.appendChild(interfaceNode);
-							}							
-						}
-						else if (tagName == "command")
-						{
-							
-						}
-						else if (tagName == "type")
-						{
-							
-						}
-					}
-				}
-				else 
-				{
-					console.error("extension remove tags aren't supported yet. (They weren't used when this generator was written");
-				}
-				
-			}
-		}
-		
-		
-	}
-
-
-	// Vulkan Header:
-	
-	
-	// Types:
-	var handles = new Map();
-	var funcPointers = new Map();
-	var flagTypes = [];
-	var structs = new Map();
-	
-	
-	var typesNode = vkxml.getElementsByTagName("types").item(0);
-	var typeNodes = typesNode.children;
-	for(let i = 0; i < typeNodes.length; ++i)
-	{
-		var typeNode = typeNodes.item(i);
-		var category = typeNode.getAttribute("category");
-		
-		if (category == "handle")
-		{
-			var handle = {};
-			handle.originalName = typeNode.getElementsByTagName("name").item(0).textContent;
-			handle.name = stripVk(handle.originalName);
-			handle.code = padTabs( indentation(1) + "typedef struct " + handle.name + "_Handle*", 60 ) + handle.name + ";";
-			handles.set(handle.originalName, handle);
-			addLineOfCode(handleDefinitions, handle.code);
-		}
-		else if (category == "funcpointer")
-		{
-			var funcPointer = {};
-			funcPointer.code = indentation(1);
-			
-			var childNodes = typeNode.childNodes;
-			
-			for( var j = 0; j < childNodes.length; ++j)
-			{
-				var textContent = childNodes.item(j).textContent;
-				if (childNodes.tagName == "name")
-				{
-					funcPointer.originalName = textContent;
-				}
-				
-				funcPointer.code +=  stripVk(replaceTypes(replaceFlagTypes(textContent, flagTypes)));
-			}
-			
-			funcPointers.set(funcPointer.originalName, funcPointer);
-			
-			addLineOfCode(earlyPfnDefinitions, funcPointer.code);
-			addLineOfCode(earlyPfnDefinitions, indentation(1));
-		}
-		else if (category == "bitmask")
-		{
-			// Add to list so we can replace each occurance:
-			var typeChildNodes = typeNode.childNodes;
-			for (var j = 0; j < typeChildNodes.length; ++j)
-			{
-				var typeChildNode = typeChildNodes.item(j);
-				if (typeChildNode.tagName == "name")
-				{
-					var flagName = typeChildNode.textContent;
-					flagTypes.push(flagName);
-					break;
-				}
-			}			
-		}
-		else if (category == "struct" || category == "union")
-		{
-			var struct = {};
-			struct.name = stripVk(typeNode.getAttribute("name"));
-			structs.set(struct.name, struct);
-			struct.members = [];
-				
-			addLineOfCode(structDefinitions, indentation(1) + "struct " + struct.name + " {");
-			
-			var memberNodes = typeNode.children;			
-			for(var j = 0; j < memberNodes.length; ++j)
-			{
-				
-				var memberNode = memberNodes.item(j);
-				if (memberNode.tagName != "member")
-				{
-					continue;
-				}
-				
-				var member = "";
-				struct.members.push(member);
-				
-				var lastWasText = false;
-				
-				var memberTags = memberNode.childNodes;
-				for(var h = 0; h < memberTags.length; ++h)
-				{
-					var memberTag = memberTags.item(h);
-					
-					switch(memberTag.nodeType)
-					{
-						case 1:// Element
-							if (memberTag.tagName == "type")
-							{
-								if (lastWasText)
-								{
-									member += " ";
-								}
-								member += stripVk(replaceTypes(replaceFlagTypes(memberTag.textContent, flagTypes)));
-							}
-							else if (memberTag.tagName == "enum")
-							{
-								member += stripVk(memberTag.textContent);
-							}
-							else if (memberTag.tagName == "name")
-							{
-								member = padTabs(member, 57) + memberTag.textContent;
-							}
-							lastWasText = false;
-						break;
-						case 3:// Text Node
-							member += memberTag.textContent.trim();
-							lastWasText = true;
-						break;
-					}
-				}
-				
-				addLineOfCode(structDefinitions, member + ";");
-				
-			}
-			
-			addLineOfCode(structDefinitions, indentation(1) + "};");
-			addLineOfCode(structDefinitions, indentation(1));
-		}
-	}
-	addLineOfCode(handleDefinitions, indentation(1));
-	
-	// constants:
-	for(let i = 0; i < enumsNodes.length; ++i)
-	{
-		var enumsNode = enumsNodes.item(i);
-		var enumName = enumsNode.getAttribute("name");
-		if (enumName == "API Constants")
-		{
-			var constants = enumsNode.children;
-			for(let j = 0; j < constants.length; ++j)
-			{
-				var constantNode = constants.item(j);
-				var constantName = constantNode.getAttribute("name");
-				var constantValue = constantNode.getAttribute("value");
-				var constantType = "u32";
-				var typeFound = false;
-				
-				if (!constantValue){ continue; }
-				
-				if (constantValue.startsWith("VK_"))
-				{
-					// Probably an enum alias, skip it:
-					continue;
-				}
-				
-				// naive type analysis that only recognizes ULL (unsigned 64), f (float) or " (char* / c-string)
-				for(let k = 0; k < constantValue.length; ++k)
-				{					
-					switch(constantValue[k])
-					{
-						case 'U':
-							if (k > 0 && !isNaN(constantValue[k-1]) && constantValue[k+1] == "L" && constantValue[k+2] == "L")
-							{
-								constantType = u64;
-								typeFound = true;
-								break;
-							}
-						break;
-						case 'f':
-							constantType = "float";
-							typeFound = true;
-						break;
-						case '"':
-							constantType = s8 + "*";
-							typeFound = true;
-						break;
-					}
-					if (typeFound) { break; }
-				}
-				
-				addLineOfCode(enumDefinitions, indentation(1) + "const " + constantType + " " + stripVk(constantName) + " = " + constantValue + ";");
-			}
-			addLineOfCode(enumDefinitions, indentation(1));
-		}
-		else
-		{
-			// enum classes
-			addLineOfCode( enumDefinitions, indentation(1) + "enum class " + stripVk(enumName));
-			addLineOfCode( enumDefinitions, indentation(1) + "{");
-			
-			var enumType = enumsNode.getAttribute("type");
-			var isBitMask = enumType == "bitmask";
-			
-			var minName = "";
-			var minValue = 0;
-			var maxName = minName;
-			var maxValue = minValue;
-			
-			var enumEntry = enumsNode.children;
-			for(let j = 0; j < enumEntry.length; ++j)
-			{
-				var constantNode = enumEntry.item(j);
-				if (constantNode.tagName != "enum")
-				{
-					continue;
-				}
-				
-				var constantName = constantNode.getAttribute("name");
-				var constantValue = parseInt(constantNode.getAttribute("value"), 10);
-				
-				if (isBitMask)
-				{
-					var constantBitPos = constantNode.getAttribute("bitpos");
-					if (constantBitPos)
-					{
-						constantValue = "(1 << " + constantBitPos + ")";
-					}
-				}
-				else if (!constantNode.getAttribute("extends"))
-				{
-					if (!minName)
-					{
-						minName = maxName = stripEnumName(enumName, constantName);
-						minValue = maxValue = constantValue;
-					}
-					else if (constantValue < minValue)
-					{
-						minName = stripEnumName(enumName, constantName);
-						minValue = constantValue;
-					}
-					else if (constantValue > maxValue) 
-					{
-						maxName = stripEnumName(enumName, constantName);
-						maxValue = constantValue;
-					}
-				}
-				
-				addLineOfCode(enumDefinitions, padTabs(indentation(2) + stripEnumName(enumName, constantName) + " =", 89) + constantValue + ",");
-			}
-			if (!isBitMask)
-			{
-				addLineOfCode( enumDefinitions, padTabs(indentation(2) + "BEGIN_RANGE =", 89) + minName + ",");
-				addLineOfCode( enumDefinitions, padTabs(indentation(2) + "END_RANGE =", 89) + maxName + ",");
-				addLineOfCode( enumDefinitions, padTabs(indentation(2) + "RANGE_SIZE =", 89) + "(" + maxName + " - " + minName + " + 1),");
-			}
-			addLineOfCode( enumDefinitions, padTabs(indentation(2) + "MAX_ENUM =", 89) + max_enum);
-				
-			addLineOfCode( enumDefinitions, indentation(1) + "};");
-			addLineOfCode( enumDefinitions, indentation(1));
-		}
-	}
-	
-	// Proc Address retrieval implementation:
-	var vulkanFunctions = document.createElement("div");
-	var functionDefinitions = document.createElement("div");
-	var functionRetrieval = document.createElement("div");
-	var loadIndependentCommands = document.createElement("div");
-	var loadInstanceCommands = document.createElement("div");
-	
-	vulkanFunctions.setAttribute("id", "vulkanFunctions");
-	functionDefinitions.setAttribute("id", "functionDefinitions");
-	functionRetrieval.setAttribute("id", "functionRetrieval");
-	loadIndependentCommands.setAttribute("id", "loadIndependentCommands");
-	loadInstanceCommands.setAttribute("id", "loadInstanceCommands");
-	
-	addLineOfCode(vulkanFunctions, "// Proc address retrieval implementation:");
-	
-	addLineOfCode(vulkanFunctions, "#ifdef " + ProccAddrLookupImplDefine);
-	addLineOfCode(vulkanFunctions, 'extern "C" ' + VKAPI_ATTR + ' Vk::PFN_vkVoidFunction '+ VKAPI_CALL +' vkGetInstanceProcAddr( Vk::Instance instance, const s8* pName );');
-	addLineOfCode(vulkanFunctions, "	");
-	vulkanHeader.appendChild(vulkanFunctions);
-	vulkanFunctions.appendChild(functionDefinitions);
-	vulkanFunctions.appendChild(functionRetrieval);
-	addLineOfCode(functionDefinitions, "namespace " + vulkanNamespace);
-	addLineOfCode(functionDefinitions, "{");
-	
-	addLineOfCode(functionRetrieval, "namespace " + newCodeNamespace);
-	addLineOfCode(functionRetrieval, "{");
-	addLineOfCode(functionRetrieval, indentation(1) +"namespace " + newCodeNamespace2);
-	addLineOfCode(functionRetrieval, indentation(1) + "{");
-	
-	functionRetrieval.appendChild(loadIndependentCommands);
-	functionRetrieval.appendChild(loadInstanceCommands);
-	addLineOfCode(functionRetrieval, indentation(1) + "}");
-	addLineOfCode(functionRetrieval, "}");
-	
-	addLineOfCode(loadIndependentCommands, indentation(2) + "bool LoadIndependentCommands()");
-	addLineOfCode(loadIndependentCommands, indentation(2) + "{");
-	
-	addLineOfCode(loadInstanceCommands, indentation(2) + "bool LoadInstanceCommands( "+ vulkanNamespace +"::Instance instance)");
-	addLineOfCode(loadInstanceCommands, indentation(2) + "{");
-	
-	// Parse commands
-	var commandsNode = vkxml.getElementsByTagName("commands").item(0);
-	var commands = commandsNode.getElementsByTagName("command");
-	for(let i = 0; i < commands.length; ++i)
-	{
-		var commandNode = commands.item(i);
-		if (!commandNode){ break;}
-		var protoNode = commandNode.getElementsByTagName("proto").item(0);
-		if (!protoNode){ break;}
-		var typeText = stripVk(replaceTypes(protoNode.getElementsByTagName("type").item(0).textContent));
-		var nameText = stripVk(protoNode.getElementsByTagName("name").item(0).textContent);
-		
-		if (nameText == "GetDeviceProcAddr" || nameText == "GetInstanceProcAddr"){ continue; }
-		
-		// Function pointer signatures (PFN):
-		var pfnEntry = document.createElement("div");
-		pfnDefinitions.appendChild(pfnEntry);
-		pfnEntry.textContent = indentation(2);
-		pfnEntry.textContent += "typedef " + 
-		typeText + indentation(2) + "(" + VKAPI_PTR + " *" + 
-		nameText + ")(";
-		
-		var commandChildren = commandNode.children;
-		var firstParameter = true;
-		
-		for(let j=0; j < commandChildren.length; ++j)
-		{
-			var commandChild = commandChildren.item(j);
-			if (commandChild.tagName != "param")
-			{
-				continue;
-			}
-			
-			if (firstParameter) { firstParameter = false; }
-			else { pfnEntry.textContent += ", "; }
-			
-			var nodes = commandChild.childNodes;
-			
-			for(let k = 0; k < nodes.length; ++k)
-			{
-				var node = nodes.item(k);
-				
-				parameterText = stripVk(replaceTypes(replaceFlagTypes( node.textContent, flagTypes)));
-				
-				pfnEntry.textContent += parameterText;
-			}
-		}
-		
-		pfnEntry.textContent += ");"	
-		
-		// Function defintions:
-		var fnDefExt = document.createElement("div");
-		var fnDef = document.createElement("div");
-				
-		functionDefinitionsExt.appendChild(fnDefExt);
-		functionDefinitions.appendChild(fnDef);
-				
-		fnDefExt.textContent = padTabs(indentation(1) + "extern PFN::" + nameText, 68) + nameText + ";";
-		fnDef.textContent = padTabs(indentation(1) + " PFN::" + nameText, 68) + nameText + ";";;
-		
-		if (nameText == "EnumerateInstanceLayerProperties" || nameText == "EnumerateInstanceExtensionProperties" || nameText == "CreateInstance")
-		{
-			addLineOfCode(loadIndependentCommands, indentation(3) + vulkanNamespace + '::' + nameText + ' = (' + vulkanNamespace + '::PFN::' + nameText + ') vkGetInstanceProcAddr( nullptr, "vk' + nameText + '" );');
-			addLineOfCode(loadIndependentCommands, indentation(3) + 'if(!' + vulkanNamespace + '::' +nameText + ') { return false; }');
-		}
-		else 
-		{
-			addLineOfCode(loadInstanceCommands, indentation(3) + vulkanNamespace + '::' + nameText + ' = (' + vulkanNamespace + '::PFN::' + nameText + ') vkGetInstanceProcAddr( instance, "vk' + nameText + '" );');
-			addLineOfCode(loadInstanceCommands, indentation(3) + 'if(!' + vulkanNamespace + '::' +nameText + ') { return false; }');
-		}
-	}
-	
-	// closing braces:
-	addLineOfCode(pfnDefinitions, indentation(1) + "}");
-	addLineOfCode(functionDefinitionsExt, "}");
-	addLineOfCode(functionDefinitions, "}");
-	addLineOfCode(loadIndependentCommands, indentation(3) + "return true;");
-	addLineOfCode(loadIndependentCommands, indentation(2) + "}");
-	addLineOfCode(loadInstanceCommands, indentation(3) + "return true;");
-	addLineOfCode(loadInstanceCommands, indentation(2) + "}");
-	addLineOfCode(vulkanFunctions, "#endif");
-	
-	statusText.textContent = "Parsing complete";
 }
 
 function selectHeader()
