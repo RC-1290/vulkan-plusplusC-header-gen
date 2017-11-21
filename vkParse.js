@@ -69,6 +69,11 @@ var xhr = new XMLHttpRequest();
 var vkxml;
 var features = new Map();
 
+var availableCommands = new Map();
+var availableEnums = new Map();
+var availableTypes = new Map();
+var availableFlags = new Map();
+
 var commands = [];
 var structs = [];
 var earlyPfns = [];
@@ -111,6 +116,7 @@ function listFeaturesAndExtensions()
 	featureList.textContent = "";
 	
 	// List features:
+	statusText.textContent = "Listing Features...";
 	var featureNodes = vkxml.getElementsByTagName("feature");
 	for(let i = 0; i < featureNodes.length; ++i)
 	{
@@ -240,6 +246,8 @@ function listFeaturesAndExtensions()
 	
 	command.parameters.push(parameter);
 	commands.push(command);
+	
+	statusText.textContent = "Features listed, waiting for user input...";
 }
 
 function checkAllFeatureExtensions()
@@ -277,33 +285,10 @@ function checkRequiredExtensions()
 	}
 }
 
-function addType(typeName)
-{
-	let found = availableStructs.get(typeName);
-	if (found)
-	{
-		for (let i = 0; i < found.members.length; ++i)
-		{
-			addType(found.members.type);
-		}
-		pushIfNew(structs, found);
-		
-	}
-	else
-	{
-		found = availableFlags.get(typeName);
-		if (found)
-		{
-			console.log("ignoring flag, it'll be replaced by a basic type anyway.");
-		}
-		
-		else {	console.error("type not found: " + typeName); }
-	}
-}
-
 function writeHeader()
 {
-	/*for(let feature of features.values())
+	statusText.textContent = "Putting required commands types and enums in order...";
+	for(let feature of features.values())
 	{
 		if (!feature.checkbox.checked) { continue; }
 		
@@ -318,22 +303,40 @@ function writeHeader()
 					if (tag.tagName == "command")
 					{
 						let commandName = tag.getAttribute("name");
-						addLineOfCode(symbolList, "command: " + commandName);
+						found = availableCommands.get(commandName);
+						if (found)
+						{
+							for (let i = 0; i < found.parameters.length; ++i)
+							{
+								addType(found.parameters.type);
+							}
+							pushIfNew(commands, found);
+						}
+						else { console.error("command not found: " + commandName); }
 					}
 					else if (tag.tagName == "enum")
 					{
 						let enumName = tag.getAttribute("name");
 						let found = availableEnums.get(enumName);
-						if (found){ pushIfNew(enums, found);	}
-						else
+						if (found)
 						{
-							found = availableConstants.get(enumName);
-							if (found)
+							switch(found.category)
 							{
-								pushIfNew(constants, found);
+								case "enum":
+									pushIfNew(enums, found);
+								break;
+								case "constant":
+									pushIfNew(constants, found);
+								break;
+								case "funcPointer":
+									pushIfNew(earlyPfns, found);
+								break;
+								default:
+									console.error("unknown enum category: " + found.category);
+								break;
 							}
-							else {	console.error("enum not found: " + enumName);	}
 						}
+						else {	console.error("enum not found: " + enumName);	}
 					}
 					else if (tag.tagName == "type")
 					{
@@ -343,7 +346,7 @@ function writeHeader()
 			}
 		}
 		
-		
+		/*
 		for (let extension of feature.availableExtensions.values())
 		{
 			if (!extension.checkbox.checked) { continue; }
@@ -415,13 +418,14 @@ function writeHeader()
 				}
 				
 			}
-		}
+		}*/
 		
 		
-	}*/
+	}
 	
 	
 	// Write header:
+	statusText.textContent = "Writing Header...";
 	document.getElementById("setupStuff").setAttribute("class", "hidden");
 	document.getElementById("hiddenUntilCreation").removeAttribute("class");
 	document.getElementById("vkGetInstanceProcAddrDefine").textContent = vulkanNamespace + "::PFN_vkVoidFunction" + VKAPI_CALL + " vkGetInstanceProcAddr( " + vulkanNamespace + "::Instance instance, const " + s8 + "* pName );";
@@ -520,6 +524,38 @@ function writeHeader()
 			addLineOfCode(instanceCmdLoadingDiv, indentation(3) + 'if(!' + vulkanNamespace + '::' + command.name + ') { return false; }');
 		}
 	}
+	
+	statusText.textContent = "Header completed writing.";
+}
+
+function addType(typeName)
+{
+	let found = availableTypes.get(typeName);
+	if (found)
+	{
+		switch(found.category)
+		{
+			case "struct":
+				for (let i = 0; i < found.members.length; ++i)
+				{
+					// Let's hope there's no circular references in the XML, otherwise this won't complete.
+					addType(found.members.type);
+				}
+				pushIfNew(structs, found);
+			break;
+			case "handle":
+				pushIfNew(handles, found);
+			break;
+			case  "flag":
+				console.log("ignoring flag'" +  found.name + "'it'll be replaced by a basic type anyway.");
+			break;
+			default:
+				console.error("Unknown type category: "  + found.category);
+			break;
+			
+		}		
+	}	
+	else {	console.error("type not found: " + typeName); }
 }
 
 
