@@ -734,7 +734,7 @@ function writeHeader()
 			parametersText += parameter.preType + parameter.type + parameter.postType + " " + parameter.name;
 		}
 		
-		addLineOfCode( commandTypeDefsDiv, indentation(2) + "typedef " + command.returnType + indentation(2) + "(" + VKAPI_PTR + " *" + command.name + ")(" + parametersText + ");" );
+		addLineOfCode( commandTypeDefsDiv, padTabs(indentation(2) + "typedef " + command.returnType, 24) + "(" + VKAPI_PTR + " *" + command.name + ")(" + parametersText + ");" );
 		
 		// Function defintions:
 		addLineOfCode(externPfnDiv, padTabs(indentation(1) + "extern PFN::" + command.name, 68) + command.name + ";");
