@@ -67,10 +67,7 @@ var instanceCmdLoadingDiv =		document.getElementById("instanceCmdLoading");
 
 var availableFeatures = new Map();
 
-var availableTypes = new Map();
-var availableEnums = new Map();
-var availableCommands = new Map();
-var availableFlags = [];
+var availableNamed = new Map();
 
 var commands = [];
 var structs = [];
@@ -120,19 +117,18 @@ function readXML(vkxml)
 		var typeNode = typeNodes.item(i);
 		var category = typeNode.getAttribute("category");
 		
-		if (category == "handle")
-		{			
-			var handle = {};
-			handle.originalName = typeNode.getElementsByTagName("name").item(0).textContent;
-			handle.name = handle.originalName;
-			handle.category = "handle";
-			availableTypes.set(handle.originalName, handle);
+		let namedThing = {};
+		namedThing.category = typeNode.getAttribute("category");
+		namedThing.name = typeNode.getAttribute("name");
+		if (!namedThing.name)
+		{
+			let nameTags = typeNode.getElementsByTagName("name");
+			if (nameTags.length > 0){	namedThing.name = nameTags.item(0).textContent;	}
 		}
-		else if (category == "funcpointer")
+		
+		if (namedThing.category == "funcpointer")
 		{		
-			var funcPointer = {};
-			funcPointer.category = "funcPointer";
-			funcPointer.code = indentation(1);
+			namedThing.code = indentation(1);
 			
 			var childNodes = typeNode.childNodes;
 			
@@ -141,14 +137,14 @@ function readXML(vkxml)
 				let childNode = childNodes.item(j);
 				if (childNode.tagName == "name")
 				{
-					funcPointer.originalName = childNode.textContent;
+					namedThing.name = childNode.textContent;
 				}
 				
-				funcPointer.code +=  childNode.textContent;
+				namedThing.code +=  childNode.textContent;
 			}
-			availableTypes.set(funcPointer.originalName, funcPointer);
+			availableNamed.set(namedThing.name, namedThing);
 		}
-		else if (category == "bitmask")
+		else if (namedThing.category == "bitmask")
 		{
 			// Add to list so we can replace each occurance:
 			var typeChildNodes = typeNode.childNodes;
@@ -157,23 +153,20 @@ function readXML(vkxml)
 				var typeChildNode = typeChildNodes.item(j);
 				if (typeChildNode.tagName == "name")
 				{
-					var flagName = typeChildNode.textContent;
-					availableFlags.push(flagName);
+					let flag = {};
+					flag.category = category;
+					flag.name = typeChildNode.textContent;
+					availableNamed.set(flag.name, flag);
 					break;
 				}
 			}			
 		}
-		else if (category == "struct" || category == "union")
-		{			
-			var struct = {};
-			struct.category = "struct";
-			struct.originalName = typeNode.getAttribute("name");
-			struct.name = struct.originalName;
-			availableTypes.set(struct.originalName, struct);
-			struct.members = [];
+		else if (namedThing.category == "struct" || namedThing.category == "union")
+		{
+			namedThing.members = [];
+			availableNamed.set(namedThing.name, namedThing);
 			
-			
-			var memberNodes = typeNode.children;			
+			var memberNodes = typeNode.children;
 			for(var j = 0; j < memberNodes.length; ++j)
 			{
 				
@@ -182,12 +175,11 @@ function readXML(vkxml)
 				{
 					continue;
 				}
-				
 				var member = {};
-				member.type = "";
-				struct.members.push(member);
-				let lastWasText = false;
-				
+				member.preType = ""
+				member.postType = "";
+				namedThing.members.push(member);
+
 				var memberTags = memberNode.childNodes;
 				for(var h = 0; h < memberTags.length; ++h)
 				{
@@ -198,8 +190,7 @@ function readXML(vkxml)
 						case 1:// Element
 							if (memberTag.tagName == "type")
 							{
-								if (lastWasText) { member.type += " "; };
-								member.type += memberTag.textContent;
+								member.type = memberTag.textContent;
 							}
 							else if (memberTag.tagName == "name")
 							{
@@ -209,23 +200,33 @@ function readXML(vkxml)
 							{
 								member.name += memberTag.textContent;
 							}
-							
-							lastWasText = false;
 						break;
 						case 3:// Text Node
-							if (!member.name)
-							{
-								lastWasText = true;	
-								member.type += memberTag.textContent.trim();
-							}
-							else 
-							{ member.name += memberTag.textContent.trim(); }
+							let contents = memberTag.textContent;
+							
+							if (!member.type){	member.preType += contents;	}//e.g.: void
+							else if (!member.name){	member.postType += contents; }// e.g.: *
+							else { member.name += memberTag.textContent.trim(); }//e.g.: [someArray]
 						break;
 					}
 				}
 				
 			}
 		}
+		else 
+		{
+			
+			if (!namedThing.category)
+			{
+				if (typeNode.getAttribute("requires"))
+				{
+					namedThing.category = "EXTERNAL";// capitalized category to avoid collision with future new categories.
+				}
+			}
+			
+			if (namedThing.name){	availableNamed.set(namedThing.name, namedThing);	}
+		}
+		
 	}
 	
 	// constants:
@@ -251,7 +252,7 @@ function readXML(vkxml)
 				let typeFound = false;
 				
 				if (!constant.value){ continue; }
-				availableEnums.set(constant.name, constant);
+				availableNamed.set(constant.name, constant);
 				
 				if (constant.value.startsWith("VK_"))
 				{
@@ -289,11 +290,11 @@ function readXML(vkxml)
 		{
 			// enum classes	
 			let cEnum = {};
-			constant.category = "enum";
+			cEnum.category = "enum";
 			cEnum.name = enumName;
 			cEnum.constants = [];
 			
-			availableEnums.set(cEnum.name, cEnum);		
+			availableNamed.set(cEnum.name, cEnum);
 			
 			let enumType = enumsNode.getAttribute("type");
 			cEnum.isBitMask = enumType == "bitmask";
@@ -351,7 +352,8 @@ function readXML(vkxml)
 	var commandElements = commandsNode.getElementsByTagName("command");
 	for(let i = 0; i < commandElements.length; ++i)
 	{
-		let command = {};	
+		let command = {};
+		command.category = "command";
 		command.parameters = [];		
 		
 		var commandNode = commandElements.item(i);
@@ -360,10 +362,9 @@ function readXML(vkxml)
 		if (!protoNode){ break;}
 		
 		command.returnType = protoNode.getElementsByTagName("type").item(0).textContent;
-		command.originalName = protoNode.getElementsByTagName("name").item(0).textContent;
-		command.name = command.originalName;
+		command.name = protoNode.getElementsByTagName("name").item(0).textContent;
 		
-		if (command.originalName == "vkGetDeviceProcAddr" || command.originalName == "vkGetInstanceProcAddr"){ continue; }
+		if (command.name == "vkGetDeviceProcAddr" || command.name == "vkGetInstanceProcAddr"){ continue; }
 		
 		var commandChildren = commandNode.children;
 		
@@ -398,7 +399,7 @@ function readXML(vkxml)
 			}
 			command.parameters.push(parameter);
 		}
-		availableCommands.set(command.originalName, command);
+		availableNamed.set(command.name, command);
 	}
 	
 	// List features:
@@ -512,7 +513,8 @@ function checkRequiredExtensions()
 
 function writeHeader()
 {
-	statusText.textContent = "Putting required commands types and enums in order...";
+	// Sort everything by usage:
+	statusText.textContent = "Sorting commands, types and enums...";
 	for(let feature of availableFeatures.values())
 	{
 		if (!feature.checkbox.checked) { continue; }
@@ -523,46 +525,11 @@ function writeHeader()
 			{ console.error("feature remove tags aren't supported yet. (They weren't used when this generator was written"); }
 			else if (requireOrRemove.tagName == "require")
 			{
-				for (const tag of requireOrRemove.childNodes.values())
+				for (const node of requireOrRemove.childNodes.values())
 				{
-					if (tag.tagName == "command")
+					if (node.nodeType == 1)
 					{
-						let commandName = tag.getAttribute("name");
-						found = availableCommands.get(commandName);
-						if (found)
-						{
-							for (let i = 0; i < found.parameters.length; ++i)
-							{
-								addType(found.parameters[i].type);
-							}
-							pushIfNew(commands, found);
-						}
-						else { console.error("command not found: " + commandName); }
-					}
-					else if (tag.tagName == "enum")
-					{
-						let enumName = tag.getAttribute("name");
-						let found = availableEnums.get(enumName);
-						if (found)
-						{
-							switch(found.category)
-							{
-								case "enum":
-									pushIfNew(enums, found);
-								break;
-								case "constant":
-									pushIfNew(constants, found);
-								break;
-								default:
-									console.error("unknown enum category: " + found.category);
-								break;
-							}
-						}
-						else {	console.error("enum not found: " + enumName);	}
-					}
-					else if (tag.tagName == "type")
-					{
-						addType(tag.getAttribute("name"));						
+						addSymbol(node.getAttribute("name"));
 					}
 				}
 			}
@@ -645,6 +612,26 @@ function writeHeader()
 		
 	}
 	
+	// Replace types and changes names:
+	
+	for (let i = 0; i < commands.length; ++i)
+	{
+		let command = commands[i];
+		command.originalName = command.name;
+	}
+	
+	// var commands = [];
+	// var structs = [];
+	// var earlyPfns = [];
+	// var handles = [];
+	// var constants = [];
+	// var enums = [];
+	/*for(let i = 0; i < enums)
+	{
+		let cEnum = enums[i];
+		cEnum.name
+	}*/
+	
 	
 	// Write header:
 	statusText.textContent = "Writing Header...";
@@ -711,7 +698,8 @@ function writeHeader()
 		addLineOfCode(structsDiv, indentation(1) + "struct " + struct.name + " {");
 		for (let j = 0; j < struct.members.length; ++j)
 		{
-			addLineOfCode(structsDiv, padTabs(indentation(2) + struct.members[j].type, 57) + struct.members[j].name + ";");
+			let member = struct.members[j];
+			addLineOfCode(structsDiv, padTabs(indentation(2) + member.preType + member.type + member.postType, 57) + member.name + ";");
 		}
 		addLineOfCode(structsDiv, indentation(1) + "};");
 		addLineOfCode(structsDiv, indentation(1));
@@ -751,37 +739,57 @@ function writeHeader()
 	statusText.textContent = "Header completed writing.";
 }
 
-function addType(typeName)
+function addSymbol(symbolName)
 {
-	let found = availableTypes.get(typeName);
+	if (symbolName == "vkGetDeviceProcAddr" || symbolName == "vkGetInstanceProcAddr"){ return; }
+	
+	let found = availableNamed.get(symbolName);
 	if (found)
 	{
 		switch(found.category)
 		{
 			case "struct":
+			case "union":
 				for (let i = 0; i < found.members.length; ++i)
 				{
 					// Let's hope there's no circular references in the XML, otherwise this won't complete.
-					addType(found.members[i].type);
+					addSymbol(found.members[i].type);
 				}
 				pushIfNew(structs, found);
+			break;
+			case "command":
+				for (let i = 0; i < found.parameters.length; ++i)
+				{
+					addSymbol(found.parameters[i].type);
+				}
+				pushIfNew(commands, found);
 			break;
 			case "handle":
 				pushIfNew(handles, found);
 			break;
-			case "funcPointer":
+			case "funcpointer":
 				pushIfNew(earlyPfns, found);
 			break;
-			case  "flag":
-				console.log("ignoring flag'" +  found.name + "'it'll be replaced by a basic type anyway.");
+			case "enum":
+				pushIfNew(enums, found);
+			break;
+			case "constant":
+				pushIfNew(constants, found);
+			break;
+			case "include":
+			case "define":
+			case "basetype":
+			case "EXTERNAL":
+			case "bitmask":
+				// ignored...
 			break;
 			default:
-				console.error("Unknown type category: "  + found.category);
+				console.error("Unknown type category: '"  + found.category + "', on found: '" + found.name + "' of type: " + found.type);
 			break;
 			
 		}		
-	}	
-	else {	console.error("type not found: " + typeName); }
+	}
+	else {	console.error("symbol not found: " + symbolName); }
 }
 
 function selectHeader()
