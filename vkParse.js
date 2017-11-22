@@ -198,6 +198,9 @@ function readXML(vkxml)
 				var member = {};
 				member.preType = ""
 				member.postType = "";
+				member.preEnum = "";
+				member.cEnum = "";
+				member.postEnum = "";
 				namedThing.members.push(member);
 
 				var memberTags = memberNode.childNodes;
@@ -218,15 +221,16 @@ function readXML(vkxml)
 							}
 							else if (memberTag.tagName == "enum")
 							{
-								member.name += memberTag.textContent;
+								member.cEnum = memberTag.textContent;
 							}
 						break;
 						case 3:// Text Node
 							let contents = memberTag.textContent;
 							
 							if (!member.type){	member.preType += contents;	}//e.g.: void
-							else if (!member.name){	member.postType += contents; }// e.g.: *
-							else { member.name += memberTag.textContent.trim(); }//e.g.: [someArray]
+							else if (!member.name)	{ member.postType += contents; }// e.g.: *
+							else if (!member.cEnum)	{ member.preEnum += memberTag.textContent.trim(); }//e.g.: [ in [someArray]
+							else					{ member.postEnum += memberTag.textContent.trim(); }//e.g.: ] in [someArray]
 						break;
 					}
 				}
@@ -552,7 +556,7 @@ function writeHeader()
 				{
 					if (node.nodeType == 1)
 					{
-						addSymbol(node.getAttribute("name"));
+						registerSymbol(node.getAttribute("name"));
 					}
 				}
 			}
@@ -690,6 +694,12 @@ function writeHeader()
 			let member = struct.members[j];
 			let replacement = typeReplacements.get(member.type);
 			if (replacement){	member.type = replacement;	}
+			
+			if (member.cEnum)
+			{
+				let replacement = typeReplacements.get(member.cEnum);
+				if (replacement) { member.cEnum = replacement; }
+			}
 		}
 		
 		typeReplacements.set(struct.originalName, struct.name);
@@ -774,7 +784,7 @@ function writeHeader()
 		for (let j = 0; j < struct.members.length; ++j)
 		{
 			let member = struct.members[j];
-			addLineOfCode(structsDiv, padTabs(indentation(2) + member.preType + member.type + member.postType, 57) + member.name + ";");
+			addLineOfCode(structsDiv, padTabs(indentation(2) + member.preType + member.type + member.postType, 57) + member.name + member.preEnum + member.cEnum + member.postEnum + ";");
 		}
 		addLineOfCode(structsDiv, indentation(1) + "};");
 		addLineOfCode(structsDiv, indentation(1));
@@ -815,7 +825,7 @@ function writeHeader()
 	statusText.textContent = "Header completed writing.";
 }
 
-function addSymbol(symbolName)
+function registerSymbol(symbolName)
 {
 	if (symbolName == "vkGetDeviceProcAddr" || symbolName == "vkGetInstanceProcAddr"){ return; }
 	
@@ -829,14 +839,19 @@ function addSymbol(symbolName)
 				for (let i = 0; i < found.members.length; ++i)
 				{
 					// Let's hope there's no circular references in the XML, otherwise this won't complete.
-					addSymbol(found.members[i].type);
+					let member = found.members[i];
+					registerSymbol(member.type);
+					if (member.cEnum)
+					{
+						registerSymbol(member.cEnum);
+					}
 				}
 				pushIfNew(structs, found);
 			break;
 			case "command":
 				for (let i = 0; i < found.parameters.length; ++i)
 				{
-					addSymbol(found.parameters[i].type);
+					registerSymbol(found.parameters[i].type);
 				}
 				pushIfNew(commands, found);
 			break;
