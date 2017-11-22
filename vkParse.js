@@ -203,7 +203,6 @@ function readXML(vkxml)
 					{
 						parameter.postType += tabsRemoved[k];
 					}
-					console.log("name: " + parameter.name + " postType: " +  parameter.postType);
 				}
 			}
 			
@@ -726,7 +725,6 @@ function writeHeader()
 		
 		typeReplacements.set(cEnum.originalName, cEnum.name);
 	}
-	// var earlyPfns = [];
 	
 	for (let i = 0; i < structs.length; ++i)
 	{
@@ -754,7 +752,17 @@ function writeHeader()
 				typeReplacements.set(type.originalName, type.name);
 			break;
 			case "funcpointer":
-				//TODO: type replacement.
+				type.originalName = type.name;
+				console.log(type.name);
+				type.preName = type.preName.replace(/\bVKAPI_PTR\b/, VKAPI_PTR);
+				for (let j = 0; j < type.parameters.length; ++j)
+				{
+					let parameter = type.parameters[j];
+					let replacement = typeReplacements.get(parameter.type);
+					if (replacement){	parameter.type = replacement;	}
+				}
+				
+				typeReplacements.set(type.originalName, type.name);
 			break;
 		}
 	}
@@ -849,6 +857,7 @@ function writeHeader()
 					let parameter = type.parameters[j];
 					addLineOfCode(structsDiv, padTabs(indentation(2) + parameter.type + parameter.postType,57) + parameter.name);
 				}
+				addLineOfCode(structsDiv, indentation(1));
 			break;
 		}
 	}
@@ -922,6 +931,10 @@ function registerSymbol(symbolName)
 				pushIfNew(handles, found);
 			break;
 			case "funcpointer":
+				for (let i = 0; i < found.parameters.length; ++i)
+				{
+					registerSymbol(found.parameters[i].type);
+				}
 				pushIfNew(structs, found);
 			break;
 			case "enum":
