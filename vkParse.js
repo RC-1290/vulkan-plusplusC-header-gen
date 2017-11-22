@@ -20,6 +20,12 @@ var newCodeNamespace = "CodeAnimo";
 var newCodeNamespace2 = "Vulkan";// nested namespace.
 var ProccAddrLookupImplDefine = "IMPLEMENT_VK_COMMAND_LOOKUP";
 
+// 
+var max_enum = "0x7FFFFFFF";
+
+// Formatting settings:
+var tab = "	";
+var tabSpaceWidth = 4;// If you change this, you might want to change the css too.
 
 // Replacement Types:
 var typeReplacements = new Map();
@@ -60,13 +66,6 @@ typeReplacements.set("SECURITY_ATTRIBUTRES", SECURITY_ATTRIBUTES);
 typeReplacements.set("DWORD", DWORD);
 typeReplacements.set("LPCWSTR", LPCWSTR);
 
-// 
-var max_enum = "0x7FFFFFFF";
-
-// Formatting settings:
-var tab = "	";
-var tabSpaceWidth = 4;// If you change this, you might want to change the css too.
-
 
 // Startup code:
 var statusText =				document.getElementById("statusText");
@@ -75,7 +74,6 @@ var symbolList =				document.getElementById("symbols");
 
 var handlesDiv =				document.getElementById("handles");
 var enumsDiv =					document.getElementById("enums");
-var earlyPfnDiv =				document.getElementById("earlyPfn");
 var structsDiv =				document.getElementById("structs");
 var commandTypeDefsDiv =		document.getElementById("commandTypeDefs");
 var externPfnDiv =				document.getElementById("externPfns");
@@ -685,24 +683,33 @@ function writeHeader()
 	
 	for (let i = 0; i < structs.length; ++i)
 	{
-		let struct = structs[i];
-		struct.originalName = struct.name;
-		struct.name = stripVk(struct.name);
-		
-		for (let j = 0; j < struct.members.length; ++j)
+		let type = structs[i];
+		switch(type.category)
 		{
-			let member = struct.members[j];
-			let replacement = typeReplacements.get(member.type);
-			if (replacement){	member.type = replacement;	}
-			
-			if (member.cEnum)
-			{
-				let replacement = typeReplacements.get(member.cEnum);
-				if (replacement) { member.cEnum = replacement; }
-			}
+			case "struct":
+			case "union":
+				type.originalName = type.name;
+				type.name = stripVk(type.name);
+				
+				for (let j = 0; j < type.members.length; ++j)
+				{
+					let member = type.members[j];
+					let replacement = typeReplacements.get(member.type);
+					if (replacement){	member.type = replacement;	}
+					
+					if (member.cEnum)
+					{
+						let replacement = typeReplacements.get(member.cEnum);
+						if (replacement) { member.cEnum = replacement; }
+					}
+				}
+				
+				typeReplacements.set(type.originalName, type.name);
+			break;
+			case "funcpointer":
+				//TODO: type replacement.
+			break;
 		}
-		
-		typeReplacements.set(struct.originalName, struct.name);
 	}
 	for (let i = 0; i < commands.length; ++i)
 	{
@@ -769,25 +776,28 @@ function writeHeader()
 		addLineOfCode( enumDiv, indentation(1));
 	}
 	
-	// Write early function pointers:
-	for(let i = 0; i < earlyPfns.length; ++i)
-	{
-		let earlyPfn = earlyPfns[i];
-		addLineOfCode( earlyPfnDiv, indentation(1) + earlyPfn.code);
-	}
-	
 	// Write out structs:
 	for (let i = 0; i < structs.length; ++i)
 	{
-		let struct = structs[i];
-		addLineOfCode(structsDiv, indentation(1) + "struct " + struct.name + " {");
-		for (let j = 0; j < struct.members.length; ++j)
+		let type = structs[i];
+		switch(type.category)
 		{
-			let member = struct.members[j];
-			addLineOfCode(structsDiv, padTabs(indentation(2) + member.preType + member.type + member.postType, 57) + member.name + member.preEnum + member.cEnum + member.postEnum + ";");
+			case "struct":
+			case "union":
+				
+				addLineOfCode(structsDiv, indentation(1) + "struct " + type.name + " {");
+				for (let j = 0; j < type.members.length; ++j)
+				{
+					let member = type.members[j];
+					addLineOfCode(structsDiv, padTabs(indentation(2) + member.preType + member.type + member.postType, 57) + member.name + member.preEnum + member.cEnum + member.postEnum + ";");
+				}
+				addLineOfCode(structsDiv, indentation(1) + "};");
+				addLineOfCode(structsDiv, indentation(1));
+			break;
+			case "funcpointer":
+				addLineOfCode( structsDiv, indentation(1) + type.code);
+			break;
 		}
-		addLineOfCode(structsDiv, indentation(1) + "};");
-		addLineOfCode(structsDiv, indentation(1));
 	}
 	
 	// Write out commands:
@@ -859,7 +869,7 @@ function registerSymbol(symbolName)
 				pushIfNew(handles, found);
 			break;
 			case "funcpointer":
-				pushIfNew(earlyPfns, found);
+				pushIfNew(structs, found);
 			break;
 			case "enum":
 				pushIfNew(enums, found);
