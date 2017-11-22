@@ -146,20 +146,67 @@ function readXML(vkxml)
 		
 		if (namedThing.category == "funcpointer")
 		{		
-			namedThing.code = indentation(1);
+			namedThing.parameters = [];
+			namedThing.preName = "";
+			namedThing.postName = "";
 			
-			var childNodes = typeNode.childNodes;
+			let currentParameter;
+			let nameFound = false;
+			let nameComplete = false;
 			
-			for( var j = 0; j < childNodes.length; ++j)
+			let childNodes = typeNode.childNodes;
+			
+			for( let j = 0; j < childNodes.length; ++j)
 			{
 				let childNode = childNodes.item(j);
-				if (childNode.tagName == "name")
+				let nodeText = childNode.textContent;
+				
+				if (!nameComplete)
 				{
-					namedThing.name = childNode.textContent;
+					if (childNode.tagName == "name")
+					{
+						nameFound = true;
+						namedThing.name = nodeText;
+					}	
+					else if (!nameFound) { namedThing.preName += nodeText;	}	
+					else if (childNode.tagName != "type"){	namedThing.postName += nodeText;	}
+					else {	nameComplete = true;	}
 				}
 				
-				namedThing.code +=  childNode.textContent;
+				if (nameComplete)
+				{
+					if (childNode.tagName == "type")
+					{
+						currentParameter = {};
+						currentParameter.postType = "";
+						namedThing.parameters.push(currentParameter);
+						currentParameter.type = nodeText;
+					}
+					else
+					{
+						currentParameter.postType += nodeText.trim();
+					}
+				}
 			}
+			
+			for(let j = 0;j < namedThing.parameters.length; ++j)
+			{
+				let parameter = namedThing.parameters[j];
+				
+				let tabsRemoved = parameter.postType.split(" ");
+				
+				if (tabsRemoved.length > 0)
+				{
+					parameter.name = tabsRemoved[tabsRemoved.length - 1];
+					parameter.postType = "";
+					for(let k = 0; k < tabsRemoved.length - 1; ++k)
+					{
+						parameter.postType += tabsRemoved[k];
+					}
+					console.log("name: " + parameter.name + " postType: " +  parameter.postType);
+				}
+			}
+			
 			availableNamed.set(namedThing.name, namedThing);
 		}
 		else if (namedThing.category == "bitmask")
@@ -795,7 +842,13 @@ function writeHeader()
 				addLineOfCode(structsDiv, indentation(1));
 			break;
 			case "funcpointer":
-				addLineOfCode( structsDiv, indentation(1) + type.code);
+				addLineOfCode(structsDiv, indentation(1) + type.preName + type.name + type.postName.trim());
+				
+				for(let j= 0; j < type.parameters.length; ++j)
+				{
+					let parameter = type.parameters[j];
+					addLineOfCode(structsDiv, padTabs(indentation(2) + parameter.type + parameter.postType,57) + parameter.name);
+				}
 			break;
 		}
 	}
