@@ -65,9 +65,7 @@ var cmdDefsDiv =				document.getElementById("cmdDefs");
 var independentCmdLoadingDiv =	document.getElementById("independentCmdLoading");
 var instanceCmdLoadingDiv =		document.getElementById("instanceCmdLoading");
 
-var xhr = new XMLHttpRequest();
-var vkxml;
-var features = new Map();
+var availableFeatures = new Map();
 
 var availableTypes = new Map();
 var availableEnums = new Map();
@@ -83,6 +81,7 @@ var enums = [];
 
 statusText.textContent = "Trying to open vk.xml";
 
+var xhr = new XMLHttpRequest();
 var async = true;
 xhr.addEventListener("load", onXhrLoad);
 xhr.open("GET", "vk.xml", async);
@@ -97,8 +96,8 @@ function onXhrLoad()
 	{
 		if (xhr.status === 200)
 		{
-			statusText.textContent = "parsing xml...";
-			listFeaturesAndExtensions();	
+			statusText.textContent = "reading xml...";
+			readXML(xhr.responseXML);	
 		}
 		else 
 		{
@@ -108,10 +107,8 @@ function onXhrLoad()
 	}
 }
 
-function listFeaturesAndExtensions()
-{
-	vkxml = xhr.responseXML;
-	
+function readXML(vkxml)
+{	
 	// Clear placeholder text:
 	featureList.textContent = "";
 	
@@ -127,7 +124,7 @@ function listFeaturesAndExtensions()
 		{			
 			var handle = {};
 			handle.originalName = typeNode.getElementsByTagName("name").item(0).textContent;
-			handle.name = stripVk(handle.originalName);
+			handle.name = handle.originalName;
 			handle.category = "handle";
 			availableTypes.set(handle.originalName, handle);
 		}
@@ -147,7 +144,7 @@ function listFeaturesAndExtensions()
 					funcPointer.originalName = textContent;
 				}
 				
-				funcPointer.code +=  stripVk(replaceTypes(replaceFlagTypes(textContent, availableFlags)));
+				funcPointer.code +=  textContent;
 			}
 			
 			availableTypes.set(funcPointer.originalName, funcPointer);
@@ -172,7 +169,7 @@ function listFeaturesAndExtensions()
 			var struct = {};
 			struct.category = "struct";
 			struct.originalName = typeNode.getAttribute("name");
-			struct.name = stripVk(struct.originalName);
+			struct.name = struct.originalName;
 			availableTypes.set(struct.originalName, struct);
 			struct.members = [];
 			
@@ -203,7 +200,7 @@ function listFeaturesAndExtensions()
 							if (memberTag.tagName == "type")
 							{
 								if (lastWasText) { member.type += " "; };
-								member.type += stripVk(replaceTypes(replaceFlagTypes(memberTag.textContent, availableFlags)));
+								member.type += memberTag.textContent;
 							}
 							else if (memberTag.tagName == "name")
 							{
@@ -211,7 +208,7 @@ function listFeaturesAndExtensions()
 							}
 							else if (memberTag.tagName == "enum")
 							{
-								member.name += stripVk(memberTag.textContent);
+								member.name += memberTag.textContent;
 							}
 							
 							lastWasText = false;
@@ -236,7 +233,6 @@ function listFeaturesAndExtensions()
 	let enumsNodes = vkxml.getElementsByTagName("enums");
 	for(let i = 0; i < enumsNodes.length; ++i)
 	{
-		// example enums:
 		var enumsNode = enumsNodes.item(i);
 		var enumName = enumsNode.getAttribute("name");
 		if (enumName == "API Constants")
@@ -352,29 +348,25 @@ function listFeaturesAndExtensions()
 	}
 	
 	// Parse commands
-	/*var commandsNode = vkxml.getElementsByTagName("commands").item(0);
+	var commandsNode = vkxml.getElementsByTagName("commands").item(0);
 	var commands = commandsNode.getElementsByTagName("command");
 	for(let i = 0; i < commands.length; ++i)
 	{
+		let command = {};	
+		command.parameters = [];		
+		
 		var commandNode = commands.item(i);
 		if (!commandNode){ break;}
 		var protoNode = commandNode.getElementsByTagName("proto").item(0);
 		if (!protoNode){ break;}
-		var typeText = stripVk(replaceTypes(protoNode.getElementsByTagName("type").item(0).textContent));
-		var nameText = stripVk(protoNode.getElementsByTagName("name").item(0).textContent);
 		
-		if (nameText == "GetDeviceProcAddr" || nameText == "GetInstanceProcAddr"){ continue; }
+		command.returnType = protoNode.getElementsByTagName("type").item(0).textContent;
+		command.originalName = protoNode.getElementsByTagName("name").item(0).textContent;
+		command.name = command.originalName;
 		
-		// Function pointer signatures (PFN):
-		var pfnEntry = document.createElement("div");
-		pfnDefinitions.appendChild(pfnEntry);
-		pfnEntry.textContent = indentation(2);
-		pfnEntry.textContent += "typedef " + 
-		typeText + indentation(2) + "(" + VKAPI_PTR + " *" + 
-		nameText + ")(";
+		if (command.originalName == "vkGetDeviceProcAddr" || command.originalName == "vkGetInstanceProcAddr"){ continue; }
 		
 		var commandChildren = commandNode.children;
-		var firstParameter = true;
 		
 		for(let j=0; j < commandChildren.length; ++j)
 		{
@@ -384,8 +376,9 @@ function listFeaturesAndExtensions()
 				continue;
 			}
 			
-			if (firstParameter) { firstParameter = false; }
-			else { pfnEntry.textContent += ", "; }
+			let parameter = {};
+			parameter.preType = "";
+			parameter.postType = "";
 			
 			var nodes = commandChild.childNodes;
 			
@@ -393,35 +386,21 @@ function listFeaturesAndExtensions()
 			{
 				var node = nodes.item(k);
 				
-				parameterText = stripVk(replaceTypes(replaceFlagTypes( node.textContent, flagTypes)));
-				
-				pfnEntry.textContent += parameterText;
+				if (!parameter.type)
+				{
+					if (node.tagName != "type"){	parameter.preType += node.textContent;	}
+					else {	parameter.type = node.textContent;	}
+				}
+				else 
+				{
+					if (node.tagName != "name") {	parameter.postType += node.textContent;	}
+					else {	parameter.name = node.textContent;	}
+				}
 			}
+			command.parameters.push(parameter);
 		}
-		
-		pfnEntry.textContent += ");"	
-		
-		// Function defintions:
-		var fnDefExt = document.createElement("div");
-		var fnDef = document.createElement("div");
-				
-		functionDefinitionsExt.appendChild(fnDefExt);
-		functionDefinitions.appendChild(fnDef);
-				
-		fnDefExt.textContent = padTabs(indentation(1) + "extern PFN::" + nameText, 68) + nameText + ";";
-		fnDef.textContent = padTabs(indentation(1) + " PFN::" + nameText, 68) + nameText + ";";;
-		
-		if (nameText == "EnumerateInstanceLayerProperties" || nameText == "EnumerateInstanceExtensionProperties" || nameText == "CreateInstance")
-		{
-			addLineOfCode(loadIndependentCommands, indentation(3) + vulkanNamespace + '::' + nameText + ' = (' + vulkanNamespace + '::PFN::' + nameText + ') vkGetInstanceProcAddr( nullptr, "vk' + nameText + '" );');
-			addLineOfCode(loadIndependentCommands, indentation(3) + 'if(!' + vulkanNamespace + '::' +nameText + ') { return false; }');
-		}
-		else 
-		{
-			addLineOfCode(loadInstanceCommands, indentation(3) + vulkanNamespace + '::' + nameText + ' = (' + vulkanNamespace + '::PFN::' + nameText + ') vkGetInstanceProcAddr( instance, "vk' + nameText + '" );');
-			addLineOfCode(loadInstanceCommands, indentation(3) + 'if(!' + vulkanNamespace + '::' +nameText + ') { return false; }');
-		}
-	}*/
+		availableCommands.set(command.originalName, command);
+	}
 	
 	// List features:
 	statusText.textContent = "Listing Features...";
@@ -435,7 +414,7 @@ function listFeaturesAndExtensions()
 		feature.version = feature.node.getAttribute("number");
 		feature.description = feature.node.getAttribute("comment");
 
-		features.set(feature.name, feature);
+		availableFeatures.set(feature.name, feature);
 		
 		feature.checkbox = addCheckbox(featureList, feature.name, feature.description, feature.name + ", version: " + feature.version);
 		var extensionUl = document.createElement("ul");
@@ -494,29 +473,12 @@ function listFeaturesAndExtensions()
 	
 	featureList.appendChild(writeHeaderButton);
 	
-		
-	// example command:
-	var command = {};
-	command.name = "something";
-	command.originalName = "vkSomething";
-	command.returnType = "void";
-	command.parameters = [];
-	
-	let parameter = {};
-	parameter.preType = "";
-	parameter.type = "void";
-	parameter.postType = "*";
-	parameter.name = "example";
-	
-	command.parameters.push(parameter);
-	commands.push(command);
-	
 	statusText.textContent = "Features listed, waiting for user input...";
 }
 
 function checkAllFeatureExtensions()
 {
-	var feature = features.get(this.getAttribute("featureName"));
+	var feature = availableFeatures.get(this.getAttribute("featureName"));
 	
 	for(let extension of feature.availableExtensions.values())
 	{
@@ -526,7 +488,7 @@ function checkAllFeatureExtensions()
 
 function uncheckAllFeatureExtensions()
 {
-	var feature = features.get(this.getAttribute("featureName"));
+	var feature = availableFeatures.get(this.getAttribute("featureName"));
 	
 	for(let extension of feature.availableExtensions.values())
 	{
@@ -536,7 +498,7 @@ function uncheckAllFeatureExtensions()
 
 function checkRequiredExtensions()
 {
-	var feature = features.get(this.getAttribute("featureName"));
+	var feature = availableFeatures.get(this.getAttribute("featureName"));
 	var extension = feature.availableExtensions.get(this.getAttribute("extensionName"));
 	
 	if (extension.checkbox.checked)
@@ -552,7 +514,7 @@ function checkRequiredExtensions()
 function writeHeader()
 {
 	statusText.textContent = "Putting required commands types and enums in order...";
-	for(let feature of features.values())
+	for(let feature of availableFeatures.values())
 	{
 		if (!feature.checkbox.checked) { continue; }
 		
@@ -692,7 +654,7 @@ function writeHeader()
 	statusText.textContent = "Writing Header...";
 	document.getElementById("setupStuff").setAttribute("class", "hidden");
 	document.getElementById("hiddenUntilCreation").removeAttribute("class");
-	document.getElementById("vkGetInstanceProcAddrDefine").textContent = vulkanNamespace + "::PFN_vkVoidFunction" + VKAPI_CALL + " vkGetInstanceProcAddr( " + vulkanNamespace + "::Instance instance, const " + s8 + "* pName );";
+	document.getElementById("vkGetInstanceProcAddrDefine").textContent = vulkanNamespace + "::PFN_vkVoidFunction " + VKAPI_CALL + " vkGetInstanceProcAddr( " + vulkanNamespace + "::Instance instance, const " + s8 + "* pName );";
 	
 	// Write Handles:
 	for(let i = 0; i < handles.length; ++i)
