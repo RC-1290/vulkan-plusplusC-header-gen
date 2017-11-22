@@ -128,7 +128,7 @@ function readXML(vkxml)
 			handle.category = "handle";
 			availableTypes.set(handle.originalName, handle);
 		}
-		else if (category == "funcPointer")
+		else if (category == "funcpointer")
 		{		
 			var funcPointer = {};
 			funcPointer.category = "funcPointer";
@@ -138,15 +138,14 @@ function readXML(vkxml)
 			
 			for( var j = 0; j < childNodes.length; ++j)
 			{
-				var textContent = childNodes.item(j).textContent;
-				if (childNodes.tagName == "name")
+				let childNode = childNodes.item(j);
+				if (childNode.tagName == "name")
 				{
-					funcPointer.originalName = textContent;
+					funcPointer.originalName = childNode.textContent;
 				}
 				
-				funcPointer.code +=  textContent;
+				funcPointer.code +=  childNode.textContent;
 			}
-			
 			availableTypes.set(funcPointer.originalName, funcPointer);
 		}
 		else if (category == "bitmask")
@@ -349,13 +348,13 @@ function readXML(vkxml)
 	
 	// Parse commands
 	var commandsNode = vkxml.getElementsByTagName("commands").item(0);
-	var commands = commandsNode.getElementsByTagName("command");
-	for(let i = 0; i < commands.length; ++i)
+	var commandElements = commandsNode.getElementsByTagName("command");
+	for(let i = 0; i < commandElements.length; ++i)
 	{
 		let command = {};	
 		command.parameters = [];		
 		
-		var commandNode = commands.item(i);
+		var commandNode = commandElements.item(i);
 		if (!commandNode){ break;}
 		var protoNode = commandNode.getElementsByTagName("proto").item(0);
 		if (!protoNode){ break;}
@@ -553,9 +552,6 @@ function writeHeader()
 								break;
 								case "constant":
 									pushIfNew(constants, found);
-								break;
-								case "funcPointer":
-									pushIfNew(earlyPfns, found);
 								break;
 								default:
 									console.error("unknown enum category: " + found.category);
@@ -772,6 +768,9 @@ function addType(typeName)
 			break;
 			case "handle":
 				pushIfNew(handles, found);
+			break;
+			case "funcPointer":
+				pushIfNew(earlyPfns, found);
 			break;
 			case  "flag":
 				console.log("ignoring flag'" +  found.name + "'it'll be replaced by a basic type anyway.");
