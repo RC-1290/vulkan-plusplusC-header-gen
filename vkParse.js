@@ -22,6 +22,7 @@ var ProccAddrLookupImplDefine = "IMPLEMENT_VK_COMMAND_LOOKUP";
 
 
 // Replacement Types:
+var typeReplacements = new Map();
 var s8 = "s8";// signed 8-bit
 var u32 = "u32";// unsigned 32-bit
 var s32 = "s32";// signed 32-bit
@@ -41,6 +42,23 @@ var LPCWSTR = "const wchar_t*";
 var VKAPI_ATTR = "";// used on Android
 var VKAPI_CALL = "__stdcall";// calling convention
 var VKAPI_PTR = VKAPI_CALL;
+
+typeReplacements.set("char", s8);
+typeReplacements.set("uint8_t", s8);
+typeReplacements.set("uint32_t", u32);
+typeReplacements.set("int32_t", s32);
+typeReplacements.set("uint64_t", u64);
+
+typeReplacements.set("VkSampleMask", u32);
+typeReplacements.set("VkBool32", ub32);
+typeReplacements.set("VkDeviceSize", DeviceSize);
+
+typeReplacements.set("HANDLE", WindowsHandle);
+typeReplacements.set("HINSTANCE", HINSTANCE);
+typeReplacements.set("HWND", HWND);
+typeReplacements.set("SECURITY_ATTRIBUTRES", SECURITY_ATTRIBUTES);
+typeReplacements.set("DWORD", DWORD);
+typeReplacements.set("LPCWSTR", LPCWSTR);
 
 // 
 var max_enum = "0x7FFFFFFF";
@@ -69,12 +87,14 @@ var availableFeatures = new Map();
 
 var availableNamed = new Map();
 
-var commands = [];
-var structs = [];
-var earlyPfns = [];
+var flags = [];
 var handles = [];
 var constants = [];
 var enums = [];
+var earlyPfns = [];
+var structs = [];
+var commands = [];
+
 
 statusText.textContent = "Trying to open vk.xml";
 
@@ -328,17 +348,17 @@ function readXML(vkxml)
 				{
 					if (!cEnum.minName)
 					{
-						cEnum.minName = cEnum.maxName = stripEnumName(enumName, constant.name);
+						cEnum.minName = cEnum.maxName = enumName;
 						minValue = maxValue = constant.value;
 					}
 					else if (constant.value < minValue)
 					{
-						cEnum.minName = stripEnumName(enumName, constant.name);
+						cEnum.minName = constant.name;
 						minValue = constant.value;
 					}
 					else if (constant.value > maxValue) 
 					{
-						cEnum.maxName = stripEnumName(enumName, constant.name);
+						cEnum.maxName = constant.name;
 						maxValue = constant.value;
 					}
 				}
@@ -616,25 +636,77 @@ function writeHeader()
 	}
 	
 	// Replace types and changes names:
+	for(let i = 0; i < flags.length; ++i)
+	{
+		let flag = flags[i];
+		typeReplacements.set(flag.name, u32);
+	}
 	
+	for (let i = 0; i < handles.length; ++i)
+	{
+		let handle = handles[i];
+		handle.originalName = handle.name;
+		handle.name = stripVk(handle.name);
+		typeReplacements.set(handle.originalName, handle.name);
+	}
+	for (let i = 0; i < constants.length; ++i)
+	{
+		let constant = constants[i];
+		constant.originalName = constant.name;
+		constant.name = stripVk(constant.name);
+		typeReplacements.set(constant.originalName, constant.name);
+	}
+	for (let i = 0; i < enums.length; ++i)
+	{
+		let cEnum = enums[i];
+		cEnum.originalName = cEnum.name;
+		cEnum.name = stripVk(cEnum.name);
+		
+		for (let j = 0; j < cEnum.constants.length; ++j)
+		{
+			let constant = cEnum.constants[j];
+			constant.originalName = constant.name;
+			constant.name = stripEnumName(constant.name, cEnum.originalName);
+			typeReplacements.set(constant.originalName, cEnum.name + "::" + constant.name);
+		}
+		if (!cEnum.isBitMask)
+		{
+			cEnum.minName = stripEnumName(cEnum.minName, cEnum.originalName);
+			cEnum.maxName = stripEnumName(cEnum.maxName, cEnum.originalName);
+		}
+		
+		typeReplacements.set(cEnum.originalName, cEnum.name);
+	}
+	// var earlyPfns = [];
+	
+	for (let i = 0; i < structs.length; ++i)
+	{
+		let struct = structs[i];
+		struct.originalName = struct.name;
+		struct.name = stripVk(struct.name);
+		
+		for (let j = 0; j < struct.members.length; ++j)
+		{
+			let member = struct.members[j];
+			let replacement = typeReplacements.get(member.type);
+			if (replacement){	member.type = replacement;	}
+		}
+		
+		typeReplacements.set(struct.originalName, struct.name);
+	}
 	for (let i = 0; i < commands.length; ++i)
 	{
 		let command = commands[i];
 		command.originalName = command.name;
-	}
-	
-	// var commands = [];
-	// var structs = [];
-	// var earlyPfns = [];
-	// var handles = [];
-	// var constants = [];
-	// var enums = [];
-	/*for(let i = 0; i < enums)
-	{
-		let cEnum = enums[i];
-		cEnum.name
-	}*/
-	
+		command.name = stripVk(command.name);
+		
+		for (let j = 0; j < command.parameters.length; ++j)
+		{
+			let parameter = command.parameters[j];
+			let replacement = typeReplacements.get(parameter.type);
+			if (replacement){	parameter.type = replacement;	}
+		}
+	}	
 	
 	// Write header:
 	statusText.textContent = "Writing Header...";
@@ -653,7 +725,7 @@ function writeHeader()
 	for(let i = 0; i < constants.length; ++i)
 	{
 		let constant = constants[i];
-		addLineOfCode(enumsDiv, indentation(1) + "const " + constant.type + " " + constant.name + " = " + constant.value + ";");
+		addLineOfCode(enumsDiv, padTabs(indentation(1) + "const " + constant.type, 17) + constant.name + " = " + constant.value + ";");
 	}
 	
 	// Write enums:
@@ -780,11 +852,13 @@ function addSymbol(symbolName)
 			case "constant":
 				pushIfNew(constants, found);
 			break;
+			case "bitmask":
+				pushIfNew(flags, found);
+			break;
 			case "include":
 			case "define":
 			case "basetype":
 			case "EXTERNAL":
-			case "bitmask":
 				// ignored...
 			break;
 			default:
@@ -821,7 +895,7 @@ function stripVk(text)
 	}
 }
 
-function stripEnumName(enumName, entryName)
+function stripEnumName(entryName, enumName)
 {
 	var nameIndex = 0;
 	var entryIndex = 0;
@@ -860,30 +934,6 @@ function replaceFlagTypes(text, flagTypes)
 		}
 	}
 	return text;
-}
-
-function replaceTypes(text)
-{	
-	var replaced = text.replace(/\bchar\b/, s8);
-	replaced = replaced.replace(/\uint8_t\b/, s8);
-	replaced = replaced.replace(/\buint32_t\b/, u32);
-	replaced = replaced.replace(/\bint32_t\b/, s32);
-	replaced = replaced.replace(/\buint64_t\b/, u64);
-	
-	replaced = replaced.replace(/\VkSampleMask\b/, u32);
-	replaced = replaced.replace(/\bVkBool32\b/, ub32);
-	replaced = replaced.replace(/\VKAPI_PTR\b/, VKAPI_PTR);
-	
-	replaced = replaced.replace(/\DeviceSize\b/, DeviceSize);
-	
-	replaced = replaced.replace(/\HANDLE\b/, WindowsHandle);
-	replaced = replaced.replace(/\HINSTANCE\b/, HINSTANCE);
-	replaced = replaced.replace(/\HWND\b/, HWND);
-	replaced = replaced.replace(/\SECURITY_ATTRIBUTES\b/, SECURITY_ATTRIBUTES);
-	replaced = replaced.replace(/\DWORD\b/, DWORD);
-	replaced = replaced.replace(/\LPCWSTR\b/, LPCWSTR);
-	
-	return replaced;
 }
 
 function addCheckbox(parent, name, label, tooltip)
