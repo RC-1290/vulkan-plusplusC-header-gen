@@ -308,7 +308,7 @@ function readXML(vkxml)
 		}
 		else
 		{
-			// enum classes	
+			// enums:	
 			let cEnum = {};
 			cEnum.category = "enum";
 			cEnum.name = enumName;
@@ -348,7 +348,7 @@ function readXML(vkxml)
 				{
 					if (!cEnum.minName)
 					{
-						cEnum.minName = cEnum.maxName = enumName;
+						cEnum.minName = cEnum.maxName = constant.name;
 						minValue = maxValue = constant.value;
 					}
 					else if (constant.value < minValue)
@@ -922,18 +922,6 @@ function stripEnumName(entryName, enumName)
 	}
 	
 	return entryName.slice(entryIndex);
-}
-
-function replaceFlagTypes(text, flagTypes)
-{
-	for(var i = 0; i < flagTypes.length; ++i)
-	{
-		if (text == flagTypes[i])
-		{
-			return u32;
-		}
-	}
-	return text;
 }
 
 function addCheckbox(parent, name, label, tooltip)
