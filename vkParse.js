@@ -388,12 +388,15 @@ function readXML(vkxml)
 				
 				if (!parameter.type)
 				{
-					if (node.tagName != "type"){	parameter.preType += node.textContent;	}
-					else {	parameter.type = node.textContent;	}
+					if (node.tagName != "type")	{	parameter.preType += node.textContent;	}
+					else						{	parameter.type = node.textContent;	}
 				}
 				else 
 				{
-					if (node.tagName != "name") {	parameter.postType += node.textContent;	}
+					if (node.tagName != "name") {
+						if (!parameter.name){	parameter.postType += node.textContent; }
+						else 				{	parameter.name += node.textContent;	}
+					}
 					else {	parameter.name = node.textContent;	}
 				}
 			}
@@ -713,12 +716,13 @@ function writeHeader()
 		let parametersText = "";
 		for(let j=0;j < command.parameters.length; ++j)
 		{
-			if (j > 0) { parametersText += ", "; }
+			if (j > 0) { parametersText += ","; }
 			let parameter = command.parameters[j];
-			parametersText += parameter.preType + parameter.type + parameter.postType + " " + parameter.name;
+			parametersText += "\n" + indentation(11) + parameter.preType + parameter.type + parameter.postType + parameter.name;
 		}
 		
 		addLineOfCode( commandTypeDefsDiv, padTabs(indentation(2) + "typedef " + command.returnType, 24) + "(" + VKAPI_PTR + " *" + command.name + ")(" + parametersText + ");" );
+		addLineOfCode( commandTypeDefsDiv, indentation(2));
 		
 		// Function defintions:
 		addLineOfCode(externPfnDiv, padTabs(indentation(1) + "extern PFN::" + command.name, 68) + command.name + ";");
