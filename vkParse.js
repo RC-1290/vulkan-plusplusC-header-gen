@@ -534,7 +534,7 @@ function writeHeader()
 						{
 							for (let i = 0; i < found.parameters.length; ++i)
 							{
-								addType(found.parameters.type);
+								addType(found.parameters[i].type);
 							}
 							pushIfNew(commands, found);
 						}
