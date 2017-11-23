@@ -606,6 +606,8 @@ function writeHeader()
 			}
 		}
 		
+		registerSymbol("PFN_vkVoidFunction");// We manually implement the only functions that use this, so add it here manually too.
+		
 		/*
 		for (let extension of feature.availableExtensions.values())
 		{
@@ -725,7 +727,6 @@ function writeHeader()
 		
 		typeReplacements.set(cEnum.originalName, cEnum.name);
 	}
-	
 	for (let i = 0; i < structs.length; ++i)
 	{
 		let type = structs[i];
@@ -753,7 +754,6 @@ function writeHeader()
 			break;
 			case "funcpointer":
 				type.originalName = type.name;
-				console.log(type.name);
 				type.preName = type.preName.replace(/\bVKAPI_PTR\b/, VKAPI_PTR);
 				for (let j = 0; j < type.parameters.length; ++j)
 				{
@@ -771,6 +771,9 @@ function writeHeader()
 		let command = commands[i];
 		command.originalName = command.name;
 		command.name = stripVk(command.name);
+		
+		let replacement = typeReplacements.get(command.returnType);
+		if (replacement){	command.returnType = replacement;	}
 		
 		for (let j = 0; j < command.parameters.length; ++j)
 		{
@@ -893,7 +896,6 @@ function writeHeader()
 			addLineOfCode(instanceCmdLoadingDiv, indentation(3) + 'if(!' + vulkanNamespace + '::' + command.name + ') { return false; }');
 		}
 	}
-	
 	statusText.textContent = "Header completed writing.";
 }
 
@@ -921,6 +923,7 @@ function registerSymbol(symbolName)
 				pushIfNew(structs, found);
 			break;
 			case "command":
+				registerSymbol(found.returnType);
 				for (let i = 0; i < found.parameters.length; ++i)
 				{
 					registerSymbol(found.parameters[i].type);
@@ -931,6 +934,7 @@ function registerSymbol(symbolName)
 				pushIfNew(handles, found);
 			break;
 			case "funcpointer":
+				// registerSymbol(found.type);
 				for (let i = 0; i < found.parameters.length; ++i)
 				{
 					registerSymbol(found.parameters[i].type);
