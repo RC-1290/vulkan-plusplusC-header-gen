@@ -155,6 +155,7 @@ function readXML(vkxml)
 			let nameComplete = false;
 			
 			let childNodes = typeNode.childNodes;
+			let nextPreType = "";
 			
 			for( let j = 0; j < childNodes.length; ++j)
 			{
@@ -178,13 +179,29 @@ function readXML(vkxml)
 					if (childNode.tagName == "type")
 					{
 						currentParameter = {};
+						currentParameter.preType = nextPreType;
+						nextPreType = "";
 						currentParameter.postType = "";
 						namedThing.parameters.push(currentParameter);
 						currentParameter.type = nodeText;
 					}
 					else
 					{
-						currentParameter.postType += nodeText.trim();
+						let parameterSplit = nodeText.split(",");
+						
+						if (parameterSplit.length == 2)
+						{
+							currentParameter.postType += parameterSplit[0].trim() + ",";
+							nextPreType = parameterSplit[1].trimLeft();
+						}
+						else if (parameterSplit.length == 1)
+						{
+							currentParameter.postType += parameterSplit[0].trim();
+						}
+						else
+						{
+							console.error("Unexpected number of commas(expected 1): " + nodeText);
+						}
 					}
 				}
 			}
@@ -303,55 +320,15 @@ function readXML(vkxml)
 	{
 		var enumsNode = enumsNodes.item(i);
 		var enumName = enumsNode.getAttribute("name");
-		if (enumName == "API Constants")
+		let enumType = enumsNode.getAttribute("type");
+		if (!enumType)//"API Constants"
 		{
 			var constants = enumsNode.children;
 			for(let j = 0; j < constants.length; ++j)
 			{
 				var constantNode = constants.item(j);
 				
-				var constant = {};
-				
-				constant.category = "constant";
-				constant.name = constantNode.getAttribute("name");
-				constant.value = constantNode.getAttribute("value");
-				constant.type = "u32";
-				
-				let typeFound = false;
-				
-				if (!constant.value){ continue; }
-				availableNamed.set(constant.name, constant);
-				
-				if (constant.value.startsWith("VK_"))
-				{
-					// Probably an enum alias, skip it:
-					continue;
-				}
-				
-				// naive type analysis that only recognizes ULL (unsigned 64), f (float) or " (char* / c-string)
-				for(let k = 0; k < constant.value.length; ++k)
-				{					
-					switch(constant.value[k])
-					{
-						case 'U':
-							if (k > 0 && !isNaN(constant.value[k-1]) && constant.value[k+1] == "L" && constant.value[k+2] == "L")
-							{
-								constant.type = u64;
-								typeFound = true;
-								break;
-							}
-						break;
-						case 'f':
-							constant.type = "float";
-							typeFound = true;
-						break;
-						case '"':
-							constant.type = s8 + "*";
-							typeFound = true;
-						break;
-					}
-					if (typeFound) { break; }
-				}	
+				makeConstantAvailable(constantNode);
 			}
 		}
 		else
@@ -364,7 +341,6 @@ function readXML(vkxml)
 			
 			availableNamed.set(cEnum.name, cEnum);
 			
-			let enumType = enumsNode.getAttribute("type");
 			cEnum.isBitMask = enumType == "bitmask";
 			
 			cEnum.minName = "";
@@ -547,6 +523,58 @@ function readXML(vkxml)
 	statusText.textContent = "Features listed, waiting for user input...";
 }
 
+function makeConstantAvailable(constantNode)
+{
+	var constant = {};
+				
+	constant.category = "constant";
+	constant.name = constantNode.getAttribute("name");
+	constant.type = "u32";
+	constant.value = constantNode.getAttribute("value");
+	
+	if (!constant.value)
+	{
+		let bitPos = constantNode.getAttribute("bitPos");
+		if (!bitPos){	return;	}
+		constant.value = constant.value = "(1 << " + bitPos + ")";
+		
+	}
+	availableNamed.set(constant.name, constant);
+	
+	if (constant.value.startsWith("VK_"))
+	{
+		// Probably an enum alias, skip it:
+		return false;
+	}
+	
+	// naive type analysis that only recognizes ULL (unsigned 64), f (float) or " (char* / c-string)
+	let typeFound = false;
+	for(let k = 0; k < constant.value.length; ++k)
+	{					
+		switch(constant.value[k])
+		{
+			case 'U':
+				if (k > 0 && !isNaN(constant.value[k-1]) && constant.value[k+1] == "L" && constant.value[k+2] == "L")
+				{
+					constant.type = u64;
+					typeFound = true;
+					break;
+				}
+			break;
+			case 'f':
+				constant.type = "float";
+				typeFound = true;
+			break;
+			case '"':
+				constant.type = s8 + "*";
+				typeFound = true;
+			break;
+		}
+		if (typeFound) { break; }
+	}
+	return true;
+}
+
 function checkAllFeatureExtensions()
 {
 	var feature = availableFeatures.get(this.getAttribute("featureName"));
@@ -608,13 +636,12 @@ function writeHeader()
 		
 		registerSymbol("PFN_vkVoidFunction");// We manually implement the only functions that use this, so add it here manually too.
 		
-		/*
+		
 		for (let extension of feature.availableExtensions.values())
 		{
 			if (!extension.checkbox.checked) { continue; }
 			
 			// Apply extension changes.
-			// NOTE: this assumes there's only one feature. If there are multiple, they'll all be affected.
 			var extensionChildren = extension.node.children;
 			for(var k = 0; k < extensionChildren.length; ++k)
 			{
@@ -627,51 +654,68 @@ function writeHeader()
 						var interfaceNode = interfaces.item(l);
 						var tagName = interfaceNode.tagName;
 						
+						if (interfaceNode.nodeType != 1) { continue; }
+						
+						let symbolName  = interfaceNode.getAttribute("name");
+						
 						if (tagName == "enum")
 						{
-							var enumName = interfaceNode.getAttribute("name");
-							addLineOfCode(symbolList, "enum: " + enumName);
-							
+							var constantBitPos = interfaceNode.getAttribute("bitpos");
 							var extending = interfaceNode.getAttribute("extends");
 							if (extending)
 							{
-								// Find appropriate enum and add it:
-								for(var m = 0; m < enumsNodes.length; ++m)
+								let cEnum = availableNamed.get(extending);
+								if (!cEnum)
 								{
-									var enumsNode = enumsNodes.item(m);
-									if (enumsNode.getAttribute("name") == extending)
-									{
-										var offsetAttribute = interfaceNode.getAttribute("offset");
-										if (offsetAttribute)
-										{
-											var offset = parseInt(interfaceNode.getAttribute("offset"));
-											var valueAttribute = 1000000000 + offset + (1000 * (extension.number - 1))
-											if (interfaceNode.getAttribute("dir") == "-")
-											{
-												valueAttribute = -valueAttribute;
-											}
-											
-											interfaceNode.setAttribute("value", valueAttribute);
-										}
-										interfaceNode.setAttribute("extends", extending);
-										enumsNode.appendChild(interfaceNode);
-									}
+									console.error("extended enum not found, with name: " + extending);
+									continue;
 								}
 								
+								
+								var offsetAttribute = interfaceNode.getAttribute("offset");
+								if (offsetAttribute)
+								{
+									let constant = {};
+									constant.name = symbolName;
+									
+									var offsetAttribute = interfaceNode.getAttribute("offset");
+									if (offsetAttribute)
+									{
+									
+										var offset = parseInt(offsetAttribute);
+										constant.value = 1000000000 + offset + (1000 * (extension.number - 1))
+										if (interfaceNode.getAttribute("dir") == "-")
+										{
+											constant.value = -constant.value;
+										}
+									}
+									else
+									{
+										if (constantBitPos)
+										{
+											constant.value = "(1 << " + constantBitPos + ")";
+										}
+										else
+										{
+											console.error("Couldn't determine extension enum value: " + symbolName + ". Expected either bitpos or offset");
+										}
+									}
+									cEnum.constants.push(constant);
+								}
 							}
-							else 
+							else
 							{
-								apiConstantsNode.appendChild(interfaceNode);
-							}							
+								if (makeConstantAvailable(interfaceNode))
+								{
+									registerSymbol(symbolName);
+								}
+							}
 						}
-						else if (tagName == "command")
+						else (tagName)
 						{
-							
+							registerSymbol(symbolName);
 						}
-						else if (tagName == "type")
-						{
-							
-						}
+
 					}
 				}
 				else 
@@ -680,7 +724,7 @@ function writeHeader()
 				}
 				
 			}
-		}*/
+		}
 		
 		
 	}
@@ -754,6 +798,7 @@ function writeHeader()
 			break;
 			case "funcpointer":
 				type.originalName = type.name;
+				type.preName = type.preName.replace(/\bVkBool32\b/, ub32);// manual replacement, since the xml lacks return type markup.
 				type.preName = type.preName.replace(/\bVKAPI_PTR\b/, VKAPI_PTR);
 				for (let j = 0; j < type.parameters.length; ++j)
 				{
@@ -858,7 +903,7 @@ function writeHeader()
 				for(let j= 0; j < type.parameters.length; ++j)
 				{
 					let parameter = type.parameters[j];
-					addLineOfCode(structsDiv, padTabs(indentation(2) + parameter.type + parameter.postType,57) + parameter.name);
+					addLineOfCode(structsDiv, padTabs(indentation(2) + parameter.preType + parameter.type + parameter.postType,57) + parameter.name);
 				}
 				addLineOfCode(structsDiv, indentation(1));
 			break;
