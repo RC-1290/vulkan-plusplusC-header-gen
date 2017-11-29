@@ -81,6 +81,13 @@ var cmdDefsDiv =				document.getElementById("cmdDefs");
 var independentCmdLoadingDiv =	document.getElementById("independentCmdLoading");
 var instanceCmdLoadingDiv =		document.getElementById("instanceCmdLoading");
 
+//
+var extraIncludesDiv = document.getElementById("extraIncludes");
+var typeIncludeInput = document.getElementById("typedefInclude");
+var surfaceIncludeInput = document.getElementById("surfaceInclude");
+var vulkanNamespaceInput = document.getElementById("vulkanNamespace");
+var implementationDefineInput = document.getElementById("implementationDefine");
+
 var availableFeatures = new Map();
 
 var availableNamed = new Map();
@@ -92,7 +99,6 @@ var enums = [];
 var earlyPfns = [];
 var structs = [];
 var commands = [];
-
 
 statusText.textContent = "Trying to open vk.xml";
 
@@ -678,7 +684,7 @@ function determineType(text)
 				return "float";
 			break;
 			case '"':
-				return s8 + "*" + " const";
+				return "string";
 			break;
 		}
 	}
@@ -687,11 +693,34 @@ function determineType(text)
 
 function listFeatures()
 {
+	// Restoring previous selection:
+	let selectedFeatures = localStorage.getItem("selectedFeatures");
+	let selectedExtensions = localStorage.getItem("selectedExtensions");
+	
+	let featureSelectionMap = new Map();
+	if (selectedFeatures)
+	{
+		for (let feature of selectedFeatures.split(","))
+		{
+			featureSelectionMap.set(feature, true);
+		}
+	}
+	let extensionSelectionMap = new Map();
+	if (selectedExtensions)
+	{
+		for (let extension of selectedExtensions.split(","))
+		{
+			extensionSelectionMap.set(extension, true);
+		}
+	}
+	
 	// List features:
 	statusText.textContent = "Listing Features...";
 	for (let feature of availableFeatures.values())
 	{
 		feature.checkbox = addCheckbox(featureList, feature.name, feature.description, feature.name + ", version: " + feature.version);
+		if (featureSelectionMap.get(feature.name)){	feature.checkbox.checked = true;	}
+		
 		var extensionUl = document.createElement("ul");
 		extensionUl.setAttribute("class", "extensionList");
 		featureList.appendChild(extensionUl);
@@ -704,6 +733,9 @@ function listFeatures()
 			extension.checkbox = addCheckbox(extensionLi, extension.name, extension.name, "Type: " + extension.type + ", Contact: " + extension.contact);
 			extension.checkbox.setAttribute("extensionName", extension.name);
 			extension.checkbox.setAttribute("featureName", feature.name);
+			
+			if (extensionSelectionMap.get(extension.name)){	extension.checkbox.checked = true;	}
+			
 			extension.checkbox.addEventListener("change", checkRequiredExtensions);
 		}
 		
@@ -721,11 +753,11 @@ function listFeatures()
 		featureList.appendChild(uncheckAllButton);
 	}
 	
-	let writeHeaderButton = document.createElement("button");
-	writeHeaderButton.textContent = "Create Header";
-	writeHeaderButton.addEventListener("click", writeHeader);
+	let createHeaderButton = document.createElement("button");
+	createHeaderButton.textContent = "Create Header";
+	createHeaderButton.addEventListener("click", createHeader);
 	
-	featureList.appendChild(writeHeaderButton);
+	featureList.appendChild(createHeaderButton);
 	
 	statusText.textContent = "Features listed, waiting for user input...";
 }
@@ -773,13 +805,48 @@ function checkRequiredExtensions()
 	}
 }
 
-function writeHeader()
+function replaceClassNodeContents(className, value)
 {
+	let toReplaceNodes = document.getElementsByClassName(className);
+	for (let toReplace of toReplaceNodes)
+	{
+		toReplace.textContent = value;
+	}
+}
+
+function createHeader()
+{
+	statusText.textContent = "Applying custom settings:";
+	if (typeIncludeInput.value)
+	{
+		addLineOfCode(extraIncludesDiv, "#include \"" + typeIncludeInput.value + "\"");
+	}
+	if (surfaceIncludeInput.value)
+	{
+		addLineOfCode(extraIncludesDiv, "#include \"" + surfaceIncludeInput.value + "\"");
+	}
+	if (vulkanNamespaceInput.value)
+	{
+		vulkanNamespace = vulkanNamespaceInput.value;
+		replaceClassNodeContents("namespaceVulkan", vulkanNamespace);
+	}
+	if (implementationDefineInput.value)
+	{
+		ProccAddrLookupImplDefine = implementationDefineInput.value;
+		replaceClassNodeContents("ProccAddrLookupImplDefine", ProccAddrLookupImplDefine);
+	}
+	
+
+	// Remember selected features and extensions between sessions:
+	let selectedFeatures = "";
+	let selectedExtensions = "";
+	
 	// Sort everything by usage:
 	statusText.textContent = "Sorting commands, types and enums...";
 	for(let feature of availableFeatures.values())
 	{
 		if (!feature.checkbox.checked) { continue; }
+		selectedFeatures += feature.name + ","
 		
 		for (let require of feature.requires)
 		{
@@ -792,6 +859,8 @@ function writeHeader()
 		for (let extension of feature.availableExtensions.values())
 		{
 			if (!extension.checkbox.checked) { continue; }
+			
+			selectedExtensions += extension.name + ",";
 			
 			// Apply extension changes.
 			for (let require of extension.requires)
@@ -834,9 +903,10 @@ function writeHeader()
 				}
 			}
 		}
-		
-		
 	}
+	localStorage.setItem("selectedFeatures", selectedFeatures);
+	localStorage.setItem("selectedExtensions", selectedExtensions);
+	
 	
 	// Replace types and changes names:
 	for(let i = 0; i < flags.length; ++i)
@@ -962,7 +1032,13 @@ function writeHeader()
 	for(let i = 0; i < constants.length; ++i)
 	{
 		let constant = constants[i];
-		addLineOfCode(enumsDiv, padTabs(indentation(1) + "const " + constant.type, 25) + constant.name + " = " + constant.value + ";");
+		let postName = "";
+		if (constant.type == "string")
+		{
+			constant.type = s8;
+			postName = "[]";
+		}
+		addLineOfCode(enumsDiv, padTabs(indentation(1) + "const " + constant.type, 16) + constant.name + postName + " = " + constant.value + ";");
 	}
 	
 	// Write enums:

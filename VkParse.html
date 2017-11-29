@@ -12,6 +12,22 @@
 <p>This parser tries to turn vk.xml into a ++C header file and implementation file. It works on my machine™.</p>
 <p id="statusText">This status text will be replaced by javascript, if the script works.</p>
 <div id="setupStuff">
+<h2>Includes</h2>
+<div>
+<label for="typedefInclude">Typedef include header:</label>
+<input id="typedefInclude" type="text" placeholder="../TypeDefs.h"></input>
+</div>
+<div>
+<label for="surfaceInclude">Surface include header:</label>
+<input id="surfaceInclude" type="text" placeholder="../WinApi.h"></input>
+</div>
+<div>
+<label for="vulkanNamespace">Vulkan API namespace:</label>
+<input id="vulkanNamespace" type="text" placeholder="Vk"></input>
+<label for="implementationDefine">ProcAddrLookup Define:</label>
+<input id="implementationDefine" type="text" placeholder="IMPLEMENT_VK_COMMAND_LOOKUP"></input>
+</div>
+
 <h2>Features and Extensions</h2>
 <div id="featureSelection">This is where features and extensions should show up (using Javascript)</div>
 
@@ -31,10 +47,11 @@
 	
 // Vulkan Header for C++ compilers.
 // A single translation unit (e.g.: a .cpp file) that includes this header, must have <span class="ProccAddrLookupImplDefine">IMPLEMENT_VK_COMMAND_LOOKUP</span> defined.
+// You can then call LoadIndependentCommands and LoadInstanceCommands.
 	
 #pragma once
+
 <div id="extraIncludes"></div>
-	
 namespace <span class="namespaceVulkan">Vk</span>
 {
 	// Handles:<div id ="handles"></div>
