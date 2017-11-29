@@ -678,7 +678,7 @@ function determineType(text)
 				return "float";
 			break;
 			case '"':
-				return s8 + "*";
+				return s8 + "*" + " const";
 			break;
 		}
 	}
@@ -962,7 +962,7 @@ function writeHeader()
 	for(let i = 0; i < constants.length; ++i)
 	{
 		let constant = constants[i];
-		addLineOfCode(enumsDiv, padTabs(indentation(1) + "const " + constant.type, 17) + constant.name + " = " + constant.value + ";");
+		addLineOfCode(enumsDiv, padTabs(indentation(1) + "const " + constant.type, 25) + constant.name + " = " + constant.value + ";");
 	}
 	
 	// Write enums:
