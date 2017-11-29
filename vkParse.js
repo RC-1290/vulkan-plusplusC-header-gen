@@ -123,16 +123,68 @@ function onXhrLoad()
 }
 
 function readXML(vkxml)
-{	
-	// Clear placeholder text:
-	featureList.textContent = "";
+{
+	featureList.textContent = "";// Clear placeholder text
 	
-	// Parse Types and Enums:	
-	var typesNode = vkxml.getElementsByTagName("types").item(0);
-	var typeNodes = typesNode.children;
+	for (let node of vkxml.childNodes)
+	{
+		if (!node.nodeType == Node.ELEMENT_NODE) { continue; }
+		
+		if (node.tagName == "registry") { parseRegistry(node); }
+	}
+	
+	listFeatures();
+}
+
+function parseRegistry(xml)
+{
+	for (let node of xml.childNodes)
+	{
+		if (node.nodeType != Node.ELEMENT_NODE) { continue; }
+		
+		switch(node.tagName)
+		{
+			case "comment":
+			case "vendorids":
+			case "tags":
+				//ignore
+			break;
+			case "types":
+				parseTypes(node);
+				break;
+			case "enums":
+				parseEnums(node);
+				break;
+			case "commands":
+				parseRegistry(node);
+				break;
+			case "command":
+				parseCommand(node);
+				break;
+			case "feature":
+				parseFeature(node);
+				break;
+			case "extensions":
+				parseRegistry(node);
+				break;
+			case "extension": 
+				parseExtension(node);
+			break;
+			default:
+				console.warn("unexpected tagName: " + node.tagName);
+				break;
+		}
+	}
+}
+
+function parseTypes(xml)
+{
+	var typeNodes = xml.children;
 	for(let i = 0; i < typeNodes.length; ++i)
 	{
 		var typeNode = typeNodes.item(i);
+		if (typeNode.tagName == "comment") { continue; }
+		
 		var category = typeNode.getAttribute("category");
 		
 		let namedThing = {};
@@ -271,7 +323,7 @@ function readXML(vkxml)
 					
 					switch(memberTag.nodeType)
 					{
-						case 1:// Element
+						case Node.ELEMENT_NODE:
 							if (memberTag.tagName == "type")
 							{
 								member.type = memberTag.textContent;
@@ -285,7 +337,7 @@ function readXML(vkxml)
 								member.cEnum = memberTag.textContent;
 							}
 						break;
-						case 3:// Text Node
+						case Node.TEXT_NODE:
 							let contents = memberTag.textContent;
 							
 							if (!member.type){	member.preType += contents;	}//e.g.: void
@@ -303,196 +355,342 @@ function readXML(vkxml)
 			
 			if (!namedThing.category)
 			{
-				if (typeNode.getAttribute("requires"))
-				{
-					namedThing.category = "EXTERNAL";// capitalized category to avoid collision with future new categories.
-				}
+				namedThing.category = "EXTERNAL";// capitalized category to avoid collision with future new categories.
 			}
 			
 			if (namedThing.name){	availableNamed.set(namedThing.name, namedThing);	}
 		}
 		
-	}
-	
-	// constants:
-	let enumsNodes = vkxml.getElementsByTagName("enums");
-	for(let i = 0; i < enumsNodes.length; ++i)
+	}	
+}
+
+function parseEnums(enumsNode)
+{
+	var enumName = enumsNode.getAttribute("name");
+	let enumType = enumsNode.getAttribute("type");
+	if (!enumType)//"API Constants"
 	{
-		var enumsNode = enumsNodes.item(i);
-		var enumName = enumsNode.getAttribute("name");
-		let enumType = enumsNode.getAttribute("type");
-		if (!enumType)//"API Constants"
+		// constants:
+		var constants = enumsNode.children;
+		for(let i = 0; i < constants.length; ++i)
 		{
-			var constants = enumsNode.children;
-			for(let j = 0; j < constants.length; ++j)
-			{
-				var constantNode = constants.item(j);
+			var constantNode = constants.item(i);
+			
+			var constant = {};
 				
-				makeConstantAvailable(constantNode);
-			}
-		}
-		else
-		{
-			// enums:	
-			let cEnum = {};
-			cEnum.category = "enum";
-			cEnum.name = enumName;
-			cEnum.constants = [];
+			constant.category = "constant";
+			constant.name = constantNode.getAttribute("name");
+			constant.type = "u32";
+			constant.value = constantNode.getAttribute("value");
 			
-			availableNamed.set(cEnum.name, cEnum);
-			
-			cEnum.isBitMask = enumType == "bitmask";
-			
-			cEnum.minName = "";
-			let minValue = 0;
-			cEnum.maxName = cEnum.minName;
-			let maxValue = minValue;
-			
-			let enumEntry = enumsNode.children;
-			for(let j = 0; j < enumEntry.length; ++j)
+			if (!constant.value)
 			{
-				let constantNode = enumEntry.item(j);
-				if (constantNode.tagName != "enum")
-				{
-					continue;
-				}
-				let constant = {};
-				constant.name = constantNode.getAttribute("name");
-				constant.value = parseInt(constantNode.getAttribute("value"), 10);
+				let bitPos = constantNode.getAttribute("bitPos");
+				if (!bitPos){	continue;	}
+				constant.value = constant.value = "(1 << " + bitPos + ")";
 				
-				if (cEnum.isBitMask)
-				{
-					var constantBitPos = constantNode.getAttribute("bitpos");
-					if (constantBitPos)
-					{
-						constant.value = "(1 << " + constantBitPos + ")";
-					}
-				}
-				else if (!constantNode.getAttribute("extends"))
-				{
-					if (!cEnum.minName)
-					{
-						cEnum.minName = cEnum.maxName = constant.name;
-						minValue = maxValue = constant.value;
-					}
-					else if (constant.value < minValue)
-					{
-						cEnum.minName = constant.name;
-						minValue = constant.value;
-					}
-					else if (constant.value > maxValue) 
-					{
-						cEnum.maxName = constant.name;
-						maxValue = constant.value;
-					}
-				}
-				cEnum.constants.push(constant);
 			}
+			availableNamed.set(constant.name, constant);
+			
+			constant.type = determineType(constant.value);
 		}
 	}
-	
-	// Parse commands
-	var commandsNode = vkxml.getElementsByTagName("commands").item(0);
-	var commandElements = commandsNode.getElementsByTagName("command");
-	for(let i = 0; i < commandElements.length; ++i)
+	else
 	{
-		let command = {};
-		command.category = "command";
-		command.parameters = [];		
+		// enums:	
+		let cEnum = {};
+		cEnum.category = "enum";
+		cEnum.name = enumName;
+		cEnum.constants = [];
 		
-		var commandNode = commandElements.item(i);
-		if (!commandNode){ break;}
-		var protoNode = commandNode.getElementsByTagName("proto").item(0);
-		if (!protoNode){ break;}
+		availableNamed.set(cEnum.name, cEnum);
 		
-		command.returnType = protoNode.getElementsByTagName("type").item(0).textContent;
-		command.name = protoNode.getElementsByTagName("name").item(0).textContent;
+		cEnum.isBitMask = enumType == "bitmask";
 		
-		if (command.name == "vkGetDeviceProcAddr" || command.name == "vkGetInstanceProcAddr"){ continue; }
+		cEnum.minName = "";
+		let minValue = 0;
+		cEnum.maxName = cEnum.minName;
+		let maxValue = minValue;
 		
-		var commandChildren = commandNode.children;
-		
-		for(let j=0; j < commandChildren.length; ++j)
+		let enumEntry = enumsNode.children;
+		for(let i = 0; i < enumEntry.length; ++i)
 		{
-			var commandChild = commandChildren.item(j);
-			if (commandChild.tagName != "param")
+			let constantNode = enumEntry.item(i);
+			if (constantNode.tagName != "enum")
 			{
 				continue;
 			}
+			let constant = {};
+			constant.name = constantNode.getAttribute("name");
+			constant.value = parseInt(constantNode.getAttribute("value"), 10);
 			
-			let parameter = {};
-			parameter.preType = "";
-			parameter.postType = "";
-			
-			var nodes = commandChild.childNodes;
-			
-			for(let k = 0; k < nodes.length; ++k)
+			if (cEnum.isBitMask)
 			{
-				var node = nodes.item(k);
-				
-				if (!parameter.type)
+				var constantBitPos = constantNode.getAttribute("bitpos");
+				if (constantBitPos)
 				{
-					if (node.tagName != "type")	{	parameter.preType += node.textContent;	}
-					else						{	parameter.type = node.textContent;	}
-				}
-				else 
-				{
-					if (node.tagName != "name") {
-						if (!parameter.name){	parameter.postType += node.textContent; }
-						else 				{	parameter.name += node.textContent;	}
-					}
-					else {	parameter.name = node.textContent;	}
+					constant.value = "(1 << " + constantBitPos + ")";
 				}
 			}
-			command.parameters.push(parameter);
+			else if (!constantNode.getAttribute("extends"))
+			{
+				if (!cEnum.minName)
+				{
+					cEnum.minName = cEnum.maxName = constant.name;
+					minValue = maxValue = constant.value;
+				}
+				else if (constant.value < minValue)
+				{
+					cEnum.minName = constant.name;
+					minValue = constant.value;
+				}
+				else if (constant.value > maxValue) 
+				{
+					cEnum.maxName = constant.name;
+					maxValue = constant.value;
+				}
+			}
+			cEnum.constants.push(constant);
 		}
-		availableNamed.set(command.name, command);
+	}
+}
+
+function parseCommand(xml)
+{
+	let command = {};
+	command.category = "command";
+	command.parameters = [];		
+
+	var protoNode = xml.getElementsByTagName("proto").item(0);
+	if (!protoNode){ return;}
+	
+	command.returnType = protoNode.getElementsByTagName("type").item(0).textContent;
+	command.name = protoNode.getElementsByTagName("name").item(0).textContent;
+	
+	if (command.name == "vkGetDeviceProcAddr" || command.name == "vkGetInstanceProcAddr"){ return; }
+	
+	var commandChildren = xml.children;
+	
+	for(let j=0; j < commandChildren.length; ++j)
+	{
+		var commandChild = commandChildren.item(j);
+		if (commandChild.tagName != "param")
+		{
+			continue;
+		}
+		
+		let parameter = {};
+		parameter.preType = "";
+		parameter.postType = "";
+		
+		var nodes = commandChild.childNodes;
+		
+		for(let k = 0; k < nodes.length; ++k)
+		{
+			var node = nodes.item(k);
+			
+			if (!parameter.type)
+			{
+				if (node.tagName != "type")	{	parameter.preType += node.textContent;	}
+				else						{	parameter.type = node.textContent;	}
+			}
+			else 
+			{
+				if (node.tagName != "name") {
+					if (!parameter.name){	parameter.postType += node.textContent; }
+					else 				{	parameter.name += node.textContent;	}
+				}
+				else {	parameter.name = node.textContent;	}
+			}
+		}
+		command.parameters.push(parameter);
+	}
+	availableNamed.set(command.name, command);
+}
+
+function parseFeature(xml)
+{
+	var feature = {};
+
+	feature.name = xml.getAttribute("api");
+	feature.version = xml.getAttribute("number");
+	feature.description = xml.getAttribute("comment");
+	feature.availableExtensions = new Map();
+	feature.requires = [];
+	
+	availableFeatures.set(feature.name, feature);
+	
+	for (let requireOrRemove of xml.childNodes.values())
+	{
+		if (requireOrRemove.tagName == "remove")
+		{ console.error("feature remove tags aren't supported yet. (They weren't used when this generator was written"); }
+		else if (requireOrRemove.tagName == "require")
+		{
+			if (requireOrRemove.getAttribute("profile")		||
+				requireOrRemove.getAttribute("extension")	||
+				requireOrRemove.getAttribute("api"))
+			{
+				console.error("When this generator was written, profile, extension and api attributes on require and remove tags weren't used, so they're not currently evaluated in this generator.");
+			}
+			
+			for (const node of requireOrRemove.childNodes.values())
+			{
+				if (node.nodeType == 1)
+				{
+					feature.requires.push(node.getAttribute("name"));
+				}
+			}
+		}
 	}
 	
+}
+
+function parseExtension(xml)
+{
+	var extension = {};
+	
+	extension.support = xml.getAttribute("supported");
+	if (extension.support == "disabled") { return; }
+	
+	let feature = availableFeatures.get(extension.support);
+	if (!feature)
+	{
+		console.error("extension supports unknown feature: " + extension.support);
+		return;
+	}
+	
+	extension.name = xml.getAttribute("name");
+	extension.number = parseInt(xml.getAttribute("number"));
+	extension.type = xml.getAttribute("type");
+	extension.requires = xml.getAttribute("requires");
+	extension.contact = xml.getAttribute("contact");
+	extension.requires = [];
+	
+	feature.availableExtensions.set(extension.name, extension);
+	
+	for (let requireOrRemove of xml.childNodes.values())
+	{
+		if (requireOrRemove.nodeType != Node.ELEMENT_NODE) { continue; }
+		if (requireOrRemove.tagName != "require")
+		{
+			console.error("Currently only require nodes are supported. Extension name: " + extension.name);
+			continue;
+		}
+		
+		for (let symbolNode of requireOrRemove.childNodes.values())
+		{
+			if (symbolNode.nodeType != Node.ELEMENT_NODE) { continue; }
+			
+			let require = {};
+			require.name = symbolNode.getAttribute("name");
+			
+			switch(symbolNode.tagName)
+			{
+				case "enum":
+					require.extending = symbolNode.getAttribute("extends");
+					if (require.extending)
+					{
+						require.form = "extensionEnum";
+						let constantBitPos = symbolNode.getAttribute("bitpos");
+						if (constantBitPos)
+						{
+							require.value = "(1 << " + constantBitPos + ")";
+						}
+						else 
+						{
+							let offsetAttribute = symbolNode.getAttribute("offset");
+							if (offsetAttribute)
+							{
+								let offset = parseInt(offsetAttribute);
+								require.value = 1000000000 + offset + (1000 * (extension.number - 1))
+								if (symbolNode.getAttribute("dir") == "-")
+								{
+									require.value = -require.value;
+								}
+							}
+							else if (require.value = symbolNode.getAttribute("value"))
+							{
+								// special case for VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE
+							}
+							else 
+							{
+								console.error("expected either a bitpos or an offset for: " + require.name);
+								continue;
+							}
+						}
+					}
+					else 
+					{
+						require.form = "constant";
+						require.value = symbolNode.getAttribute("value");
+						if (!require.value)
+						{
+							let constantBitPos = symbolNode.getAttribute("bitpos");
+							if (constantBitPos)
+							{
+								require.value = "(1 << " + constantBitPos + ")";
+							}
+							else
+							{
+								require.form = "reference";
+								break;
+							}
+						}
+						require.type = determineType(require.value);
+					}
+				break;
+				case "type":
+				case "command":
+					require.form = "reference";
+				break;
+			}
+			
+			extension.requires.push(require);
+		}
+		
+	}
+	
+}
+
+function determineType(text)
+{
+	// naive type analysis that only recognizes ULL (unsigned 64), f (float) or " (char* / c-string)
+	for(let k = 0; k < text.length; ++k)
+	{					
+		switch(text[k])
+		{
+			case 'U':
+				if (k > 0 && !isNaN(text[k-1]) && text[k+1] == "L" && text[k+2] == "L")
+				{
+					return u64;
+				}
+			break;
+			case 'f':
+				return "float";
+			break;
+			case '"':
+				return s8 + "*";
+			break;
+		}
+	}
+	return u32;
+}
+
+function listFeatures()
+{
 	// List features:
 	statusText.textContent = "Listing Features...";
-	var featureNodes = vkxml.getElementsByTagName("feature");
-	for(let i = 0; i < featureNodes.length; ++i)
+	for (let feature of availableFeatures.values())
 	{
-		var feature = {};
-
-		feature.node = featureNodes.item(i);
-		feature.name = feature.node.getAttribute("api");
-		feature.version = feature.node.getAttribute("number");
-		feature.description = feature.node.getAttribute("comment");
-
-		availableFeatures.set(feature.name, feature);
-		
 		feature.checkbox = addCheckbox(featureList, feature.name, feature.description, feature.name + ", version: " + feature.version);
 		var extensionUl = document.createElement("ul");
 		extensionUl.setAttribute("class", "extensionList");
 		featureList.appendChild(extensionUl);
-
-		feature.availableExtensions = new Map();
-
-		// Extensions:
-		var extensionsNode = vkxml.getElementsByTagName("extensions").item(0);
-		var extensionNodes = extensionsNode.children;
-		for(let j = 0; j < extensionNodes.length; ++j)
+		
+		for(let extension of feature.availableExtensions.values())
 		{
-			var extension = {};
-
-			extension.node = extensionNodes.item(j);
-			
-			extension.support = extension.node.getAttribute("supported");
-			if (extension.support == "disabled" || extension.support != feature.name) { continue; }
-
-			
-			extension.name = extension.node.getAttribute("name");
-			extension.number = parseInt(extension.node.getAttribute("number"));
-			extension.type = extension.node.getAttribute("type");
-			extension.requires = extension.node.getAttribute("requires");
-			extension.contact = extension.node.getAttribute("contact");
-			
 			var extensionLi = document.createElement("li");
 			extensionUl.appendChild(extensionLi);
-
-			feature.availableExtensions.set(extension.name, extension);
 			
 			extension.checkbox = addCheckbox(extensionLi, extension.name, extension.name, "Type: " + extension.type + ", Contact: " + extension.contact);
 			extension.checkbox.setAttribute("extensionName", extension.name);
@@ -525,54 +723,7 @@ function readXML(vkxml)
 
 function makeConstantAvailable(constantNode)
 {
-	var constant = {};
-				
-	constant.category = "constant";
-	constant.name = constantNode.getAttribute("name");
-	constant.type = "u32";
-	constant.value = constantNode.getAttribute("value");
 	
-	if (!constant.value)
-	{
-		let bitPos = constantNode.getAttribute("bitPos");
-		if (!bitPos){	return;	}
-		constant.value = constant.value = "(1 << " + bitPos + ")";
-		
-	}
-	availableNamed.set(constant.name, constant);
-	
-	if (constant.value.startsWith("VK_"))
-	{
-		// Probably an enum alias, skip it:
-		return false;
-	}
-	
-	// naive type analysis that only recognizes ULL (unsigned 64), f (float) or " (char* / c-string)
-	let typeFound = false;
-	for(let k = 0; k < constant.value.length; ++k)
-	{					
-		switch(constant.value[k])
-		{
-			case 'U':
-				if (k > 0 && !isNaN(constant.value[k-1]) && constant.value[k+1] == "L" && constant.value[k+2] == "L")
-				{
-					constant.type = u64;
-					typeFound = true;
-					break;
-				}
-			break;
-			case 'f':
-				constant.type = "float";
-				typeFound = true;
-			break;
-			case '"':
-				constant.type = s8 + "*";
-				typeFound = true;
-			break;
-		}
-		if (typeFound) { break; }
-	}
-	return true;
 }
 
 function checkAllFeatureExtensions()
@@ -618,20 +769,9 @@ function writeHeader()
 	{
 		if (!feature.checkbox.checked) { continue; }
 		
-		for (let requireOrRemove of feature.node.childNodes.values())
+		for (let require of feature.requires)
 		{
-			if (requireOrRemove.tagName == "remove")
-			{ console.error("feature remove tags aren't supported yet. (They weren't used when this generator was written"); }
-			else if (requireOrRemove.tagName == "require")
-			{
-				for (const node of requireOrRemove.childNodes.values())
-				{
-					if (node.nodeType == 1)
-					{
-						registerSymbol(node.getAttribute("name"));
-					}
-				}
-			}
+			registerSymbol(require);
 		}
 		
 		registerSymbol("PFN_vkVoidFunction");// We manually implement the only functions that use this, so add it here manually too.
@@ -642,87 +782,41 @@ function writeHeader()
 			if (!extension.checkbox.checked) { continue; }
 			
 			// Apply extension changes.
-			var extensionChildren = extension.node.children;
-			for(var k = 0; k < extensionChildren.length; ++k)
+			for (let require of extension.requires)
 			{
-				var requireOrRemove = extensionChildren.item(k);
-				var interfaces = requireOrRemove.childNodes;
-				if (requireOrRemove.tagName == "require")
+				switch(require.form)
 				{
-					for(var l = 0; l < interfaces.length; ++l)
+					case "extensionEnum":
 					{
-						var interfaceNode = interfaces.item(l);
-						var tagName = interfaceNode.tagName;
-						
-						if (interfaceNode.nodeType != 1) { continue; }
-						
-						let symbolName  = interfaceNode.getAttribute("name");
-						
-						if (tagName == "enum")
+						let cEnum = availableNamed.get(require.extending);
+						if (!cEnum)
 						{
-							var constantBitPos = interfaceNode.getAttribute("bitpos");
-							var extending = interfaceNode.getAttribute("extends");
-							if (extending)
-							{
-								let cEnum = availableNamed.get(extending);
-								if (!cEnum)
-								{
-									console.error("extended enum not found, with name: " + extending);
-									continue;
-								}
-								
-								
-								var offsetAttribute = interfaceNode.getAttribute("offset");
-								if (offsetAttribute)
-								{
-									let constant = {};
-									constant.name = symbolName;
-									
-									var offsetAttribute = interfaceNode.getAttribute("offset");
-									if (offsetAttribute)
-									{
-									
-										var offset = parseInt(offsetAttribute);
-										constant.value = 1000000000 + offset + (1000 * (extension.number - 1))
-										if (interfaceNode.getAttribute("dir") == "-")
-										{
-											constant.value = -constant.value;
-										}
-									}
-									else
-									{
-										if (constantBitPos)
-										{
-											constant.value = "(1 << " + constantBitPos + ")";
-										}
-										else
-										{
-											console.error("Couldn't determine extension enum value: " + symbolName + ". Expected either bitpos or offset");
-										}
-									}
-									cEnum.constants.push(constant);
-								}
-							}
-							else
-							{
-								if (makeConstantAvailable(interfaceNode))
-								{
-									registerSymbol(symbolName);
-								}
-							}
+							console.error("extended enum not found: " + require.extending);
+							continue;
 						}
-						else (tagName)
-						{
-							registerSymbol(symbolName);
-						}
-
+						let constant = {};
+						constant.name = require.name;
+						constant.value = require.value;
+						
+						cEnum.constants.push(constant);
 					}
+					break;
+					case "constant":
+					{
+						let constant = {};
+						constant.name = require.name
+						constant.value = require.value;
+						constant.type = require.type
+						constant.category = "constant";
+					
+						availableNamed.set(constant.name, constant);
+						registerSymbol(require.name);
+					}
+					break;
+					case "reference":
+						registerSymbol(require.name);
+					break;
 				}
-				else 
-				{
-					console.error("extension remove tags aren't supported yet. (They weren't used when this generator was written");
-				}
-				
 			}
 		}
 		
@@ -1002,7 +1096,7 @@ function registerSymbol(symbolName)
 				// ignored...
 			break;
 			default:
-				console.error("Unknown type category: '"  + found.category + "', on found: '" + found.name + "' of type: " + found.type);
+				console.error("Unknown type category: '"  + found.category + "', on found: '" + found.name + "' of type: " + found.type + ". symbol name: "  + symbolName);
 			break;
 			
 		}		
