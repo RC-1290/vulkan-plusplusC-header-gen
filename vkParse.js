@@ -190,6 +190,7 @@ function parseTypes(xml)
 		let namedThing = {};
 		namedThing.category = typeNode.getAttribute("category");
 		namedThing.name = typeNode.getAttribute("name");
+		namedThing.requires = typeNode.getAttribute("requires");
 		if (!namedThing.name)
 		{
 			let nameTags = typeNode.getElementsByTagName("name");
@@ -286,10 +287,8 @@ function parseTypes(xml)
 				var typeChildNode = typeChildNodes.item(j);
 				if (typeChildNode.tagName == "name")
 				{
-					let flag = {};
-					flag.category = category;
-					flag.name = typeChildNode.textContent;
-					availableNamed.set(flag.name, flag);
+					namedThing.name = typeChildNode.textContent;
+					availableNamed.set(namedThing.name, namedThing);
 					break;
 				}
 			}			
@@ -756,7 +755,7 @@ function checkRequiredExtensions()
 	var feature = availableFeatures.get(this.getAttribute("featureName"));
 	var extension = feature.availableExtensions.get(this.getAttribute("extensionName"));
 	
-	if (extension.checkbox.checked)
+	if (extension.checkbox.checked && extension.dependencies)
 	{
 		for (let dependency of extension.dependencies)
 		{
@@ -1069,6 +1068,10 @@ function registerSymbol(symbolName)
 	let found = availableNamed.get(symbolName);
 	if (found)
 	{
+		if (found.requires){
+			registerSymbol(found.requires);
+		}
+		
 		switch(found.category)
 		{
 			case "struct":
