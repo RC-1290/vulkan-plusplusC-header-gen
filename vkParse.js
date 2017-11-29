@@ -721,11 +721,6 @@ function listFeatures()
 	statusText.textContent = "Features listed, waiting for user input...";
 }
 
-function makeConstantAvailable(constantNode)
-{
-	
-}
-
 function checkAllFeatureExtensions()
 {
 	var feature = availableFeatures.get(this.getAttribute("featureName"));
@@ -837,13 +832,6 @@ function writeHeader()
 		handle.name = stripVk(handle.name);
 		typeReplacements.set(handle.originalName, handle.name);
 	}
-	for (let i = 0; i < constants.length; ++i)
-	{
-		let constant = constants[i];
-		constant.originalName = constant.name;
-		constant.name = stripVk(constant.name);
-		typeReplacements.set(constant.originalName, constant.name);
-	}
 	for (let i = 0; i < enums.length; ++i)
 	{
 		let cEnum = enums[i];
@@ -864,6 +852,20 @@ function writeHeader()
 		}
 		
 		typeReplacements.set(cEnum.originalName, cEnum.name);
+	}
+	for (let i = 0; i < constants.length; ++i)
+	{
+		let constant = constants[i];
+		constant.originalName = constant.name;
+		constant.name = stripVk(constant.name);
+		typeReplacements.set(constant.originalName, constant.name);
+		
+		// enum alias renaming:
+		let replacement = typeReplacements.get(constant.value);
+		if (replacement)
+		{
+			constant.value = replacement;
+		}
 	}
 	for (let i = 0; i < structs.length; ++i)
 	{
