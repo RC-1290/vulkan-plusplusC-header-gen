@@ -562,9 +562,14 @@ function parseExtension(xml)
 	extension.name = xml.getAttribute("name");
 	extension.number = parseInt(xml.getAttribute("number"));
 	extension.type = xml.getAttribute("type");
-	extension.requires = xml.getAttribute("requires");
 	extension.contact = xml.getAttribute("contact");
 	extension.requires = [];
+	
+	let requiredExtensions = xml.getAttribute("requires");//TODO: parse for comma separated list of required extensions.
+	if (requiredExtensions)
+	{
+		extension.dependencies = requiredExtensions.split(",");
+	}
 	
 	feature.availableExtensions.set(extension.name, extension);
 	
@@ -636,6 +641,11 @@ function parseExtension(xml)
 								break;
 							}
 						}
+						else if (require.value.startsWith("VK_"))
+						{
+							require.form = "enumAlias";
+						}
+						
 						require.type = determineType(require.value);
 					}
 				break;
@@ -748,11 +758,19 @@ function checkRequiredExtensions()
 	
 	if (extension.checkbox.checked)
 	{
-		var requiredExtension = feature.availableExtensions.get(extension.requires);
-		if (requiredExtension)
+		for (let dependency of extension.dependencies)
 		{
-			requiredExtension.checkbox.checked = true;
+			if (dependency)
+			{
+				var requiredExtension = feature.availableExtensions.get(dependency.trim());
+				if (requiredExtension)
+				{
+					requiredExtension.checkbox.checked = true;
+				}
+			}
 		}
+		
+		
 	}
 }
 
@@ -810,6 +828,9 @@ function writeHeader()
 					break;
 					case "reference":
 						registerSymbol(require.name);
+					break;
+					case "enumAlias":
+						// Ignore Enum aliases for now...
 					break;
 				}
 			}
@@ -896,6 +917,7 @@ function writeHeader()
 				type.originalName = type.name;
 				type.preName = type.preName.replace(/\bVkBool32\b/, ub32);// manual replacement, since the xml lacks return type markup.
 				type.preName = type.preName.replace(/\bVKAPI_PTR\b/, VKAPI_PTR);
+				
 				for (let j = 0; j < type.parameters.length; ++j)
 				{
 					let parameter = type.parameters[j];
