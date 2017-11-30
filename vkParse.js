@@ -918,6 +918,7 @@ function createHeader()
 	statusText.textContent = "Saving state for next run...";
 	localStorage.setItem("selectedFeatures", selectedFeatures);
 	localStorage.setItem("selectedExtensions", selectedExtensions);
+	
 	localStorage.setItem("typedefInclude", typeIncludeInput.value);
 	localStorage.setItem("surfaceInclude", surfaceIncludeInput.value);
 	localStorage.setItem("vulkanNamespace", vulkanNamespaceInput.value);
@@ -1002,8 +1003,10 @@ function createHeader()
 			break;
 			case "funcpointer":
 				type.originalName = type.name;
+				type.name = stripVk(stripPFN(type.name));
 				type.preName = type.preName.replace(/\bVkBool32\b/, ub32);// manual replacement, since the xml lacks return type markup.
 				type.preName = type.preName.replace(/\bVKAPI_PTR\b/, VKAPI_PTR);
+				
 				
 				for (let j = 0; j < type.parameters.length; ++j)
 				{
@@ -1012,7 +1015,7 @@ function createHeader()
 					if (replacement){	parameter.type = replacement;	}
 				}
 				
-				typeReplacements.set(type.originalName, type.name);
+				typeReplacements.set(type.originalName, "PFN::" + type.name);
 			break;
 		}
 	}
@@ -1037,7 +1040,7 @@ function createHeader()
 	statusText.textContent = "Writing Header...";
 	document.getElementById("setupStuff").setAttribute("class", "hidden");
 	document.getElementById("hiddenUntilCreation").removeAttribute("class");
-	document.getElementById("vkGetInstanceProcAddrDefine").textContent = vulkanNamespace + "::PFN_vkVoidFunction " + VKAPI_CALL + " vkGetInstanceProcAddr( " + vulkanNamespace + "::Instance instance, const " + s8 + "* pName );";
+	document.getElementById("vkGetInstanceProcAddrDefine").textContent = vulkanNamespace + "::PFN::VoidFunction " + VKAPI_CALL + " vkGetInstanceProcAddr( " + vulkanNamespace + "::Instance instance, const " + s8 + "* pName );";
 	
 	// Write Handles:
 	for(let i = 0; i < handles.length; ++i)
@@ -1109,13 +1112,15 @@ function createHeader()
 				addLineOfCode(structsDiv, indentation(1));
 			break;
 			case "funcpointer":
-				addLineOfCode(structsDiv, indentation(1) + type.preName + type.name + type.postName.trim());
+				addLineOfCode(structsDiv, indentation(1) + "namespace PFN {");
+				addLineOfCode(structsDiv, indentation(2) + type.preName + type.name + type.postName.trim());
 				
 				for(let j= 0; j < type.parameters.length; ++j)
 				{
 					let parameter = type.parameters[j];
-					addLineOfCode(structsDiv, padTabs(indentation(2) + parameter.preType + parameter.type + parameter.postType,57) + parameter.name);
+					addLineOfCode(structsDiv, padTabs(indentation(3) + parameter.preType + parameter.type + parameter.postType, 54) + parameter.name);
 				}
+				addLineOfCode(structsDiv, indentation(1) + "}");
 				addLineOfCode(structsDiv, indentation(1));
 			break;
 		}
@@ -1232,6 +1237,18 @@ function selectHeader()
 	range.selectNodeContents(vulkanHeader);
 	sel.removeAllRanges();
 	sel.addRange(range);
+}
+
+function stripPFN(text)
+{
+	if (text.startsWith("PFN_"))
+	{
+		return text.slice(4);
+	}
+	else 
+	{
+		return text;
+	}
 }
 
 function stripVk(text)
