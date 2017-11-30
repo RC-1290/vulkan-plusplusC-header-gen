@@ -213,167 +213,175 @@ function parseTypes(xml)
 			if (nameTags.length > 0){	namedThing.name = nameTags.item(0).textContent;	}
 		}
 		
-		if (namedThing.category == "funcpointer")
-		{		
-			namedThing.parameters = [];
-			namedThing.preName = "";
-			namedThing.postName = "";
-			
-			let currentParameter;
-			let nameFound = false;
-			let nameComplete = false;
-			
-			let childNodes = typeNode.childNodes;
-			let nextPreType = "";
-			
-			for( let j = 0; j < childNodes.length; ++j)
+		switch(namedThing.category)
+		{
+			case "funcpointer":		
 			{
-				let childNode = childNodes.item(j);
-				let nodeText = childNode.textContent;
+				namedThing.parameters = [];
+				namedThing.preName = "";
+				namedThing.postName = "";
 				
-				if (!nameComplete)
-				{
-					if (childNode.tagName == "name")
-					{
-						nameFound = true;
-						namedThing.name = nodeText;
-					}	
-					else if (!nameFound) { namedThing.preName += nodeText;	}	
-					else if (childNode.tagName != "type"){	namedThing.postName += nodeText;	}
-					else {	nameComplete = true;	}
-				}
+				let currentParameter;
+				let nameFound = false;
+				let nameComplete = false;
 				
-				if (nameComplete)
+				let childNodes = typeNode.childNodes;
+				let nextPreType = "";
+				
+				for( let j = 0; j < childNodes.length; ++j)
 				{
-					if (childNode.tagName == "type")
+					let childNode = childNodes.item(j);
+					let nodeText = childNode.textContent;
+					
+					if (!nameComplete)
 					{
-						currentParameter = {};
-						currentParameter.preType = nextPreType;
-						nextPreType = "";
-						currentParameter.postType = "";
-						namedThing.parameters.push(currentParameter);
-						currentParameter.type = nodeText;
+						if (childNode.tagName == "name")
+						{
+							nameFound = true;
+							namedThing.name = nodeText;
+						}	
+						else if (!nameFound) { namedThing.preName += nodeText;	}	
+						else if (childNode.tagName != "type"){	namedThing.postName += nodeText;	}
+						else {	nameComplete = true;	}
 					}
-					else
+					
+					if (nameComplete)
 					{
-						let parameterSplit = nodeText.split(",");
-						
-						if (parameterSplit.length == 2)
+						if (childNode.tagName == "type")
 						{
-							currentParameter.postType += parameterSplit[0].trim() + ",";
-							nextPreType = parameterSplit[1].trimLeft();
-						}
-						else if (parameterSplit.length == 1)
-						{
-							currentParameter.postType += parameterSplit[0].trim();
+							currentParameter = {};
+							currentParameter.preType = nextPreType;
+							nextPreType = "";
+							currentParameter.postType = "";
+							namedThing.parameters.push(currentParameter);
+							currentParameter.type = nodeText;
 						}
 						else
 						{
-							console.error("Unexpected number of commas(expected 1): " + nodeText);
+							let parameterSplit = nodeText.split(",");
+							
+							if (parameterSplit.length == 2)
+							{
+								currentParameter.postType += parameterSplit[0].trim() + ",";
+								nextPreType = parameterSplit[1].trimLeft();
+							}
+							else if (parameterSplit.length == 1)
+							{
+								currentParameter.postType += parameterSplit[0].trim();
+							}
+							else
+							{
+								console.error("Unexpected number of commas(expected 1): " + nodeText);
+							}
 						}
 					}
 				}
-			}
-			
-			for(let j = 0;j < namedThing.parameters.length; ++j)
-			{
-				let parameter = namedThing.parameters[j];
 				
-				let tabsRemoved = parameter.postType.split(" ");
-				
-				if (tabsRemoved.length > 0)
+				for(let j = 0;j < namedThing.parameters.length; ++j)
 				{
-					parameter.name = tabsRemoved[tabsRemoved.length - 1];
-					parameter.postType = "";
-					for(let k = 0; k < tabsRemoved.length - 1; ++k)
-					{
-						parameter.postType += tabsRemoved[k];
-					}
-				}
-			}
-			
-			availableNamed.set(namedThing.name, namedThing);
-		}
-		else if (namedThing.category == "bitmask")
-		{
-			// Add to list so we can replace each occurance:
-			var typeChildNodes = typeNode.childNodes;
-			for (var j = 0; j < typeChildNodes.length; ++j)
-			{
-				var typeChildNode = typeChildNodes.item(j);
-				if (typeChildNode.tagName == "name")
-				{
-					namedThing.name = typeChildNode.textContent;
-					availableNamed.set(namedThing.name, namedThing);
-					break;
-				}
-			}			
-		}
-		else if (namedThing.category == "struct" || namedThing.category == "union")
-		{
-			namedThing.members = [];
-			availableNamed.set(namedThing.name, namedThing);
-			
-			var memberNodes = typeNode.children;
-			for(var j = 0; j < memberNodes.length; ++j)
-			{
-				
-				var memberNode = memberNodes.item(j);
-				if (memberNode.tagName != "member")
-				{
-					continue;
-				}
-				var member = {};
-				member.preType = ""
-				member.postType = "";
-				member.preEnum = "";
-				member.cEnum = "";
-				member.postEnum = "";
-				namedThing.members.push(member);
-
-				var memberTags = memberNode.childNodes;
-				for(var h = 0; h < memberTags.length; ++h)
-				{
-					var memberTag = memberTags.item(h);
+					let parameter = namedThing.parameters[j];
 					
-					switch(memberTag.nodeType)
+					let tabsRemoved = parameter.postType.split(" ");
+					
+					if (tabsRemoved.length > 0)
 					{
-						case Node.ELEMENT_NODE:
-							if (memberTag.tagName == "type")
-							{
-								member.type = memberTag.textContent;
-							}
-							else if (memberTag.tagName == "name")
-							{
-								member.name = memberTag.textContent;
-							}
-							else if (memberTag.tagName == "enum")
-							{
-								member.cEnum = memberTag.textContent;
-							}
-						break;
-						case Node.TEXT_NODE:
-							let contents = memberTag.textContent;
-							
-							if (!member.type){	member.preType += contents;	}//e.g.: void
-							else if (!member.name)	{ member.postType += contents; }// e.g.: *
-							else if (!member.cEnum)	{ member.preEnum += memberTag.textContent.trim(); }//e.g.: [ in [someArray]
-							else					{ member.postEnum += memberTag.textContent.trim(); }//e.g.: ] in [someArray]
-						break;
+						parameter.name = tabsRemoved[tabsRemoved.length - 1];
+						parameter.postType = "";
+						for(let k = 0; k < tabsRemoved.length - 1; ++k)
+						{
+							parameter.postType += tabsRemoved[k];
+						}
 					}
 				}
 				
+				availableNamed.set(namedThing.name, namedThing);
+				break;
 			}
-		}
-		else 
-		{
-			
-			if (!namedThing.category)
+			case "bitmask":
 			{
-				namedThing.category = "EXTERNAL";// capitalized category to avoid collision with future new categories.
+				// Add to list so we can replace each occurance:
+				var typeChildNodes = typeNode.childNodes;
+				for (var j = 0; j < typeChildNodes.length; ++j)
+				{
+					var typeChildNode = typeChildNodes.item(j);
+					if (typeChildNode.tagName == "name")
+					{
+						namedThing.name = typeChildNode.textContent;
+						availableNamed.set(namedThing.name, namedThing);
+						break;
+					}
+				}
+				break;
 			}
-			
-			if (namedThing.name){	availableNamed.set(namedThing.name, namedThing);	}
+			case "struct":
+			case "union":
+			{
+				namedThing.members = [];
+				availableNamed.set(namedThing.name, namedThing);
+				
+				var memberNodes = typeNode.children;
+				for(var j = 0; j < memberNodes.length; ++j)
+				{
+					
+					var memberNode = memberNodes.item(j);
+					if (memberNode.tagName != "member")
+					{
+						continue;
+					}
+					var member = {};
+					member.preType = ""
+					member.postType = "";
+					member.preEnum = "";
+					member.cEnum = "";
+					member.postEnum = "";
+					namedThing.members.push(member);
+
+					var memberTags = memberNode.childNodes;
+					for(var h = 0; h < memberTags.length; ++h)
+					{
+						var memberTag = memberTags.item(h);
+						
+						switch(memberTag.nodeType)
+						{
+							case Node.ELEMENT_NODE:
+								if (memberTag.tagName == "type")
+								{
+									member.type = memberTag.textContent;
+								}
+								else if (memberTag.tagName == "name")
+								{
+									member.name = memberTag.textContent;
+								}
+								else if (memberTag.tagName == "enum")
+								{
+									member.cEnum = memberTag.textContent;
+								}
+							break;
+							case Node.TEXT_NODE:
+								let contents = memberTag.textContent;
+								
+								if (!member.type){	member.preType += contents;	}//e.g.: void
+								else if (!member.name)	{ member.postType += contents; }// e.g.: *
+								else if (!member.cEnum)	{ member.preEnum += memberTag.textContent.trim(); }//e.g.: [ in [someArray]
+								else					{ member.postEnum += memberTag.textContent.trim(); }//e.g.: ] in [someArray]
+							break;
+						}
+					}
+					
+				}
+				break;
+			}
+			default:
+			{
+				if (!namedThing.category)
+				{
+					namedThing.category = "EXTERNAL";// capitalized category to avoid collision with future new categories.
+				}
+				
+				if (namedThing.name){	availableNamed.set(namedThing.name, namedThing);	}
+				break;
+			}
+				
 		}
 		
 	}	
@@ -1101,7 +1109,7 @@ function createHeader()
 			case "struct":
 			case "union":
 				
-				addLineOfCode(structsDiv, indentation(1) + "struct " + type.name + " {");
+				addLineOfCode(structsDiv, indentation(1) + type.category + " " + type.name + " {");
 				for (let j = 0; j < type.members.length; ++j)
 				{
 					let member = type.members[j];
