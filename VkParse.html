@@ -19,7 +19,7 @@
 </div>
 <div>
 <label for="surfaceInclude">Surface include header:</label>
-<input id="surfaceInclude" type="text" placeholder="../WinApi.h"></input>
+<input id="surfaceInclude" type="text" placeholder="../WinAPI.h"></input>
 </div>
 <div>
 <label for="vulkanNamespace">Vulkan API namespace:</label>
@@ -47,7 +47,7 @@
 	
 // Vulkan Header for C++ compilers.
 // A single translation unit (e.g.: a .cpp file) that includes this header, must have <span class="ProccAddrLookupImplDefine">IMPLEMENT_VK_COMMAND_LOOKUP</span> defined.
-// You can then call LoadIndependentCommands and LoadInstanceCommands.
+// You can then call LoadIndependentCommands and LoadInstanceCommands, to load the ProcAddresses.
 	
 #pragma once
 

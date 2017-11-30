@@ -1269,12 +1269,15 @@ function stripVk(text)
 
 function stripEnumName(entryName, enumName)
 {
-	var nameIndex = 0;
-	var entryIndex = 0;
+	let nameIndex = 0;
+	let entryIndex = 0;
+	let underscoreIndex = 0;
+	
 	for(entryIndex = 0; entryIndex < entryName.length; ++entryIndex)
 	{
 		if (entryName[entryIndex] == "_")
 		{
+			underscoreIndex = entryIndex;
 			continue;
 		}
 		else if(entryName[entryIndex].toUpperCase() == enumName.charAt(nameIndex).toUpperCase())
@@ -1288,12 +1291,16 @@ function stripEnumName(entryName, enumName)
 		}
 	}
 	
-	if (!isNaN(entryName.charAt(entryIndex)))
+	let sliceIndex = underscoreIndex + 1;
+	
+	// Numbers can't be the first character of identifiers:
+	if (!isNaN(entryName.charAt(sliceIndex)))
 	{
-		--entryIndex;
+		--sliceIndex;
 	}
 	
-	return entryName.slice(entryIndex);
+	if (sliceIndex > 0){	return entryName.slice(sliceIndex);	}
+	else{	return entryName;	}
 }
 
 function addCheckbox(parent, name, label, tooltip)
