@@ -66,8 +66,6 @@ typeReplacements.set("SECURITY_ATTRIBUTRES", SECURITY_ATTRIBUTES);
 typeReplacements.set("DWORD", DWORD);
 typeReplacements.set("LPCWSTR", LPCWSTR);
 
-
-// Startup code:
 var statusText =				document.getElementById("statusText");
 var featureList =				document.getElementById("featureSelection");
 var symbolList =				document.getElementById("symbols");
@@ -88,8 +86,12 @@ var surfaceIncludeInput = document.getElementById("surfaceInclude");
 var vulkanNamespaceInput = document.getElementById("vulkanNamespace");
 var implementationDefineInput = document.getElementById("implementationDefine");
 
-var availableFeatures = new Map();
+restoreInput("typedefInclude", typeIncludeInput);
+restoreInput("surfaceInclude", surfaceIncludeInput);
+restoreInput("vulkanNamespace", vulkanNamespaceInput);
+restoreInput("implementationDefine", implementationDefineInput);
 
+var availableFeatures = new Map();
 var availableNamed = new Map();
 
 var flags = [];
@@ -110,6 +112,15 @@ xhr.send();
 
 var headerSelectBtn = document.getElementById("headerSelectBtn");
 headerSelectBtn.addEventListener( "click", selectHeader);
+
+function restoreInput(localStoreKey, input)
+{
+	let restored = localStorage.getItem(localStoreKey);
+	if (restored)
+	{
+		input.value = restored;
+	}
+}
 
 function onXhrLoad()
 {
@@ -904,11 +915,18 @@ function createHeader()
 			}
 		}
 	}
+	statusText.textContent = "Saving state for next run...";
 	localStorage.setItem("selectedFeatures", selectedFeatures);
 	localStorage.setItem("selectedExtensions", selectedExtensions);
+	localStorage.setItem("typedefInclude", typeIncludeInput.value);
+	localStorage.setItem("surfaceInclude", surfaceIncludeInput.value);
+	localStorage.setItem("vulkanNamespace", vulkanNamespaceInput.value);
+	localStorage.setItem("implementationDefine", implementationDefineInput.value);
 	
 	
 	// Replace types and changes names:
+	statusText.textContent = "Replacing type names...";
+	
 	for(let i = 0; i < flags.length; ++i)
 	{
 		let flag = flags[i];
