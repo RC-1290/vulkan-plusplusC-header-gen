@@ -68,7 +68,6 @@ typeReplacements.set("LPCWSTR", LPCWSTR);
 
 var statusText =				document.getElementById("statusText");
 var featureList =				document.getElementById("featureSelection");
-var symbolList =				document.getElementById("symbols");
 
 var handlesDiv =				document.getElementById("handles");
 var enumsDiv =					document.getElementById("enums");
@@ -733,7 +732,7 @@ function listFeatures()
 		if (featureSelectionMap.get(feature.name)){	feature.checkbox.checked = true;	}
 		
 		var extensionUl = document.createElement("ul");
-		extensionUl.setAttribute("class", "extensionList");
+		extensionUl.setAttribute("class", "autoColumn");
 		featureList.appendChild(extensionUl);
 		
 		for(let extension of feature.availableExtensions.values())

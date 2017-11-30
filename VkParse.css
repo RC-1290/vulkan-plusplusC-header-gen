@@ -2,6 +2,7 @@ body {
 	font-family : sans-serif;
 	background-color : #444;
 	color : #AAA;
+	padding : 50px;
 }
 
 h1,h2,h3,h4,h5
@@ -12,13 +13,18 @@ h1,h2,h3,h4,h5
 pre{
 	-moz-tab-size: 4;
 	tab-size : 4;
+	background-color : #333;
 }
 
-.extensionList{
+.autoColumn{
 	column-width: 350px;
 }
 
 .hidden
 {
 	display : none;
+}
+
+#statusText{
+	font-style: italic;
 }

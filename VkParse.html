@@ -10,9 +10,9 @@
 
 <h1>Vulkan Spec Parser</h1>
 <p>This parser tries to turn vk.xml into a ++C header file and implementation file. It works on my machine™.</p>
-<p id="statusText">This status text will be replaced by javascript, if the script works.</p>
+<p>Status: <span id="statusText">This status text will be replaced by javascript, if the script works.</span></p>
 <div id="setupStuff">
-<h2>Includes</h2>
+<h2>Settings</h2>
 <div>
 <label for="typedefInclude">Typedef include header:</label>
 <input id="typedefInclude" type="text" placeholder="../TypeDefs.h"></input>
@@ -31,8 +31,6 @@
 <h2>Features and Extensions</h2>
 <div id="featureSelection">This is where features and extensions should show up (using Javascript)</div>
 
-<h2>Imported stuff</h2>
-<div id="symbols"></div>
 </div>
 
 <div id="hiddenUntilCreation" class="hidden">
