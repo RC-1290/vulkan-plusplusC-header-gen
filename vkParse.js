@@ -55,10 +55,6 @@ typeReplacements.set("uint32_t", u32);
 typeReplacements.set("int32_t", s32);
 typeReplacements.set("uint64_t", u64);
 
-typeReplacements.set("VkSampleMask", u32);
-typeReplacements.set("VkBool32", ub32);
-typeReplacements.set("VkDeviceSize", DeviceSize);
-
 typeReplacements.set("HANDLE", WindowsHandle);
 typeReplacements.set("HINSTANCE", HINSTANCE);
 typeReplacements.set("HWND", HWND);
@@ -298,19 +294,29 @@ function parseTypes(xml)
 				break;
 			}
 			case "bitmask":
+			case "basetype":
 			{
 				// Add to list so we can replace each occurance:
 				var typeChildNodes = typeNode.childNodes;
 				for (var j = 0; j < typeChildNodes.length; ++j)
 				{
-					var typeChildNode = typeChildNodes.item(j);
-					if (typeChildNode.tagName == "name")
+					let node = typeChildNodes.item(j);
+					switch (node.tagName)
 					{
-						namedThing.name = typeChildNode.textContent;
-						availableNamed.set(namedThing.name, namedThing);
-						break;
+						case "name":
+							namedThing.name = node.textContent;
+							break;
+						case "type":
+							namedThing.type = node.textContent;
+							break;
+						
 					}
 				}
+				if (namedThing.name)
+				{
+					availableNamed.set(namedThing.name, namedThing);
+				}
+				
 				break;
 			}
 			case "struct":
@@ -977,11 +983,7 @@ function createHeader()
 		typeReplacements.set(constant.originalName, constant.name);
 		
 		// enum alias renaming:
-		let replacement = typeReplacements.get(constant.value);
-		if (replacement)
-		{
-			constant.value = replacement;
-		}
+		constant.value = typeReplacement(constant.value);
 	}
 	for (let i = 0; i < structs.length; ++i)
 	{
@@ -996,13 +998,11 @@ function createHeader()
 				for (let j = 0; j < type.members.length; ++j)
 				{
 					let member = type.members[j];
-					let replacement = typeReplacements.get(member.type);
-					if (replacement){	member.type = replacement;	}
+					member.type = typeReplacement(member.type);
 					
 					if (member.cEnum)
 					{
-						let replacement = typeReplacements.get(member.cEnum);
-						if (replacement) { member.cEnum = replacement; }
+						member.cEnum = typeReplacement(member.cEnum);
 					}
 				}
 				
@@ -1018,11 +1018,18 @@ function createHeader()
 				for (let j = 0; j < type.parameters.length; ++j)
 				{
 					let parameter = type.parameters[j];
-					let replacement = typeReplacements.get(parameter.type);
-					if (replacement){	parameter.type = replacement;	}
+					parameter.type = typeReplacement(parameter.type);
 				}
 				
 				typeReplacements.set(type.originalName, "PFN::" + type.name);
+			break;
+			case "basetype":
+				type.originalName = type.name;
+				type.name = stripVk(type.name);
+				
+				type.type = typeReplacement(type.type);
+				
+				typeReplacements.set(type.originalName, type.name);
 			break;
 		}
 	}
@@ -1032,14 +1039,12 @@ function createHeader()
 		command.originalName = command.name;
 		command.name = stripVk(command.name);
 		
-		let replacement = typeReplacements.get(command.returnType);
-		if (replacement){	command.returnType = replacement;	}
+		command.returnType = typeReplacement(command.returnType);
 		
 		for (let j = 0; j < command.parameters.length; ++j)
 		{
 			let parameter = command.parameters[j];
-			let replacement = typeReplacements.get(parameter.type);
-			if (replacement){	parameter.type = replacement;	}
+			parameter.type = typeReplacement(parameter.type);
 		}
 	}	
 	
@@ -1130,6 +1135,10 @@ function createHeader()
 				addLineOfCode(structsDiv, indentation(1) + "}");
 				addLineOfCode(structsDiv, indentation(1));
 			break;
+			case "basetype":
+				addLineOfCode(structsDiv, padTabs(indentation(1) + "typedef " + type.type, 63) + type.name + ";");
+				addLineOfCode(structsDiv, indentation(1));
+			break;
 		}
 	}
 	
@@ -1165,6 +1174,13 @@ function createHeader()
 		}
 	}
 	statusText.textContent = "Header completed writing.";
+}
+
+function typeReplacement(original)
+{
+	let replacement = typeReplacements.get(original);
+	if (replacement){	return replacement;	}
+	else{	return original;	}
 }
 
 function registerSymbol(symbolName)
@@ -1222,9 +1238,12 @@ function registerSymbol(symbolName)
 			case "bitmask":
 				pushIfNew(flags, found);
 			break;
+			case "basetype":
+				pushIfNew(structs, found);
+			break;
 			case "include":
 			case "define":
-			case "basetype":
+			
 			case "EXTERNAL":
 				// ignored...
 			break;
