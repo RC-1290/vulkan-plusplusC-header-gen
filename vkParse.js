@@ -1160,7 +1160,7 @@ function createHeader()
 		
 		// Function defintions:
 		addLineOfCode(externPfnDiv, padTabs(indentation(1) + "extern PFN::" + command.name, 68) + command.name + ";");
-		addLineOfCode(cmdDefsDiv,	padTabs(indentation(1) + " PFN::" + command.name, 68) + command.name + ";");
+		addLineOfCode(cmdDefsDiv,	padTabs(indentation(1) + "PFN::" + command.name, 68) + command.name + ";");
 		
 		if (command.originalName == "vkEnumerateInstanceLayerProperties" || command.originalName == "vkEnumerateInstanceExtensionProperties" || command.originalName == "vkCreateInstance")
 		{
