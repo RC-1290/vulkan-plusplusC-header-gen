@@ -22,7 +22,12 @@
 </div>
 <p>When the textarea above is filled, click the following button to select features and extensions:</p>
 <button id="parseTextButton">Parse xml</button>
+<div id="setupPart2" class="hidden">
+<h2>Features and Extensions</h2>
+<div id="featureSelection">This is where features and extensions should show up (using Javascript) once the vk.xml has been parsed.</div>
+
 <h2>Settings</h2>
+<p>In case you want to customize the header creation, here are some things you can change.</p>
 <div>
 <label for="typedefInclude">Typedef include header:</label>
 <input id="typedefInclude" type="text" placeholder="../TypeDefs.h"></input>
@@ -37,10 +42,7 @@
 <label for="implementationDefine">ProcAddrLookup Define:</label>
 <input id="implementationDefine" type="text" placeholder="IMPLEMENT_VK_COMMAND_LOOKUP"></input>
 </div>
-
-<h2>Features and Extensions</h2>
-<div id="featureSelection">This is where features and extensions should show up (using Javascript) once the vk.xml has been parsed.</div>
-
+</div>
 </div>
 
 <div id="hiddenUntilCreation" class="hidden">

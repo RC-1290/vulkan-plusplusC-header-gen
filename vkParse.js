@@ -89,6 +89,9 @@ var surfaceIncludeInput =		document.getElementById("surfaceInclude");
 var vulkanNamespaceInput =		document.getElementById("vulkanNamespace");
 var implementationDefineInput =	document.getElementById("implementationDefine");
 
+var setupStuff = 				document.getElementById("setupStuff");
+var setupPart2 =				document.getElementById("setupPart2");
+
 restoreInput("typedefInclude", typeIncludeInput);
 restoreInput("surfaceInclude", surfaceIncludeInput);
 restoreInput("vulkanNamespace", vulkanNamespaceInput);
@@ -161,6 +164,8 @@ function loadTextXhr(url)
 
 function parseText()
 {
+	setupPart2.setAttribute("class", "");
+	
 	statusText.textContent = "Trying to open vk.xml";
 	let xmlParser = new DOMParser();
 	let vkxml = xmlParser.parseFromString(vkxmlTextInput.value, "application/xml");
@@ -845,7 +850,7 @@ function listFeatures()
 	createHeaderButton.textContent = "Create Header";
 	createHeaderButton.addEventListener("click", createHeader);
 	
-	featureList.appendChild(createHeaderButton);
+	setupStuff.appendChild(createHeaderButton);
 	
 	statusText.textContent = "Features listing complete. Select features and extensions and press \"Create Header\"...";
 }
@@ -1114,7 +1119,7 @@ function createHeader()
 	
 	// Write header:
 	statusText.textContent = "Writing Header...";
-	document.getElementById("setupStuff").setAttribute("class", "hidden");
+	setupStuff.setAttribute("class", "hidden");
 	document.getElementById("hiddenUntilCreation").removeAttribute("class");
 	document.getElementById("vkGetInstanceProcAddrDefine").textContent = vulkanNamespace + "::PFN::VoidFunction " + VKAPI_CALL + " vkGetInstanceProcAddr( " + vulkanNamespace + "::Instance instance, const " + s8 + "* pName );";
 	
