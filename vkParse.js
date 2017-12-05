@@ -105,7 +105,7 @@ var earlyPfns = [];
 var structs = [];
 var commands = [];
 
-statusText.textContent = "Ready for action. Load some XML and press \"Parse xml\" to continue...";
+statusText.textContent = "Ready for action. Load some XML first.";
 var xhr = new XMLHttpRequest();
 var xmlSource = "";
 
@@ -118,6 +118,8 @@ var headerSelectBtn = document.getElementById("headerSelectBtn");
 var headerCpyBtn = document.getElementById("copyBtn");
 headerSelectBtn.addEventListener( "click", selectHeader);
 headerCpyBtn.addEventListener("click", copyHeader);
+
+loadLocal();
 
 function restoreInput(localStoreKey, input)
 {
@@ -137,7 +139,7 @@ function clearText()
 
 function loadLocal()
 {
-	xmlSource = "local copy.";
+	xmlSource = "(possibly outdated) local copy";
 	loadTextXhr("vk.xml");
 }
 
@@ -180,7 +182,7 @@ function onXhrLoad()
 		{
 			if (xhr.responseType == "")
 			{
-				statusText.textContent = "vk.xml loaded from " + xmlSource;
+				statusText.textContent = "vk.xml loaded from " + xmlSource + ". If this is the version you want to use, press \"Parse xml\" to continue...";
 				vkxmlTextInput.value = xhr.responseText;
 			}
 			else
