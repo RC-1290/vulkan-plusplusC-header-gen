@@ -75,11 +75,19 @@ var independentCmdLoadingDiv =	document.getElementById("independentCmdLoading");
 var instanceCmdLoadingDiv =		document.getElementById("instanceCmdLoading");
 
 //
-var extraIncludesDiv = document.getElementById("extraIncludes");
-var typeIncludeInput = document.getElementById("typedefInclude");
-var surfaceIncludeInput = document.getElementById("surfaceInclude");
-var vulkanNamespaceInput = document.getElementById("vulkanNamespace");
-var implementationDefineInput = document.getElementById("implementationDefine");
+var parseTextButton =			document.getElementById("parseTextButton");
+var localVkXmlBtn =				document.getElementById("localVkXmlBtn");
+var headerSelectBtn =			document.getElementById("headerSelectBtn");
+var headerCpyBtn =				document.getElementById("copyBtn");
+var clearXmlTextBtn =			document.getElementById("clearXmlTextBtn");
+var loadRawGithubBtn =			document.getElementById("loadRawGithubBtn");
+
+var vkxmlTextInput = 			document.getElementById("vkxmlText");
+var extraIncludesDiv =			document.getElementById("extraIncludes");
+var typeIncludeInput =			document.getElementById("typedefInclude");
+var surfaceIncludeInput =		document.getElementById("surfaceInclude");
+var vulkanNamespaceInput =		document.getElementById("vulkanNamespace");
+var implementationDefineInput =	document.getElementById("implementationDefine");
 
 restoreInput("typedefInclude", typeIncludeInput);
 restoreInput("surfaceInclude", surfaceIncludeInput);
@@ -97,16 +105,19 @@ var earlyPfns = [];
 var structs = [];
 var commands = [];
 
-statusText.textContent = "Trying to open vk.xml";
-
+statusText.textContent = "Ready for action. Load some XML and press \"Parse xml\" to continue...";
 var xhr = new XMLHttpRequest();
-var async = true;
-xhr.addEventListener("load", onXhrLoad);
-xhr.open("GET", "vk.xml", async);
-xhr.send();
+var xmlSource = "";
+
+clearXmlTextBtn.addEventListener("click", clearText);
+parseTextButton.addEventListener("click", parseText);
+localVkXmlBtn.addEventListener("click", loadLocal);
+loadRawGithubBtn.addEventListener("click", loadFromGithub);
 
 var headerSelectBtn = document.getElementById("headerSelectBtn");
+var headerCpyBtn = document.getElementById("copyBtn");
 headerSelectBtn.addEventListener( "click", selectHeader);
+headerCpyBtn.addEventListener("click", copyHeader);
 
 function restoreInput(localStoreKey, input)
 {
@@ -117,14 +128,65 @@ function restoreInput(localStoreKey, input)
 	}
 }
 
+function clearText()
+{
+	statusText.textContent = "text cleared";
+	vkxmlTextInput.value = "";
+	xmlSource = "";
+}
+
+function loadLocal()
+{
+	xmlSource = "local copy.";
+	loadTextXhr("vk.xml");
+}
+
+function loadFromGithub()
+{
+	xmlSource = "GitHub";
+	loadTextXhr("https://raw.githubusercontent.com/KhronosGroup/Vulkan-Docs/1.0/src/spec/vk.xml");
+}
+
+
+function loadTextXhr(url)
+{
+	statusText.textContent = "Trying to open vk.xml";
+	let async = true;
+	xhr.addEventListener("load", onXhrLoad);
+	xhr.open("GET", url, async);
+	xhr.send();
+}
+
+function parseText()
+{
+	statusText.textContent = "Trying to open vk.xml";
+	let xmlParser = new DOMParser();
+	let vkxml = xmlParser.parseFromString(vkxmlTextInput.value, "application/xml");
+	if (vkxml.documentElement.nodeName != "parsererror")
+	{	
+		readXML(vkxml);
+	}
+	else
+	{
+		statusText.textContent = "Could not parse xml, are you sure it is valid xml?";
+	}
+}
+
 function onXhrLoad()
 {
 	if (xhr.readyState === 4)
 	{
 		if (xhr.status === 200)
 		{
-			statusText.textContent = "reading xml...";
-			readXML(xhr.responseXML);	
+			if (xhr.responseType == "")
+			{
+				statusText.textContent = "vk.xml loaded from " + xmlSource;
+				vkxmlTextInput.value = xhr.responseText;
+			}
+			else
+			{
+				statusText.textContent = "The XHR request did not return a valid XML document.";
+			}
 		}
 		else 
 		{
@@ -783,7 +845,7 @@ function listFeatures()
 	
 	featureList.appendChild(createHeaderButton);
 	
-	statusText.textContent = "Features listed, waiting for user input...";
+	statusText.textContent = "Features listing complete. Select features and extensions and press \"Create Header\"...";
 }
 
 function checkAllFeatureExtensions()
@@ -1263,6 +1325,19 @@ function selectHeader()
 	range.selectNodeContents(vulkanHeader);
 	sel.removeAllRanges();
 	sel.addRange(range);
+}
+
+function copyHeader()
+{
+	selectHeader();
+	try
+	{
+		document.execCommand("copy");
+	}
+	catch(err)
+	{
+		console.error("copy is not supported in this browser");
+	}
 }
 
 function stripPFN(text)

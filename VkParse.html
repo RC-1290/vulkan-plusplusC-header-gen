@@ -9,9 +9,19 @@
 <body>
 
 <h1>Vulkan Spec Parser</h1>
-<p>This parser tries to turn vk.xml into a ++C header file and implementation file. It works on my machine™.</p>
+<p>This parser tries to turn <a href="https://github.com/KhronosGroup/Vulkan-Docs/blob/1.0/src/spec/vk.xml">vk.xml</a> into a ++C header file and implementation file. It works on my machine™.</p>
 <p>Status: <span id="statusText">This status text will be replaced by javascript, if the script works.</span></p>
 <div id="setupStuff">
+<h2>vk.xml</h2>
+<p>Paste vk.xml below. You can get the <a href="https://raw.githubusercontent.com/KhronosGroup/Vulkan-Docs/1.0/src/spec/vk.xml">latest version on GitHub</a>.</p>
+<textarea id="vkxmlText" placeholder="Fill this with vk.xml" cols="200" rows="12" wrap="off"></textarea>
+<div>
+<button id="clearXmlTextBtn" title="Clear the vk.xml textarea.">Clear TextArea</button>
+<button id="localVkXmlBtn" title="A local version of vk.xml, just in case it can't be loaded from github.">Local vk.xml</button>
+<button id="loadRawGithubBtn" title="Load the raw vk.xml directly from GitHub. Let's hope no one replaced the github code with a bunch of weird stuff.">Load from GitHub</button>
+</div>
+<p>When the textarea above is filled, click the following button to select features and extensions:</p>
+<button id="parseTextButton">Parse xml</button>
 <h2>Settings</h2>
 <div>
 <label for="typedefInclude">Typedef include header:</label>
@@ -29,7 +39,7 @@
 </div>
 
 <h2>Features and Extensions</h2>
-<div id="featureSelection">This is where features and extensions should show up (using Javascript)</div>
+<div id="featureSelection">This is where features and extensions should show up (using Javascript) once the vk.xml has been parsed.</div>
 
 </div>
 
@@ -37,6 +47,7 @@
 
 <h2>Vulkan Header</h2>
 <button id="headerSelectBtn">Select Header Text</button>
+<button id="copyBtn">Copy Header Text</button>
 <pre><code id="vulkanHeader">// This header is generated from the Khronos Vulkan XML API Registry,
 // https://github.com/KhronosGroup/Vulkan-Docs/blob/1.0/src/spec/vk.xml
 // The custom header generator was written by Laurens Mathot (@RC_1290).
