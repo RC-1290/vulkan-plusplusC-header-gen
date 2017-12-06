@@ -65,9 +65,7 @@ typeReplacements.set("LPCWSTR", LPCWSTR);
 var statusText =				document.getElementById("statusText");
 var featureList =				document.getElementById("featureSelection");
 
-var handlesDiv =				document.getElementById("handles");
-var enumsDiv =					document.getElementById("enums");
-var structsDiv =				document.getElementById("structs");
+var typesDiv =					document.getElementById("types");
 var commandTypeDefsDiv =		document.getElementById("commandTypeDefs");
 var externPfnDiv =				document.getElementById("externPfns");
 var cmdDefsDiv =				document.getElementById("cmdDefs");
@@ -101,11 +99,8 @@ var availableFeatures = new Map();
 var availableNamed = new Map();
 
 var flags = [];
-var handles = [];
-var constants = [];
-var enums = [];
 var earlyPfns = [];
-var structs = [];
+var types = [];
 var commands = [];
 
 statusText.textContent = "Ready for action. Load some XML first.";
@@ -661,6 +656,7 @@ function parseExtension(xml)
 	extension.number = parseInt(xml.getAttribute("number"));
 	extension.type = xml.getAttribute("type");
 	extension.contact = xml.getAttribute("contact");
+	extension.protect = xml.getAttribute("protect");
 	extension.requires = [];
 	
 	let requiredExtensions = xml.getAttribute("requires");//TODO: parse for comma separated list of required extensions.
@@ -1015,48 +1011,9 @@ function createHeader()
 		let flag = flags[i];
 		typeReplacements.set(flag.name, u32);
 	}
-	
-	for (let i = 0; i < handles.length; ++i)
+	for (let i = 0; i < types.length; ++i)
 	{
-		let handle = handles[i];
-		handle.originalName = handle.name;
-		handle.name = stripVk(handle.name);
-		typeReplacements.set(handle.originalName, handle.name);
-	}
-	for (let i = 0; i < enums.length; ++i)
-	{
-		let cEnum = enums[i];
-		cEnum.originalName = cEnum.name;
-		cEnum.name = stripVk(cEnum.name);
-		
-		for (let j = 0; j < cEnum.constants.length; ++j)
-		{
-			let constant = cEnum.constants[j];
-			constant.originalName = constant.name;
-			constant.name = stripEnumName(constant.name, cEnum.originalName);
-			typeReplacements.set(constant.originalName, cEnum.name + "::" + constant.name);
-		}
-		if (!cEnum.isBitMask)
-		{
-			cEnum.minName = stripEnumName(cEnum.minName, cEnum.originalName);
-			cEnum.maxName = stripEnumName(cEnum.maxName, cEnum.originalName);
-		}
-		
-		typeReplacements.set(cEnum.originalName, cEnum.name);
-	}
-	for (let i = 0; i < constants.length; ++i)
-	{
-		let constant = constants[i];
-		constant.originalName = constant.name;
-		constant.name = stripVk(constant.name);
-		typeReplacements.set(constant.originalName, constant.name);
-		
-		// enum alias renaming:
-		constant.value = typeReplacement(constant.value);
-	}
-	for (let i = 0; i < structs.length; ++i)
-	{
-		let type = structs[i];
+		let type = types[i];
 		switch(type.category)
 		{
 			case "struct":
@@ -1100,6 +1057,44 @@ function createHeader()
 				
 				typeReplacements.set(type.originalName, type.name);
 			break;
+			case "constant":
+			{
+				type.originalName = type.name;
+				type.name = stripVk(type.name);
+				typeReplacements.set(type.originalName, type.name);
+				
+				// enum alias renaming:
+				type.value = typeReplacement(type.value);
+			}
+			break;
+			case "enum":
+			{
+				type.originalName = type.name;
+				type.name = stripVk(type.name);
+				
+				for (let j = 0; j < type.constants.length; ++j)
+				{
+					let constant = type.constants[j];
+					constant.originalName = constant.name;
+					constant.name = stripEnumName(constant.name, type.originalName);
+					typeReplacements.set(constant.originalName, type.name + "::" + constant.name);
+				}
+				if (!type.isBitMask)
+				{
+					type.minName = stripEnumName(type.minName, type.originalName);
+					type.maxName = stripEnumName(type.maxName, type.originalName);
+				}
+				
+				typeReplacements.set(type.originalName, type.name);
+			}
+			break;
+			case "handle":
+			{
+				type.originalName = type.name;
+				type.name = stripVk(type.name);
+				typeReplacements.set(type.originalName, type.name);
+			}
+			break;
 		}
 	}
 	for (let i = 0; i < commands.length; ++i)
@@ -1123,92 +1118,106 @@ function createHeader()
 	document.getElementById("hiddenUntilCreation").removeAttribute("class");
 	document.getElementById("vkGetInstanceProcAddrDefine").textContent = vulkanNamespace + "::PFN::VoidFunction " + VKAPI_CALL + " vkGetInstanceProcAddr( " + vulkanNamespace + "::Instance instance, const " + s8 + "* pName );";
 	
-	// Write Handles:
-	for(let i = 0; i < handles.length; ++i)
+	let lastCategory = "";
+	for (let i = 0; i < types.length; ++i)
 	{
-		let handleName = handles[i].name;
-		addLineOfCode(handlesDiv, padTabs(indentation(1) + "typedef struct " + handleName + "_Handle*", 60) + handleName + ";");
-	}
-	
-	// Write constants:
-	for(let i = 0; i < constants.length; ++i)
-	{
-		let constant = constants[i];
-		let postName = "";
-		if (constant.type == "string")
-		{
-			constant.type = s8;
-			postName = "[]";
-		}
-		addLineOfCode(enumsDiv, padTabs(indentation(1) + "const " + constant.type, 16) + constant.name + postName + " = " + constant.value + ";");
-	}
-	
-	// Write enums:
-	addLineOfCode(enumsDiv, indentation(1));
-	for(let i = 0; i < enums.length; ++i)
-	{		
-		let cEnum = enums[i];
-		let enumDiv = document.createElement("div");
-		enumDiv.setAttribute("id", cEnum.name);
-		enumsDiv.appendChild(enumDiv);
-		
-		addLineOfCode(enumDiv, indentation(1) + "enum class " + cEnum.name);
-		addLineOfCode(enumDiv, indentation(1) + "{");
-		
-		for( let j = 0; j < cEnum.constants.length; ++j)
-		{
-			let constant = cEnum.constants[j];
-			addLineOfCode(enumDiv,  padTabs(indentation(2) + constant.name + " =", 89) + constant.value + ",");
-		}
-		
-		if (!cEnum.isBitMask)
-		{
-			addLineOfCode( enumDiv, padTabs(indentation(2) + "BEGIN_RANGE =", 89) + cEnum.minName + ",");
-			addLineOfCode( enumDiv, padTabs(indentation(2) + "END_RANGE =", 89) + cEnum.maxName + ",");
-			addLineOfCode( enumDiv, padTabs(indentation(2) + "RANGE_SIZE =", 89) + "(" + cEnum.maxName + " - " + cEnum.minName + " + 1),");
-		}
-		
-		addLineOfCode( enumDiv, padTabs(indentation(2) + "MAX_ENUM =", 89) + max_enum);
-			
-		addLineOfCode( enumDiv, indentation(1) + "};");
-		addLineOfCode( enumDiv, indentation(1));
-	}
-	
-	// Write out structs:
-	for (let i = 0; i < structs.length; ++i)
-	{
-		let type = structs[i];
+		let type = types[i];
 		switch(type.category)
 		{
 			case "struct":
 			case "union":
-				
-				addLineOfCode(structsDiv, indentation(1) + type.category + " " + type.name + " {");
+				addLineOfCode(typesDiv, indentation(1));
+				addLineOfCode(typesDiv, indentation(1) + type.category + " " + type.name + " {");
 				for (let j = 0; j < type.members.length; ++j)
 				{
 					let member = type.members[j];
-					addLineOfCode(structsDiv, padTabs(indentation(2) + member.preType + member.type + member.postType, 57) + member.name + member.preEnum + member.cEnum + member.postEnum + ";");
+					addLineOfCode(typesDiv, padTabs(indentation(2) + member.preType + member.type + member.postType, 57) + member.name + member.preEnum + member.cEnum + member.postEnum + ";");
 				}
-				addLineOfCode(structsDiv, indentation(1) + "};");
-				addLineOfCode(structsDiv, indentation(1));
+				addLineOfCode(typesDiv, indentation(1) + "};");
 			break;
 			case "funcpointer":
-				addLineOfCode(structsDiv, indentation(1) + "namespace PFN {");
-				addLineOfCode(structsDiv, indentation(2) + type.preName + type.name + type.postName.trim());
+				addLineOfCode(typesDiv, indentation(1));
+				
+				if (lastCategory != type.category)
+				{
+					addLineOfCode(typesDiv, indentation(1) + "namespace PFN {");
+				}
+				
+				addLineOfCode(typesDiv, indentation(2) + type.preName + type.name + type.postName.trim());
 				
 				for(let j= 0; j < type.parameters.length; ++j)
 				{
 					let parameter = type.parameters[j];
-					addLineOfCode(structsDiv, padTabs(indentation(3) + parameter.preType + parameter.type + parameter.postType, 54) + parameter.name);
+					addLineOfCode(typesDiv, padTabs(indentation(3) + parameter.preType + parameter.type + parameter.postType, 54) + parameter.name);
 				}
-				addLineOfCode(structsDiv, indentation(1) + "}");
-				addLineOfCode(structsDiv, indentation(1));
+				
+				let nextIndex = i + 1;
+				if (nextIndex < types.length && types[nextIndex].category != type.category)
+				{
+					addLineOfCode(typesDiv, indentation(1) + "}");
+				}
 			break;
 			case "basetype":
-				addLineOfCode(structsDiv, padTabs(indentation(1) + "typedef " + type.type, 63) + type.name + ";");
-				addLineOfCode(structsDiv, indentation(1));
+				addLineOfCode(typesDiv, indentation(1));
+				addLineOfCode(typesDiv, padTabs(indentation(1) + "typedef " + type.type, 63) + type.name + ";");
+			break;
+			case "constant":
+			{
+				if (lastCategory != type.category && lastCategory != "")
+				{
+					addLineOfCode(typesDiv, indentation(1));
+				}
+				
+				let postName = "";
+				if (type.type == "string")
+				{
+					type.type = s8;
+					postName = "[]";
+				}
+				addLineOfCode(typesDiv, padTabs(indentation(1) + "const " + type.type, 16) + type.name + postName + " = " + type.value + ";");
+			}
+			break;
+			case "enum":
+			{
+				let enumDiv = document.createElement("div");
+				enumDiv.setAttribute("id", type.name);
+				typesDiv.appendChild(enumDiv);
+				
+				addLineOfCode( enumDiv, indentation(1));
+				addLineOfCode(enumDiv, indentation(1) + "enum class " + type.name);
+				addLineOfCode(enumDiv, indentation(1) + "{");
+				
+				for( let j = 0; j < type.constants.length; ++j)
+				{
+					let constant = type.constants[j];
+					addLineOfCode(enumDiv,  padTabs(indentation(2) + constant.name + " =", 89) + constant.value + ",");
+				}
+				
+				if (!type.isBitMask)
+				{
+					addLineOfCode( enumDiv, padTabs(indentation(2) + "BEGIN_RANGE =", 89) + type.minName + ",");
+					addLineOfCode( enumDiv, padTabs(indentation(2) + "END_RANGE =", 89) + type.maxName + ",");
+					addLineOfCode( enumDiv, padTabs(indentation(2) + "RANGE_SIZE =", 89) + "(" + type.maxName + " - " + type.minName + " + 1),");
+				}
+				
+				addLineOfCode( enumDiv, padTabs(indentation(2) + "MAX_ENUM =", 89) + max_enum);
+					
+				addLineOfCode( enumDiv, indentation(1) + "};");
+			}
+			break;
+			case "handle":
+			{
+				if (lastCategory != type.category && lastCategory != "")
+				{
+					addLineOfCode(typesDiv, indentation(1));
+				}
+				let handleName = type.name;
+				addLineOfCode(typesDiv, padTabs(indentation(1) + "typedef struct " + handleName + "_Handle*", 60) + handleName + ";");
+			}
 			break;
 		}
+		
+		lastCategory = type.category;
 	}
 	
 	// Write out commands:
@@ -1277,7 +1286,7 @@ function registerSymbol(symbolName)
 						registerSymbol(member.cEnum);
 					}
 				}
-				pushIfNew(structs, found);
+				pushIfNew(types, found);
 			break;
 			case "command":
 				registerSymbol(found.returnType);
@@ -1287,32 +1296,25 @@ function registerSymbol(symbolName)
 				}
 				pushIfNew(commands, found);
 			break;
-			case "handle":
-				pushIfNew(handles, found);
-			break;
 			case "funcpointer":
 				// registerSymbol(found.type);
 				for (let i = 0; i < found.parameters.length; ++i)
 				{
 					registerSymbol(found.parameters[i].type);
 				}
-				pushIfNew(structs, found);
-			break;
-			case "enum":
-				pushIfNew(enums, found);
-			break;
-			case "constant":
-				pushIfNew(constants, found);
+				pushIfNew(types, found);
 			break;
 			case "bitmask":
 				pushIfNew(flags, found);
 			break;
+			case "enum":
+			case "handle":
+			case "constant":
 			case "basetype":
-				pushIfNew(structs, found);
+				pushIfNew(types, found);
 			break;
 			case "include":
 			case "define":
-			
 			case "EXTERNAL":
 				// ignored...
 			break;
@@ -1340,6 +1342,7 @@ function copyHeader()
 	try
 	{
 		document.execCommand("copy");
+		statusText.textContent = "Header copied";
 	}
 	catch(err)
 	{
