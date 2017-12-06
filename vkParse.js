@@ -623,7 +623,7 @@ function parseFeature(xml)
 				requireOrRemove.getAttribute("extension")	||
 				requireOrRemove.getAttribute("api"))
 			{
-				console.error("When this generator was written, profile, extension and api attributes on require and remove tags weren't used, so they're not currently evaluated in this generator.");
+				console.error("When this generator was written, profile, extension and api attributes on feature require and remove tags weren't used, so they're not currently evaluated in this generator.");
 			}
 			
 			for (const node of requireOrRemove.childNodes.values())
@@ -659,6 +659,7 @@ function parseExtension(xml)
 	extension.protect = xml.getAttribute("protect");
 	extension.requires = [];
 	
+	
 	let requiredExtensions = xml.getAttribute("requires");//TODO: parse for comma separated list of required extensions.
 	if (requiredExtensions)
 	{
@@ -675,25 +676,35 @@ function parseExtension(xml)
 			console.error("Currently only require nodes are supported. Extension name: " + extension.name);
 			continue;
 		}
+		let require = {};
+		require.interfaces = [];
+		require.extension = requireOrRemove.getAttribute("extension");
+		extension.requires.push(require);
+		
+		if (requireOrRemove.getAttribute("profile"))
+		{
+			console.error("When this generator was written, profiles weren't used by extension requires, so they're currently not supported.");
+		}
 		
 		for (let symbolNode of requireOrRemove.childNodes.values())
 		{
 			if (symbolNode.nodeType != Node.ELEMENT_NODE) { continue; }
+			let type = {};
 			
-			let require = {};
-			require.name = symbolNode.getAttribute("name");
+			type.name = symbolNode.getAttribute("name");
 			
 			switch(symbolNode.tagName)
 			{
 				case "enum":
-					require.extending = symbolNode.getAttribute("extends");
-					if (require.extending)
+					type.extending = symbolNode.getAttribute("extends");
+					if (type.extending)
 					{
-						require.form = "extensionEnum";
+						type.form = "extensionEnum";
+						
 						let constantBitPos = symbolNode.getAttribute("bitpos");
 						if (constantBitPos)
 						{
-							require.value = "(1 << " + constantBitPos + ")";
+							type.value = "(1 << " + constantBitPos + ")";
 						}
 						else 
 						{
@@ -701,55 +712,54 @@ function parseExtension(xml)
 							if (offsetAttribute)
 							{
 								let offset = parseInt(offsetAttribute);
-								require.value = 1000000000 + offset + (1000 * (extension.number - 1))
+								type.value = 1000000000 + offset + (1000 * (extension.number - 1))
 								if (symbolNode.getAttribute("dir") == "-")
 								{
-									require.value = -require.value;
+									type.value = -type.value;
 								}
 							}
-							else if (require.value = symbolNode.getAttribute("value"))
+							else if (type.value = symbolNode.getAttribute("value"))
 							{
 								// special case for VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE
 							}
 							else 
 							{
-								console.error("expected either a bitpos or an offset for: " + require.name);
+								console.error("expected either a bitpos or an offset for: " + type.name);
 								continue;
 							}
-						}
+						}						
 					}
 					else 
 					{
-						require.form = "constant";
-						require.value = symbolNode.getAttribute("value");
-						if (!require.value)
+						type.form = "constant";
+						type.value = symbolNode.getAttribute("value");
+						if (!type.value)
 						{
 							let constantBitPos = symbolNode.getAttribute("bitpos");
 							if (constantBitPos)
 							{
-								require.value = "(1 << " + constantBitPos + ")";
+								type.value = "(1 << " + constantBitPos + ")";
 							}
 							else
 							{
-								require.form = "reference";
+								type.form = "reference";
 								break;
 							}
 						}
-						else if (require.value.startsWith("VK_"))
+						else if (type.value.startsWith("VK_"))
 						{
-							require.form = "enumAlias";
+							type.form = "enumAlias";
 						}
 						
-						require.type = determineType(require.value);
+						type.type = determineType(type.value);
 					}
 				break;
 				case "type":
 				case "command":
-					require.form = "reference";
+					type.form = "reference";
 				break;
-			}
-			
-			extension.requires.push(require);
+			}			
+			require.interfaces.push(type);
 		}
 		
 	}
@@ -903,6 +913,20 @@ function replaceClassNodeContents(className, value)
 	}
 }
 
+function isExtensionEnabled(feature, extensionName)
+{
+	for (let extension of feature.availableExtensions.values())
+	{
+		if (extension.name == extensionName)
+		{
+			if (extension.checkbox.checked){	return true;	}
+			else{	return false;	}
+		}
+	}
+	
+	return false;
+}
+
 function createHeader()
 {
 	statusText.textContent = "Applying custom settings:";
@@ -954,41 +978,49 @@ function createHeader()
 			// Apply extension changes.
 			for (let require of extension.requires)
 			{
-				switch(require.form)
+				if (require.extension)
 				{
-					case "extensionEnum":
+					isExtensionEnabled(feature, require.extension);
+				}
+				
+				for (let interf of require.interfaces)
+				{
+					switch(interf.form)
 					{
-						let cEnum = availableNamed.get(require.extending);
-						if (!cEnum)
+						case "extensionEnum":
 						{
-							console.error("extended enum not found: " + require.extending);
-							continue;
+							let cEnum = availableNamed.get(interf.extending);
+							if (!cEnum)
+							{
+								console.error("extended enum not found: " + interf.extending);
+								continue;
+							}
+							let constant = {};
+							constant.name = interf.name;
+							constant.value = interf.value;
+							
+							cEnum.constants.push(constant);
 						}
-						let constant = {};
-						constant.name = require.name;
-						constant.value = require.value;
+						break;
+						case "constant":
+						{
+							let constant = {};
+							constant.name = interf.name
+							constant.value = interf.value;
+							constant.type = interf.type
+							constant.category = "constant";
 						
-						cEnum.constants.push(constant);
+							availableNamed.set(constant.name, constant);
+							registerSymbol(interf.name);
+						}
+						break;
+						case "reference":
+							registerSymbol(interf.name);
+						break;
+						case "enumAlias":
+							// Ignore Enum aliases for now...
+						break;
 					}
-					break;
-					case "constant":
-					{
-						let constant = {};
-						constant.name = require.name
-						constant.value = require.value;
-						constant.type = require.type
-						constant.category = "constant";
-					
-						availableNamed.set(constant.name, constant);
-						registerSymbol(require.name);
-					}
-					break;
-					case "reference":
-						registerSymbol(require.name);
-					break;
-					case "enumAlias":
-						// Ignore Enum aliases for now...
-					break;
 				}
 			}
 		}
