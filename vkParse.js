@@ -990,7 +990,7 @@ function createHeader()
 				}
 				
 				for (let interf of require.interfaces)
-				{
+				{					
 					switch(interf.form)
 					{
 						case "extensionEnum":
@@ -1027,6 +1027,15 @@ function createHeader()
 							// Ignore Enum aliases for now...
 						break;
 					}
+					if (extension.protect)
+					{
+						let target = availableNamed.get(interf.name);
+						if (target)
+						{
+							target.protect = extension.protect;
+						}
+					}
+					
 				}
 			}
 		}
@@ -1133,22 +1142,22 @@ function createHeader()
 				typeReplacements.set(interf.originalName, interf.name);
 			}
 			break;
+			case "command":
+			{
+				interf.originalName = interf.name;
+				interf.name = stripVk(interf.name);
+				
+				interf.returnType = typeReplacement(interf.returnType);
+				
+				for (let j = 0; j < interf.parameters.length; ++j)
+				{
+					let parameter = interf.parameters[j];
+					parameter.type = typeReplacement(parameter.type);
+				}
+			}
+			break;
 		}
 	}
-	for (let i = 0; i < commands.length; ++i)
-	{
-		let command = commands[i];
-		command.originalName = command.name;
-		command.name = stripVk(command.name);
-		
-		command.returnType = typeReplacement(command.returnType);
-		
-		for (let j = 0; j < command.parameters.length; ++j)
-		{
-			let parameter = command.parameters[j];
-			parameter.type = typeReplacement(parameter.type);
-		}
-	}	
 	
 	// Write header:
 	statusText.textContent = "Writing Header...";
@@ -1157,11 +1166,20 @@ function createHeader()
 	document.getElementById("vkGetInstanceProcAddrDefine").textContent = VKAPI_ATTR + vulkanNamespace + "::PFN::VoidFunction " + VKAPI_CALL + " vkGetInstanceProcAddr( " + vulkanNamespace + "::Instance instance, const " + s8 + "* pName );";
 	
 	let lastCategory = "";
+	let lastProtect = "";
 	for (let i = 0; i < interfaces.length; ++i)
 	{
 		let interf = interfaces[i];
-		switch(interf.category)
+		
+		let nextIndex = i + 1;
+		if (interf.protect && interf.protect != lastProtect)
 		{
+			addLineOfCode(typesDiv, indentation(1));
+			addLineOfCode(typesDiv, "#ifdef " + interf.protect);
+		}
+		
+		switch(interf.category)
+		{			
 			case "struct":
 			case "union":
 			{
@@ -1181,6 +1199,7 @@ function createHeader()
 				
 				if (lastCategory != interf.category)
 				{
+					addLineOfCode(typesDiv, indentation(1));
 					addLineOfCode(typesDiv, indentation(1) + "namespace PFN {");
 				}
 				
@@ -1192,8 +1211,7 @@ function createHeader()
 					addLineOfCode(typesDiv, padTabs(indentation(3) + parameter.preType + parameter.type + parameter.postType, 86) + parameter.name);
 				}
 				
-				let nextIndex = i + 1;
-				if (nextIndex < interfaces.length && interfaces[nextIndex].category != interf.category)
+				if (nextIndex >= interfaces.length || interfaces[nextIndex].category != interf.category)
 				{
 					addLineOfCode(typesDiv, indentation(1) + "}");
 				}
@@ -1259,42 +1277,82 @@ function createHeader()
 				addLineOfCode(typesDiv, padTabs(indentation(1) + "typedef struct " + handleName + "_Handle*", 92) + handleName + ";");
 			}
 			break;
+			case "command":
+			{
+				if (lastCategory != interf.category)
+				{
+					addLineOfCode(typesDiv, indentation(1));
+					addLineOfCode(typesDiv, indentation(1) + "namespace PFN {");
+				}
+				let parametersText = "";
+				for(let j=0;j < interf.parameters.length; ++j)
+				{
+					if (j > 0) { parametersText += ","; }
+					let parameter = interf.parameters[j];
+					parametersText += "\n" + indentation(11) + parameter.preType + parameter.type + parameter.postType + parameter.name;
+				}
+				
+				addLineOfCode( typesDiv, padTabs(indentation(2) + "typedef " + interf.returnType, 24) + "(" + VKAPI_PTR + " *" + interf.name + ")(" + parametersText + ");" );
+				addLineOfCode( typesDiv, indentation(2));
+				
+				// Function defintions:
+				if (interf.protect)
+				{
+					addLineOfCode(externPfnDiv, "#ifdef " + interf.protect);
+					addLineOfCode(cmdDefsDiv, "#ifdef " + interf.protect);
+				}
+				
+				addLineOfCode(externPfnDiv, padTabs(indentation(1) + "extern PFN::" + interf.name, 68) + interf.name + ";");
+				addLineOfCode(cmdDefsDiv,	padTabs(indentation(1) + "PFN::" + interf.name, 68) + interf.name + ";");
+				
+				if (interf.protect)
+				{
+					addLineOfCode(externPfnDiv, "#endif");
+					addLineOfCode(cmdDefsDiv, "#endif");
+				}
+				
+				if (nextIndex >= interfaces.length || interfaces[nextIndex].category != interf.category)
+				{
+					addLineOfCode(typesDiv, indentation(1) + "}");
+				}
+				
+				
+				if (interf.originalName == "vkEnumerateInstanceLayerProperties" || interf.originalName == "vkEnumerateInstanceExtensionProperties" || interf.originalName == "vkCreateInstance")
+				{
+					addLineOfCode(independentCmdLoadingDiv, indentation(3) + vulkanNamespace + '::' + interf.name + ' = (' + vulkanNamespace + '::PFN::' + interf.name + ') vkGetInstanceProcAddr( nullptr, "' + interf.originalName + '" );');
+					// addLineOfCode(independentCmdLoadingDiv, indentation(3) + 'if(!' + vulkanNamespace + '::' + command.name + ') { return false; }');
+				}
+				else 
+				{
+					if (interf.protect)
+					{
+						addLineOfCode(instanceCmdLoadingDiv, "#ifdef " + interf.protect);
+					}
+					addLineOfCode(instanceCmdLoadingDiv, indentation(3) + vulkanNamespace + '::' + interf.name + ' = (' + vulkanNamespace + '::PFN::' + interf.name + ') vkGetInstanceProcAddr( instance, "' + interf.originalName + '" );');
+					// addLineOfCode(instanceCmdLoadingDiv, indentation(3) + 'if(!' + vulkanNamespace + '::' + command.name + ') { return false; }');
+					
+					if (interf.protect)
+					{
+						addLineOfCode(instanceCmdLoadingDiv, "#endif");
+					}
+				}
+				lastCommand = interf;
+			}
+			break;
+		}
+		
+		if (interf.protect)
+		{
+			if (nextIndex >= interfaces.length || interfaces[nextIndex].protect != interf.protect)
+			{
+				addLineOfCode(typesDiv, "#endif");
+			}
 		}
 		
 		lastCategory = interf.category;
+		lastProtect = interf.protect;
 	}
 	
-	// Write out commands:
-	for(let i = 0; i < commands.length; ++i)
-	{
-		let command = commands[i];
-	
-		let parametersText = "";
-		for(let j=0;j < command.parameters.length; ++j)
-		{
-			if (j > 0) { parametersText += ","; }
-			let parameter = command.parameters[j];
-			parametersText += "\n" + indentation(11) + parameter.preType + parameter.type + parameter.postType + parameter.name;
-		}
-		
-		addLineOfCode( commandTypeDefsDiv, padTabs(indentation(2) + "typedef " + command.returnType, 24) + "(" + VKAPI_PTR + " *" + command.name + ")(" + parametersText + ");" );
-		addLineOfCode( commandTypeDefsDiv, indentation(2));
-		
-		// Function defintions:
-		addLineOfCode(externPfnDiv, padTabs(indentation(1) + "extern PFN::" + command.name, 68) + command.name + ";");
-		addLineOfCode(cmdDefsDiv,	padTabs(indentation(1) + "PFN::" + command.name, 68) + command.name + ";");
-		
-		if (command.originalName == "vkEnumerateInstanceLayerProperties" || command.originalName == "vkEnumerateInstanceExtensionProperties" || command.originalName == "vkCreateInstance")
-		{
-			addLineOfCode(independentCmdLoadingDiv, indentation(3) + vulkanNamespace + '::' + command.name + ' = (' + vulkanNamespace + '::PFN::' + command.name + ') vkGetInstanceProcAddr( nullptr, "' + command.originalName + '" );');
-			// addLineOfCode(independentCmdLoadingDiv, indentation(3) + 'if(!' + vulkanNamespace + '::' + command.name + ') { return false; }');
-		}
-		else 
-		{
-			addLineOfCode(instanceCmdLoadingDiv, indentation(3) + vulkanNamespace + '::' + command.name + ' = (' + vulkanNamespace + '::PFN::' + command.name + ') vkGetInstanceProcAddr( instance, "' + command.originalName + '" );');
-			// addLineOfCode(instanceCmdLoadingDiv, indentation(3) + 'if(!' + vulkanNamespace + '::' + command.name + ') { return false; }');
-		}
-	}
 	statusText.textContent = "Header completed writing.";
 }
 
@@ -1338,7 +1396,7 @@ function registerSymbol(symbolName)
 				{
 					registerSymbol(found.parameters[i].type);
 				}
-				pushIfNew(commands, found);
+				pushIfNew(interfaces, found);
 			break;
 			case "funcpointer":
 				// registerSymbol(found.type);
