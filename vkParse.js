@@ -182,7 +182,7 @@ function onXhrLoad()
 		{
 			if (xhr.responseType == "")
 			{
-				statusText.textContent = "vk.xml loaded from " + xmlSource + ". If this is the version you want to use, press \"Parse xml\" to continue...";
+				statusText.textContent = "vk.xml loaded from " + xmlSource + ". If this is the version you want to use, press \"List Features/Extensions\" to continue...";
 				vkxmlTextInput.value = xhr.responseText;
 			}
 			else
