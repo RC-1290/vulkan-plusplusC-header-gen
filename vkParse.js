@@ -1131,7 +1131,7 @@ function createHeader()
 				for (let j = 0; j < type.members.length; ++j)
 				{
 					let member = type.members[j];
-					addLineOfCode(typesDiv, padTabs(indentation(2) + member.preType + member.type + member.postType, 57) + member.name + member.preEnum + member.cEnum + member.postEnum + ";");
+					addLineOfCode(typesDiv, padTabs(indentation(2) + member.preType + member.type + member.postType, 89) + member.name + member.preEnum + member.cEnum + member.postEnum + ";");
 				}
 				addLineOfCode(typesDiv, indentation(1) + "};");
 			break;
@@ -1148,7 +1148,7 @@ function createHeader()
 				for(let j= 0; j < type.parameters.length; ++j)
 				{
 					let parameter = type.parameters[j];
-					addLineOfCode(typesDiv, padTabs(indentation(3) + parameter.preType + parameter.type + parameter.postType, 54) + parameter.name);
+					addLineOfCode(typesDiv, padTabs(indentation(3) + parameter.preType + parameter.type + parameter.postType, 86) + parameter.name);
 				}
 				
 				let nextIndex = i + 1;
@@ -1159,7 +1159,7 @@ function createHeader()
 			break;
 			case "basetype":
 				addLineOfCode(typesDiv, indentation(1));
-				addLineOfCode(typesDiv, padTabs(indentation(1) + "typedef " + type.type, 63) + type.name + ";");
+				addLineOfCode(typesDiv, padTabs(indentation(1) + "typedef " + type.type, 92) + type.name + ";");
 			break;
 			case "constant":
 			{
@@ -1174,7 +1174,7 @@ function createHeader()
 					type.type = s8;
 					postName = "[]";
 				}
-				addLineOfCode(typesDiv, padTabs(indentation(1) + "const " + type.type, 16) + type.name + postName + " = " + type.value + ";");
+				addLineOfCode(typesDiv, padTabs(padTabs(indentation(1) + "const " + type.type, 16) + type.name + postName + " = ", 90) + type.value + ";");
 			}
 			break;
 			case "enum":
@@ -1212,7 +1212,7 @@ function createHeader()
 					addLineOfCode(typesDiv, indentation(1));
 				}
 				let handleName = type.name;
-				addLineOfCode(typesDiv, padTabs(indentation(1) + "typedef struct " + handleName + "_Handle*", 60) + handleName + ";");
+				addLineOfCode(typesDiv, padTabs(indentation(1) + "typedef struct " + handleName + "_Handle*", 92) + handleName + ";");
 			}
 			break;
 		}
