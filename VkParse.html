@@ -20,7 +20,7 @@
 <button id="localVkXmlBtn" title="A local version of vk.xml, just in case it can't be loaded from github. This version might be outdated.">Load Local vk.xml</button>
 <button id="loadRawGithubBtn" title="Load the raw vk.xml directly from GitHub. Let's hope no one replaced the github code with a bunch of weird stuff.">Load from GitHub</button>
 </div>
-<p>When the textarea above is filled, click the following button to select features and extensions:</p>
+<p>When the textarea above is filled, click the following button to list the available features and extensions:</p>
 <button id="parseTextButton">List Features/Extensions</button>
 <div id="setupPart2" class="hidden">
 <h2>Features and Extensions</h2>
@@ -83,14 +83,10 @@ namespace <span class="namespaceNewCode">CodeAnimo</span>
 {
 	namespace <span class="namespaceNewCode2">Vulkan</span>
 	{
-		bool LoadIndependentCommands()
-		{<div id="independentCmdLoading"></div>
-			return true;
-		}
-		bool LoadInstanceCommands( Vk::Instance instance)
-		{<div id="instanceCmdLoading"></div>
-			return true;
-		}
+		void LoadIndependentCommands()
+		{<div id="independentCmdLoading"></div>		}
+		void LoadInstanceCommands( Vk::Instance instance)
+		{<div id="instanceCmdLoading"></div>		}
 	}
 }
 #endif

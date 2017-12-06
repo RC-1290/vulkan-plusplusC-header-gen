@@ -58,7 +58,7 @@ typeReplacements.set("uint64_t", u64);
 typeReplacements.set("HANDLE", WindowsHandle);
 typeReplacements.set("HINSTANCE", HINSTANCE);
 typeReplacements.set("HWND", HWND);
-typeReplacements.set("SECURITY_ATTRIBUTRES", SECURITY_ATTRIBUTES);
+typeReplacements.set("SECURITY_ATTRIBUTES", SECURITY_ATTRIBUTES);
 typeReplacements.set("DWORD", DWORD);
 typeReplacements.set("LPCWSTR", LPCWSTR);
 
@@ -99,8 +99,7 @@ var availableFeatures = new Map();
 var availableNamed = new Map();
 
 var flags = [];
-var earlyPfns = [];
-var types = [];
+var interfaces = [];
 var commands = [];
 
 statusText.textContent = "Ready for action. Load some XML first.";
@@ -117,7 +116,14 @@ var headerCpyBtn = document.getElementById("copyBtn");
 headerSelectBtn.addEventListener( "click", selectHeader);
 headerCpyBtn.addEventListener("click", copyHeader);
 
-loadLocal();
+if (!vkxmlTextInput.value)
+{
+	loadLocal();
+}
+else 
+{
+	statusText.textContent = "XML textfield populated with cached contents.";
+}
 
 function restoreInput(localStoreKey, input)
 {
@@ -1043,19 +1049,19 @@ function createHeader()
 		let flag = flags[i];
 		typeReplacements.set(flag.name, u32);
 	}
-	for (let i = 0; i < types.length; ++i)
+	for (let i = 0; i < interfaces.length; ++i)
 	{
-		let type = types[i];
-		switch(type.category)
+		let interf = interfaces[i];
+		switch(interf.category)
 		{
 			case "struct":
 			case "union":
-				type.originalName = type.name;
-				type.name = stripVk(type.name);
+				interf.originalName = interf.name;
+				interf.name = stripVk(interf.name);
 				
-				for (let j = 0; j < type.members.length; ++j)
+				for (let j = 0; j < interf.members.length; ++j)
 				{
-					let member = type.members[j];
+					let member = interf.members[j];
 					member.type = typeReplacement(member.type);
 					
 					if (member.cEnum)
@@ -1064,67 +1070,67 @@ function createHeader()
 					}
 				}
 				
-				typeReplacements.set(type.originalName, type.name);
+				typeReplacements.set(interf.originalName, interf.name);
 			break;
 			case "funcpointer":
-				type.originalName = type.name;
-				type.name = stripVk(stripPFN(type.name));
-				type.preName = type.preName.replace(/\bVkBool32\b/, ub32);// manual replacement, since the xml lacks return type markup.
-				type.preName = type.preName.replace(/\bVKAPI_PTR\b/, VKAPI_PTR);
+				interf.originalName = interf.name;
+				interf.name = stripVk(stripPFN(interf.name));
+				interf.preName = interf.preName.replace(/\bVkBool32\b/, ub32);// manual replacement, since the xml lacks return type markup.
+				interf.preName = interf.preName.replace(/\bVKAPI_PTR\b/, VKAPI_PTR);
 				
 				
-				for (let j = 0; j < type.parameters.length; ++j)
+				for (let j = 0; j < interf.parameters.length; ++j)
 				{
-					let parameter = type.parameters[j];
+					let parameter = interf.parameters[j];
 					parameter.type = typeReplacement(parameter.type);
 				}
 				
-				typeReplacements.set(type.originalName, "PFN::" + type.name);
+				typeReplacements.set(interf.originalName, "PFN::" + interf.name);
 			break;
 			case "basetype":
-				type.originalName = type.name;
-				type.name = stripVk(type.name);
+				interf.originalName = interf.name;
+				interf.name = stripVk(interf.name);
 				
-				type.type = typeReplacement(type.type);
+				interf.type = typeReplacement(interf.type);
 				
-				typeReplacements.set(type.originalName, type.name);
+				typeReplacements.set(interf.originalName, interf.name);
 			break;
 			case "constant":
 			{
-				type.originalName = type.name;
-				type.name = stripVk(type.name);
-				typeReplacements.set(type.originalName, type.name);
+				interf.originalName = interf.name;
+				interf.name = stripVk(interf.name);
+				typeReplacements.set(interf.originalName, interf.name);
 				
 				// enum alias renaming:
-				type.value = typeReplacement(type.value);
+				interf.value = typeReplacement(interf.value);
 			}
 			break;
 			case "enum":
 			{
-				type.originalName = type.name;
-				type.name = stripVk(type.name);
+				interf.originalName = interf.name;
+				interf.name = stripVk(interf.name);
 				
-				for (let j = 0; j < type.constants.length; ++j)
+				for (let j = 0; j < interf.constants.length; ++j)
 				{
-					let constant = type.constants[j];
+					let constant = interf.constants[j];
 					constant.originalName = constant.name;
-					constant.name = stripEnumName(constant.name, type.originalName);
-					typeReplacements.set(constant.originalName, type.name + "::" + constant.name);
+					constant.name = stripEnumName(constant.name, interf.originalName);
+					typeReplacements.set(constant.originalName, interf.name + "::" + constant.name);
 				}
-				if (!type.isBitMask)
+				if (!interf.isBitMask)
 				{
-					type.minName = stripEnumName(type.minName, type.originalName);
-					type.maxName = stripEnumName(type.maxName, type.originalName);
+					interf.minName = stripEnumName(interf.minName, interf.originalName);
+					interf.maxName = stripEnumName(interf.maxName, interf.originalName);
 				}
 				
-				typeReplacements.set(type.originalName, type.name);
+				typeReplacements.set(interf.originalName, interf.name);
 			}
 			break;
 			case "handle":
 			{
-				type.originalName = type.name;
-				type.name = stripVk(type.name);
-				typeReplacements.set(type.originalName, type.name);
+				interf.originalName = interf.name;
+				interf.name = stripVk(interf.name);
+				typeReplacements.set(interf.originalName, interf.name);
 			}
 			break;
 		}
@@ -1148,88 +1154,94 @@ function createHeader()
 	statusText.textContent = "Writing Header...";
 	setupStuff.setAttribute("class", "hidden");
 	document.getElementById("hiddenUntilCreation").removeAttribute("class");
-	document.getElementById("vkGetInstanceProcAddrDefine").textContent = vulkanNamespace + "::PFN::VoidFunction " + VKAPI_CALL + " vkGetInstanceProcAddr( " + vulkanNamespace + "::Instance instance, const " + s8 + "* pName );";
+	document.getElementById("vkGetInstanceProcAddrDefine").textContent = VKAPI_ATTR + vulkanNamespace + "::PFN::VoidFunction " + VKAPI_CALL + " vkGetInstanceProcAddr( " + vulkanNamespace + "::Instance instance, const " + s8 + "* pName );";
 	
 	let lastCategory = "";
-	for (let i = 0; i < types.length; ++i)
+	for (let i = 0; i < interfaces.length; ++i)
 	{
-		let type = types[i];
-		switch(type.category)
+		let interf = interfaces[i];
+		switch(interf.category)
 		{
 			case "struct":
 			case "union":
+			{
 				addLineOfCode(typesDiv, indentation(1));
-				addLineOfCode(typesDiv, indentation(1) + type.category + " " + type.name + " {");
-				for (let j = 0; j < type.members.length; ++j)
+				addLineOfCode(typesDiv, indentation(1) + interf.category + " " + interf.name + " {");
+				for (let j = 0; j < interf.members.length; ++j)
 				{
-					let member = type.members[j];
+					let member = interf.members[j];
 					addLineOfCode(typesDiv, padTabs(indentation(2) + member.preType + member.type + member.postType, 89) + member.name + member.preEnum + member.cEnum + member.postEnum + ";");
 				}
 				addLineOfCode(typesDiv, indentation(1) + "};");
+			}
 			break;
 			case "funcpointer":
+			{
 				addLineOfCode(typesDiv, indentation(1));
 				
-				if (lastCategory != type.category)
+				if (lastCategory != interf.category)
 				{
 					addLineOfCode(typesDiv, indentation(1) + "namespace PFN {");
 				}
 				
-				addLineOfCode(typesDiv, indentation(2) + type.preName + type.name + type.postName.trim());
+				addLineOfCode(typesDiv, indentation(2) + interf.preName + interf.name + interf.postName.trim());
 				
-				for(let j= 0; j < type.parameters.length; ++j)
+				for(let j= 0; j < interf.parameters.length; ++j)
 				{
-					let parameter = type.parameters[j];
+					let parameter = interf.parameters[j];
 					addLineOfCode(typesDiv, padTabs(indentation(3) + parameter.preType + parameter.type + parameter.postType, 86) + parameter.name);
 				}
 				
 				let nextIndex = i + 1;
-				if (nextIndex < types.length && types[nextIndex].category != type.category)
+				if (nextIndex < interfaces.length && interfaces[nextIndex].category != interf.category)
 				{
 					addLineOfCode(typesDiv, indentation(1) + "}");
 				}
+			}
 			break;
 			case "basetype":
+			{
 				addLineOfCode(typesDiv, indentation(1));
-				addLineOfCode(typesDiv, padTabs(indentation(1) + "typedef " + type.type, 92) + type.name + ";");
+				addLineOfCode(typesDiv, padTabs(indentation(1) + "typedef " + interf.type, 92) + interf.name + ";");
+			}
 			break;
 			case "constant":
 			{
-				if (lastCategory != type.category && lastCategory != "")
+				if (lastCategory != interf.category && lastCategory != "")
 				{
 					addLineOfCode(typesDiv, indentation(1));
 				}
 				
 				let postName = "";
-				if (type.type == "string")
+				if (interf.type == "string")
 				{
-					type.type = s8;
+					interf.type = s8;
 					postName = "[]";
 				}
-				addLineOfCode(typesDiv, padTabs(padTabs(indentation(1) + "const " + type.type, 16) + type.name + postName + " = ", 90) + type.value + ";");
+				addLineOfCode(typesDiv, padTabs(padTabs(indentation(1) + "const " + interf.type, 16) + interf.name + postName + " = ", 90) + interf.value + ";");
 			}
 			break;
 			case "enum":
 			{
 				let enumDiv = document.createElement("div");
-				enumDiv.setAttribute("id", type.name);
+				enumDiv.setAttribute("id", interf.name);
 				typesDiv.appendChild(enumDiv);
 				
 				addLineOfCode( enumDiv, indentation(1));
-				addLineOfCode(enumDiv, indentation(1) + "enum class " + type.name);
+				addLineOfCode(enumDiv, indentation(1) + "enum class " + interf.name);
 				addLineOfCode(enumDiv, indentation(1) + "{");
 				
-				for( let j = 0; j < type.constants.length; ++j)
+				for( let j = 0; j < interf.constants.length; ++j)
 				{
-					let constant = type.constants[j];
+					let constant = interf.constants[j];
 					addLineOfCode(enumDiv,  padTabs(indentation(2) + constant.name + " =", 89) + constant.value + ",");
 				}
 				
-				if (!type.isBitMask)
+				if (!interf.isBitMask)
 				{
-					addLineOfCode( enumDiv, padTabs(indentation(2) + "BEGIN_RANGE =", 89) + type.minName + ",");
-					addLineOfCode( enumDiv, padTabs(indentation(2) + "END_RANGE =", 89) + type.maxName + ",");
-					addLineOfCode( enumDiv, padTabs(indentation(2) + "RANGE_SIZE =", 89) + "(" + type.maxName + " - " + type.minName + " + 1),");
+					addLineOfCode( enumDiv, padTabs(indentation(2) + "BEGIN_RANGE =", 89) + interf.minName + ",");
+					addLineOfCode( enumDiv, padTabs(indentation(2) + "END_RANGE =", 89) + interf.maxName + ",");
+					addLineOfCode( enumDiv, padTabs(indentation(2) + "RANGE_SIZE =", 89) + "(" + interf.maxName + " - " + interf.minName + " + 1),");
 				}
 				
 				addLineOfCode( enumDiv, padTabs(indentation(2) + "MAX_ENUM =", 89) + max_enum);
@@ -1239,17 +1251,17 @@ function createHeader()
 			break;
 			case "handle":
 			{
-				if (lastCategory != type.category && lastCategory != "")
+				if (lastCategory != interf.category && lastCategory != "")
 				{
 					addLineOfCode(typesDiv, indentation(1));
 				}
-				let handleName = type.name;
+				let handleName = interf.name;
 				addLineOfCode(typesDiv, padTabs(indentation(1) + "typedef struct " + handleName + "_Handle*", 92) + handleName + ";");
 			}
 			break;
 		}
 		
-		lastCategory = type.category;
+		lastCategory = interf.category;
 	}
 	
 	// Write out commands:
@@ -1275,12 +1287,12 @@ function createHeader()
 		if (command.originalName == "vkEnumerateInstanceLayerProperties" || command.originalName == "vkEnumerateInstanceExtensionProperties" || command.originalName == "vkCreateInstance")
 		{
 			addLineOfCode(independentCmdLoadingDiv, indentation(3) + vulkanNamespace + '::' + command.name + ' = (' + vulkanNamespace + '::PFN::' + command.name + ') vkGetInstanceProcAddr( nullptr, "' + command.originalName + '" );');
-			addLineOfCode(independentCmdLoadingDiv, indentation(3) + 'if(!' + vulkanNamespace + '::' + command.name + ') { return false; }');
+			// addLineOfCode(independentCmdLoadingDiv, indentation(3) + 'if(!' + vulkanNamespace + '::' + command.name + ') { return false; }');
 		}
 		else 
 		{
 			addLineOfCode(instanceCmdLoadingDiv, indentation(3) + vulkanNamespace + '::' + command.name + ' = (' + vulkanNamespace + '::PFN::' + command.name + ') vkGetInstanceProcAddr( instance, "' + command.originalName + '" );');
-			addLineOfCode(instanceCmdLoadingDiv, indentation(3) + 'if(!' + vulkanNamespace + '::' + command.name + ') { return false; }');
+			// addLineOfCode(instanceCmdLoadingDiv, indentation(3) + 'if(!' + vulkanNamespace + '::' + command.name + ') { return false; }');
 		}
 	}
 	statusText.textContent = "Header completed writing.";
@@ -1318,7 +1330,7 @@ function registerSymbol(symbolName)
 						registerSymbol(member.cEnum);
 					}
 				}
-				pushIfNew(types, found);
+				pushIfNew(interfaces, found);
 			break;
 			case "command":
 				registerSymbol(found.returnType);
@@ -1334,7 +1346,7 @@ function registerSymbol(symbolName)
 				{
 					registerSymbol(found.parameters[i].type);
 				}
-				pushIfNew(types, found);
+				pushIfNew(interfaces, found);
 			break;
 			case "bitmask":
 				pushIfNew(flags, found);
@@ -1343,7 +1355,7 @@ function registerSymbol(symbolName)
 			case "handle":
 			case "constant":
 			case "basetype":
-				pushIfNew(types, found);
+				pushIfNew(interfaces, found);
 			break;
 			case "include":
 			case "define":
