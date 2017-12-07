@@ -28,7 +28,6 @@ var tab = "	";
 var tabSpaceWidth = 4;// If you change this, you might want to change the css too.
 
 // Replacement Types:
-var typeReplacements = new Map();
 var s8 = "s8";// signed 8-bit
 var u32 = "u32";// unsigned 32-bit
 var s32 = "s32";// signed 32-bit
@@ -48,6 +47,8 @@ var LPCWSTR = "const wchar_t*";
 var VKAPI_ATTR = "";// used on Android
 var VKAPI_CALL = "__stdcall";// calling convention
 var VKAPI_PTR = VKAPI_CALL;
+
+var typeReplacements = new Map();
 
 typeReplacements.set("char", s8);
 typeReplacements.set("uint8_t", s8);
@@ -113,6 +114,7 @@ loadRawGithubBtn.addEventListener("click", loadFromGithub);
 
 var headerSelectBtn = document.getElementById("headerSelectBtn");
 var headerCpyBtn = document.getElementById("copyBtn");
+var downloadBtn = document.getElementById("downloadBtn");
 headerSelectBtn.addEventListener( "click", selectHeader);
 headerCpyBtn.addEventListener("click", copyHeader);
 
@@ -374,7 +376,7 @@ function parseTypes(xml)
 			case "bitmask":
 			case "basetype":
 			{
-				// Add to list so we can replace each occurance:
+				// Specific data is in the child nodes:
 				var typeChildNodes = typeNode.childNodes;
 				for (var j = 0; j < typeChildNodes.length; ++j)
 				{
@@ -1379,6 +1381,8 @@ function createHeader()
 		lastProtect = interf.protect;
 	}
 	
+	setupDownload();
+	
 	statusText.textContent = "Header completed writing.";
 }
 
@@ -1453,6 +1457,12 @@ function registerSymbol(symbolName)
 		}		
 	}
 	else {	console.error("symbol not found: " + symbolName); }
+}
+
+function setupDownload()
+{
+	statusText.textContent = "Setting up download button.";
+	downloadBtn.setAttribute("href", "data:text/plain;charset=utf-8," + encodeURIComponent(vulkanHeader.innerText));
 }
 
 function selectHeader()
