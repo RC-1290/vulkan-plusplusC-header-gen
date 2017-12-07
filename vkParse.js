@@ -1317,7 +1317,7 @@ function createHeader()
 				{
 					if (j > 0) { parametersText += ","; }
 					let parameter = interf.parameters[j];
-					parametersText += "\n" + indentation(11) + parameter.preType + parameter.type + parameter.postType + parameter.name;
+					parametersText += "\n" + padTabs(indentation(3) + parameter.preType + parameter.type + parameter.postType, 86) + parameter.name;
 				}
 				
 				addLineOfCode( typesDiv, padTabs(indentation(2) + "typedef " + interf.returnType, 24) + "(" + VKAPI_PTR + " *" + interf.name + ")(" + parametersText + ");" );
