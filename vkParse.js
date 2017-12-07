@@ -801,6 +801,7 @@ function listFeatures()
 	// Restoring previous selection:
 	let selectedFeatures = localStorage.getItem("selectedFeatures");
 	let selectedExtensions = localStorage.getItem("selectedExtensions");
+	let ranBefore = localStorage.getItem("ranBefore");
 	
 	let featureSelectionMap = new Map();
 	if (selectedFeatures)
@@ -824,7 +825,15 @@ function listFeatures()
 	for (let feature of availableFeatures.values())
 	{
 		feature.checkbox = addCheckbox(featureList, feature.name, feature.description, feature.name + ", version: " + feature.version);
-		if (featureSelectionMap.get(feature.name)){	feature.checkbox.checked = true;	}
+		
+		if (ranBefore)
+		{
+			if (featureSelectionMap.get(feature.name)){	feature.checkbox.checked = true;	}
+		}
+		else 
+		{
+			feature.checkbox.checked = true;
+		}
 		
 		var extensionUl = document.createElement("ul");
 		extensionUl.setAttribute("class", "autoColumn");
@@ -839,7 +848,14 @@ function listFeatures()
 			extension.checkbox.setAttribute("extensionName", extension.name);
 			extension.checkbox.setAttribute("featureName", feature.name);
 			
-			if (extensionSelectionMap.get(extension.name)){	extension.checkbox.checked = true;	}
+			if (ranBefore)
+			{
+				if (extensionSelectionMap.get(extension.name)){	extension.checkbox.checked = true;	}
+			}
+			else 
+			{
+				extension.checkbox.checked = true;
+			}
 			
 			extension.checkbox.addEventListener("change", checkRequiredExtensions);
 		}
@@ -1041,6 +1057,8 @@ function createHeader()
 		}
 	}
 	statusText.textContent = "Saving state for next run...";
+	
+	localStorage.setItem("ranBefore", true);
 	localStorage.setItem("selectedFeatures", selectedFeatures);
 	localStorage.setItem("selectedExtensions", selectedExtensions);
 	
