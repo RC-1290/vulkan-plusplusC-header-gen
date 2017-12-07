@@ -12,6 +12,17 @@ It works like a basic website, but doesn't require hosting.
 6. Click "Create Header"
 7. Behold, the header.
 
+# Why?
+The header and generator have a couple of advantages over the default ones.
+1. Control over dependencies.
+  1. With custom headers you can make tiny executables (e.g.: no C Standard Library, no Windows.h)
+  2. Custom types for things like Window Handles. (if you also use custom Windows headers)
+2. Namespaces. By using namespaces and enum classes, syntax highlighting, and code suggestions can be more specific.
+3. Type renaming. Maybe you just really prefer short integer types like s8, u32 and u64.
+4. No need to wait for the latest headers to be released. As soon as vk.xml is updated, you can generate new headers.
+5. Selective Extension inclusion. Perhaps you simply want a smaller header, or a custom header per platform.
+6. This generator doesn't require any installations (useful for derivative generator projects). No need to follow an installation guide for a specific version of Python. Your browser has XML parsing functionality built-in.
+
 # ++C?
 This is a reference to pre-increment being faster than post-increment in some situations. I use it to describe a style of programming that is newer than C, but more low-level than C++.
 
