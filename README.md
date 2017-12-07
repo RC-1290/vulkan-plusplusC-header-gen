@@ -15,8 +15,8 @@ It works like a basic website, but doesn't require hosting.
 # Why?
 The header and generator have a couple of advantages over the default ones.
 1. Control over dependencies.
-  1. With custom headers you can make tiny executables (e.g.: no C Standard Library, no Windows.h)
-  2. Custom types for things like Window Handles. (if you also use custom Windows headers)
+    1. With custom headers you can make tiny executables (e.g.: no C Standard Library, no Windows.h)
+    2. Custom types for things like Window Handles. (if you also use custom Windows headers)
 2. Namespaces. By using namespaces and enum classes, syntax highlighting, and code suggestions can be more specific.
 3. Type renaming. Maybe you just really prefer short integer types like s8, u32 and u64.
 4. No need to wait for the latest headers to be released. As soon as vk.xml is updated, you can generate new headers.
