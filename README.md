@@ -13,7 +13,7 @@ It works like a basic website, but doesn't require hosting.
 7. Behold, the header.
 
 # ++C?
-This is a reference to Pre-increment being faster than C++ in some situations. I use it to describe a style of programming that is newer than C, but more low-level than C++.
+This is a reference to pre-increment being faster than post-increment in some situations. I use it to describe a style of programming that is newer than C, but more low-level than C++.
 
 When you use Vulkan headers, you can currently choose between headers that have to support C compilers and headers built on top of that.
 The C version uses preprocessor defines left and right, obscuring type information and putting everything in the global namespace with long names.
