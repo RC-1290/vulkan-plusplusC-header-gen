@@ -127,10 +127,18 @@ else
 
 function restoreInput(localStoreKey, input)
 {
-	let restored = localStorage.getItem(localStoreKey);
-	if (restored)
+	let ranBefore = localStorage.getItem("ranBefore");
+	if (ranBefore)
 	{
-		input.value = restored;
+		let restored = localStorage.getItem(localStoreKey);
+		if (restored)
+		{
+			input.value = restored;
+		}
+	}
+	else
+	{
+		input.value = input.placeholder;
 	}
 }
 
