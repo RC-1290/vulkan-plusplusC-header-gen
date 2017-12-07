@@ -1,6 +1,16 @@
 # vulkan-plusplusC-header-gen
 This parser tries to turn vk.xml into a ++C header file and implementation file. It works on my machine™.
 
+# How to use?
+It works like a basic website, but doesn't require hosting.
+
+1. You can just put all the files in a folder on your desktop (or somewhere else), and visit the html file in your browser (I've been using the latest version of Firefox, other browsers might not have matching tab sizes). 
+2. Provide it with the vk.xml text that you want to process, and click the button to list the features and extensions.
+3. Select the features and extensions that you want to include
+4. (optional) Adjust settings
+5. Click "Create Header"
+6. Behold, the header.
+
 # ++C?
 This is a reference to Pre-increment being faster than C++ in some situations. I use it to describe a style of programming that is newer than C, but more low-level than C++.
 
@@ -14,4 +24,4 @@ Namespaces and enum classes break up the names into smaller chunks. With the add
 It also performs a bunch of type replacement. For example, I like integer types to follow the short format (e.g.: s8, u32, b32, etc.), but that shouldn't be too hard to change if you have different preferences.
 You could just make it include windows.h, but if you've written custom Windows headers, you can do things like compiling without the C Runtime Library.
 
-Lastly (I think) it lets you selectively include extensions.
+It also lets you selectively include extensions. Who knows, perhaps you just want a smaller header or something. Or perhaps you want to have a separate header for each platform, removing even the #ifdef'd away code from the other platforms.
