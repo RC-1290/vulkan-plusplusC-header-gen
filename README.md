@@ -1,15 +1,16 @@
 # vulkan-plusplusC-header-gen
-This parser tries to turn vk.xml into a ++C header file and implementation file. It works on my machine™.
+This parser tries to turn vk.xml into a ++C header file and implementation file. It works on my machine™ (I've been using the latest version of Firefox, other browsers might not have matching tab sizes).
 
 # How to use?
 It works like a basic website, but doesn't require hosting.
 
-1. You can just put all the files in a folder on your desktop (or somewhere else), and visit the html file in your browser (I've been using the latest version of Firefox, other browsers might not have matching tab sizes). 
-2. Provide it with the vk.xml text that you want to process, and click the button to list the features and extensions.
-3. Select the features and extensions that you want to include
-4. (optional) Adjust settings
-5. Click "Create Header"
-6. Behold, the header.
+1. You can simply use the version hosted on [CodeAnimo.com](http://codeanimo.com/projects/vk_parse/).
+2. (optional) Alternatively you can just put all the files in a folder on your desktop (or somewhere else), and visit the html file in your browser. 
+3. Provide it with the vk.xml text that you want to process, and click the button to list the features and extensions.
+4. Select the features and extensions that you want to include
+5. (optional) Adjust settings
+6. Click "Create Header"
+7. Behold, the header.
 
 # ++C?
 This is a reference to Pre-increment being faster than C++ in some situations. I use it to describe a style of programming that is newer than C, but more low-level than C++.
