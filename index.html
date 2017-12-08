@@ -1,50 +1,51 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8"> 
-<link href="VkParse.css" rel="stylesheet" type="text/css">
-<title>Vulkan Spec Parser</title>
+	<meta charset="UTF-8"> 
+	<link href="VkParse.css" rel="stylesheet" type="text/css">
+	<title>Vulkan Header Generator</title>
 </head>
 
 <body>
 
-<h1>Vulkan Spec Parser</h1>
-<p>This parser tries to turn <a href="https://github.com/KhronosGroup/Vulkan-Docs/blob/1.0/src/spec/vk.xml">vk.xml</a> into a ++C header file and implementation file. It works on my machine™ (I've been using the latest version of Firefox, other browsers might not display matching tab sizes). The files of this generator can be found on <a href="https://github.com/RC-1290/vulkan-plusplusC-header-gen/">GitHub</a>.</p>
+<h1>Vulkan Header Generator</h1>
+<p>This generator tries to turn <a href="https://github.com/KhronosGroup/Vulkan-Docs/blob/1.0/src/spec/vk.xml">vk.xml</a> into a ++C header file and implementation file. It works on my machine™ (I've been using the latest version of Firefox, other browsers might not display matching tab sizes). You can find more information, and the files of the generator on <a href="https://github.com/RC-1290/vulkan-plusplusC-header-gen/">GitHub</a>.</p>
 
 <h2>Status</h2>
 <p>Status: <span id="statusText">This status text will be replaced by javascript, if the script works.</span></p>
 <div id="setupStuff">
-<h2>vk.xml</h2>
-<p>Paste vk.xml you want to use below. By default it uses an (possibly outdated) local copy stored on this website. You can get the <a href="https://raw.githubusercontent.com/KhronosGroup/Vulkan-Docs/1.0/src/spec/vk.xml">latest version on GitHub</a>.</p>
-<textarea id="vkxmlText" placeholder="Fill this with vk.xml" cols="200" rows="12" wrap="off"></textarea>
-<div>
-<button id="clearXmlTextBtn" title="Clear the vk.xml textarea.">Clear TextArea</button>
-<button id="localVkXmlBtn" title="A local version of vk.xml, just in case it can't be loaded from github. This version might be outdated.">Load Local vk.xml</button>
-<button id="loadRawGithubBtn" title="Load the raw vk.xml directly from GitHub. Let's hope no one replaced the github code with a bunch of weird stuff.">Load from GitHub</button>
-</div>
-<p>When the textarea above is filled, click the following button to list the available features and extensions:</p>
-<button id="parseTextButton">List Features/Extensions</button>
-<div id="setupPart2" class="hidden">
-<h2>Features and Extensions</h2>
-<div id="featureSelection">This is where features and extensions should show up (using Javascript) once the vk.xml has been parsed.</div>
+	<h2>vk.xml</h2>
+	<textarea id="vkxmlText" placeholder="Fill this with vk.xml" cols="200" rows="12" wrap="off"></textarea>
+	<div>
+		<button id="clearXmlTextBtn" title="Clear the vk.xml textarea.">Clear TextArea</button>
+		<button id="localVkXmlBtn" title="A local version of vk.xml, just in case it can't be loaded from github. This version might be outdated.">Load Local vk.xml</button>
+		<button id="loadRawGithubBtn" title="Load the raw vk.xml directly from GitHub. Let's hope no one replaced the github code with a bunch of weird stuff.">Load from GitHub</button>
+	</div>
+	<p>Paste vk.xml you want to use above. By default it uses an (possibly outdated) local copy stored alongside this page.</p>
+	<p>If you want to verify the contents first you can manually copy the <a href="https://raw.githubusercontent.com/KhronosGroup/Vulkan-Docs/1.0/src/spec/vk.xml">latest version from GitHub</a>. Alternatively if you trust that it's fine, you can have it automatically filled in for you with the "Load from GitHub" button above.</p>
+	<button id="parseTextButton">List Features/Extensions</button>
+	<div id="setupPart2" class="hidden">
+		<h2>Features and Extensions</h2>
+		<p>Header version: <span id="headerVersion"></span></p>
+		<div id="featureSelection">This is where features and extensions should show up (using Javascript) once the vk.xml has been parsed.</div>
 
-<h2>Settings</h2>
-<p>In case you want to customize the header creation, here are some things you can change.</p>
-<div>
-<label for="typedefInclude">Typedef include header:</label>
-<input id="typedefInclude" type="text" placeholder="../TypeDefs.h"></input>
-</div>
-<div>
-<label for="surfaceInclude">Surface include header:</label>
-<input id="surfaceInclude" type="text" placeholder="../WinAPI.h"></input>
-</div>
-<div>
-<label for="vulkanNamespace">Vulkan API namespace:</label>
-<input id="vulkanNamespace" type="text" placeholder="Vk"></input>
-<label for="implementationDefine">ProcAddrLookup Define:</label>
-<input id="implementationDefine" type="text" placeholder="IMPLEMENT_VK_COMMAND_LOOKUP"></input>
-</div>
-</div>
+		<h2>Settings</h2>
+		<p>In case you want to customize the header creation, here are some things you can change.</p>
+		<div>
+			<label for="typedefInclude">Typedef include header:</label>
+			<input id="typedefInclude" type="text" placeholder="../TypeDefs.h"></input>
+			</div>
+			<div>
+			<label for="surfaceInclude">Surface include header:</label>
+			<input id="surfaceInclude" type="text" placeholder="../WinAPI.h"></input>
+		</div>
+		<div>
+			<label for="vulkanNamespace">Vulkan API namespace:</label>
+			<input id="vulkanNamespace" type="text" placeholder="Vk"></input>
+			<label for="implementationDefine">ProcAddrLookup Define:</label>
+			<input id="implementationDefine" type="text" placeholder="IMPLEMENT_VK_COMMAND_LOOKUP"></input>
+		</div>
+	</div>
 </div>
 
 <div id="hiddenUntilCreation" class="hidden">

@@ -48,6 +48,7 @@ var VKAPI_ATTR = "";// used on Android
 var VKAPI_CALL = "__stdcall";// calling convention
 var VKAPI_PTR = VKAPI_CALL;
 
+var headerVersion;
 var typeReplacements = new Map();
 
 typeReplacements.set("char", s8);
@@ -65,6 +66,7 @@ typeReplacements.set("LPCWSTR", LPCWSTR);
 
 var statusText =				document.getElementById("statusText");
 var featureList =				document.getElementById("featureSelection");
+var headerVersionSpan =			document.getElementById("headerVersion"); 
 
 var typesDiv =					document.getElementById("types");
 var commandTypeDefsDiv =		document.getElementById("commandTypeDefs");
@@ -457,6 +459,30 @@ function parseTypes(xml)
 				}
 				break;
 			}
+			case "define":
+				// Specific data is in the child nodes:
+				var typeChildNodes = typeNode.childNodes;
+				for (var j = 0; j < typeChildNodes.length; ++j)
+				{
+					let node = typeChildNodes.item(j);
+					if (node.tagName == "name")
+					{
+						if (node.textContent == "VK_HEADER_VERSION")
+						{
+							let nextIndex = j + 1;
+							if (nextIndex >= typeChildNodes.length){	break;	}
+							
+							let nextNode = typeChildNodes.item(nextIndex);
+							if (headerVersion)
+							{
+								console.warn("more than one header version detected. That's odd.");
+							}
+							headerVersion = parseInt(nextNode.textContent);
+						}
+					
+					}
+				}
+			// fall through to default:
 			default:
 			{
 				if (!namedThing.category)
@@ -832,6 +858,8 @@ function listFeatures()
 	
 	// List features:
 	statusText.textContent = "Listing Features...";
+	headerVersionSpan.textContent = headerVersion;
+	
 	for (let feature of availableFeatures.values())
 	{
 		feature.checkbox = addCheckbox(featureList, feature.name, feature.description, feature.name + ", version: " + feature.version);
@@ -1192,6 +1220,11 @@ function createHeader()
 	setupStuff.setAttribute("class", "hidden");
 	document.getElementById("hiddenUntilCreation").removeAttribute("class");
 	document.getElementById("vkGetInstanceProcAddrDefine").textContent = VKAPI_ATTR + vulkanNamespace + "::PFN::VoidFunction " + VKAPI_CALL + " vkGetInstanceProcAddr( " + vulkanNamespace + "::Instance instance, const " + s8 + "* pName );";
+
+	if (headerVersion)
+	{
+		addLineOfCode(typesDiv, padTabs(padTabs(indentation(1) + "const " + u32, 16) + "HEADER_VERSION" + " = ", 90) + headerVersion + ";");
+	}
 	
 	let lastCategory = "";
 	let lastProtect = "";
