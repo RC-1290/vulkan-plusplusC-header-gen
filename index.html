@@ -9,7 +9,7 @@
 <body>
 
 <h1>Vulkan Header Generator</h1>
-<p>This generator tries to turn <a href="https://github.com/KhronosGroup/Vulkan-Docs/blob/1.0/src/spec/vk.xml">vk.xml</a> into a ++C header file and implementation file. It works on my machine™ (I've been using the latest version of Firefox, other browsers might not display matching tab sizes). You can find more information, and the files of the generator on <a href="https://github.com/RC-1290/vulkan-plusplusC-header-gen/">GitHub</a>.</p>
+<p>This generator tries to turn <a href="https://github.com/KhronosGroup/Vulkan-Docs/blob/1.0/src/spec/vk.xml">vk.xml</a> into a ++C header file (for C++11 compilers) and implementation file. It works on my machine™ (I've been using the latest version of Firefox, other browsers might not display matching tab sizes). You can find more information, and the files of the generator on <a href="https://github.com/RC-1290/vulkan-plusplusC-header-gen/">GitHub</a>.</p>
 
 <h2>Status</h2>
 <p>Status: <span id="statusText">This status text will be replaced by javascript, if the script works.</span></p>
@@ -68,7 +68,14 @@
 
 <div id="extraIncludes"></div>
 namespace <span class="namespaceVulkan">Vk</span>
-{	<div id="types"></div>
+{	
+	extern constexpr u32 MakeVersion( u32 major, u32 minor, u32 patch );
+	extern constexpr u32 VersionPatch( u32 version );
+	extern constexpr u32 VersionMinor( u32 version );
+	extern constexpr u32 VersionMajor( u32 version );
+	
+	const u32 API_VERSION_1_0 = 4194304;// MakeVersion(1,0,0);
+	<div id="types"></div>
 	
 	<div id="externPfns"></div>
 }
@@ -79,7 +86,24 @@ namespace <span class="namespaceVulkan">Vk</span>
 extern "C" <span id="vkGetInstanceProcAddrDefine"></span>
 
 namespace <span class="namespaceVulkan">Vk</span>
-{<div id="cmdDefs"></div>}
+{
+	constexpr u32 MakeVersion( u32 major, u32 minor, u32 patch )
+	{
+		return (((major) << 22) | ((minor) << 12) | (patch));
+	}
+	constexpr u32 VersionMajor( u32 version )
+	{
+		return ((u32)(version) >> 22);
+	}
+	constexpr u32 VersionMinor( u32 version )
+	{
+		return (((u32)(version) >> 12) & 0x3ff);
+	}
+	constexpr u32 VersionPatch( u32 version )
+	{
+		return ((u32)(version) & 0xfff);
+	}
+	<div id="cmdDefs"></div>}
 namespace <span class="namespaceNewCode">CodeAnimo</span>
 {
 	namespace <span class="namespaceNewCode2">Vulkan</span>
