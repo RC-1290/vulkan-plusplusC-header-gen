@@ -15,9 +15,9 @@ It works like a basic website, but doesn't require hosting.
 # Why?
 The header and generator have a couple of advantages over the default ones.
 1. Control over dependencies.
-    1. With custom headers you can make tiny executables (e.g.: no C Standard Library, no Windows.h)
-    2. Custom types for things like Window Handles. (if you also use custom Windows headers)
-2. Namespaces. By using namespaces and enum classes, syntax highlighting, and code suggestions can be more specific.
+	1. With custom headers you can make tiny executables (e.g.: no C Standard Library, no Windows.h)
+	2. Custom types for things like Window Handles. (if you also use custom Windows headers)
+2. Namespaces. By using namespaces and scoped enums, syntax highlighting and code suggestions can be more specific.
 3. Type renaming. Maybe you just really prefer short integer types like s8, u32 and u64.
 4. No need to wait for the latest headers to be released. As soon as vk.xml is updated, you can generate new headers.
 5. Selective Extension inclusion. Perhaps you simply want a smaller header, or a custom header per platform.
@@ -32,7 +32,7 @@ The C++ version simply includes vulkan.h and its issues, while also including a 
 In both cases, it includes the platform headers (e.g.: Windows.h) for you, preventing you from compiling without any further dependencies.
 
 This generator sits somewhere in between C and C++. It uses a couple of C++ features to solve the issues with the C version, while trying to avoid introducing the bulk of the C++ version.
-Namespaces and enum classes break up the names into smaller chunks. With the addition of syntax highlighting, that can make it easier to read which specific enum value you use. Code completion system also tend to be better at only listing relevant entries.
+Namespaces and scoped enums break up the names into smaller chunks. With the addition of syntax highlighting, that can make it easier to read which specific enum value you use. Code completion system also tend to be better at only listing relevant entries.
 It also performs a bunch of type replacement. For example, I like integer types to follow the short format (e.g.: s8, u32, b32, etc.), but that shouldn't be too hard to change if you have different preferences.
 You could just make it include windows.h, but if you've written custom Windows headers, you can do things like compiling without the C Runtime Library.
 
