@@ -62,6 +62,7 @@ ul
 {
 	background-color : #333;
 	padding : 10px;
+	margin : 20px;
 }
 
 #statusBar
@@ -72,4 +73,14 @@ ul
 #statusBar p
 {
 	padding : 10px;
+}
+
+#CodeAnimo{
+	position : fixed;
+	width: 200px;
+	bottom: 5px;
+	left: 50%;
+	margin-left: -100px;
+	
+	font-size : 10px;
 }
