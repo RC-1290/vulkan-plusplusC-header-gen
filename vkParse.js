@@ -45,8 +45,8 @@ var LPCWSTR = "const wchar_t*";
 
 // Vulkan function call settings:
 var VKAPI_ATTR = "";// used on Android
-var VKAPI_CALL = "__stdcall";// calling convention
-var VKAPI_PTR = VKAPI_CALL;
+var VKAPI_CALL = "";// calling convention
+var VKAPI_PTR = "";
 
 var headerVersion;
 var typeReplacements = new Map();
@@ -89,14 +89,18 @@ var typeIncludeInput =			document.getElementById("typedefInclude");
 var surfaceIncludeInput =		document.getElementById("surfaceInclude");
 var vulkanNamespaceInput =		document.getElementById("vulkanNamespace");
 var implementationDefineInput =	document.getElementById("implementationDefine");
+var callingConventionSelect =	document.getElementById("callingConvention");
 
 var setupStuff = 				document.getElementById("setupStuff");
 var setupPart2 =				document.getElementById("setupPart2");
+
+let ranBefore = localStorage.getItem("ranBefore");
 
 restoreInput("typedefInclude", typeIncludeInput);
 restoreInput("surfaceInclude", surfaceIncludeInput);
 restoreInput("vulkanNamespace", vulkanNamespaceInput);
 restoreInput("implementationDefine", implementationDefineInput);
+restoreSelect("callingConventionSelect", callingConventionSelect);
 
 var availableFeatures = new Map();
 var availableNamed = new Map();
@@ -131,7 +135,6 @@ else
 
 function restoreInput(localStoreKey, input)
 {
-	let ranBefore = localStorage.getItem("ranBefore");
 	if (ranBefore)
 	{
 		let restored = localStorage.getItem(localStoreKey);
@@ -140,9 +143,21 @@ function restoreInput(localStoreKey, input)
 			input.value = restored;
 		}
 	}
-	else
+	else if (input.placeholder)
 	{
 		input.value = input.placeholder;
+	}
+}
+
+function restoreSelect(localStoreKey, select)
+{
+	if (ranBefore)
+	{
+		let restored = localStorage.getItem(localStoreKey);
+		if (restored)
+		{
+			select.selectedIndex = restored;
+		}
 	}
 }
 
@@ -1009,6 +1024,21 @@ function createHeader()
 		replaceClassNodeContents("ProccAddrLookupImplDefine", ProccAddrLookupImplDefine);
 	}
 	
+	switch(callingConventionSelect.selectedOptions.item(0).value)
+	{
+		case "default":
+			VKAPI_ATTR = VKAPI_CALL = VKAPI_PTR = "";
+		break;
+		case "hardfloat":
+			VKAPI_PTR = VKAPI_ATTR = "__attribute__((pcs(\"aapcs-vfp\")))";
+			VKAPI_CALL = "";
+		break;
+		case "stdcall":
+			VKAPI_PTR = VKAPI_CALL = "__stdcall";
+			VKAPI_ATTR = "";
+		break;
+	}
+	
 
 	// Remember selected features and extensions between sessions:
 	let selectedFeatures = "";
@@ -1104,6 +1134,7 @@ function createHeader()
 	localStorage.setItem("surfaceInclude", surfaceIncludeInput.value);
 	localStorage.setItem("vulkanNamespace", vulkanNamespaceInput.value);
 	localStorage.setItem("implementationDefine", implementationDefineInput.value);
+	localStorage.setItem("callingConventionSelect", callingConventionSelect.selectedIndex);
 	
 	
 	// Replace types and changes names:

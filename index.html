@@ -34,16 +34,26 @@
 		<div>
 			<label for="typedefInclude">Typedef include header:</label>
 			<input id="typedefInclude" type="text" placeholder="../TypeDefs.h"></input>
-			</div>
-			<div>
+		</div>
+		<div>
 			<label for="surfaceInclude">Surface include header:</label>
 			<input id="surfaceInclude" type="text" placeholder="../WinAPI.h"></input>
 		</div>
 		<div>
 			<label for="vulkanNamespace">Vulkan API namespace:</label>
 			<input id="vulkanNamespace" type="text" placeholder="Vk"></input>
+		</div>
+		<div>
 			<label for="implementationDefine">ProcAddrLookup Define:</label>
 			<input id="implementationDefine" type="text" placeholder="IMPLEMENT_VK_COMMAND_LOOKUP"></input>
+		</div>
+		<div>
+		<label for="callingConvention">Calling Convention</label>
+		<select id="callingConvention">
+			<option value="default">default</option>
+			<option value="hardfloat">hardfloat (Android)</option>
+			<option value="stdcall">stdcall (Windows)</option>
+		</select>
 		</div>
 	</div>
 </div>
