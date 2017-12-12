@@ -1043,6 +1043,8 @@ function createHeader()
 {
 	statusText.textContent = "Applying custom settings:";
 	
+	window.scroll(0,150);
+	
 	if (customIncludeInput.value)
 	{
 		addLineOfCode(extraIncludesDiv, "#include \"" + customIncludeInput.value + "\"");

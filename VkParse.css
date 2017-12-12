@@ -57,3 +57,19 @@ ul
 	display: inline-block;
 	width: 180px;
 }
+
+#CreateHeaderBar
+{
+	background-color : #333;
+	padding : 10px;
+}
+
+#statusBar
+{
+	background-color : #333;
+	max-width : 820px;
+}
+#statusBar p
+{
+	padding : 10px;
+}
