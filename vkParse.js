@@ -33,15 +33,6 @@ var u32 = "u32";// unsigned 32-bit
 var s32 = "s32";// signed 32-bit
 var ub32 = "ub32";// unsigned 32-bit boolean
 var u64 = "u64";// unsigned 64-bit
-var DeviceSize = u64;// GPU pointer size
-
-// Windows types:
-var WindowsHandle = "Windows::Handle";
-var HINSTANCE = WindowsHandle;
-var HWND = WindowsHandle;
-var SECURITY_ATTRIBUTES = "Windows::SecurityAttributes";
-var DWORD = u32;
-var LPCWSTR = "const wchar_t*";
 
 // Vulkan function call settings:
 var VKAPI_ATTR = "";// used on Android
@@ -51,24 +42,24 @@ var VKAPI_PTR = "";
 var headerVersion;
 var typeReplacements = new Map();
 
-typeReplacements.set("char", s8);
-typeReplacements.set("uint8_t", s8);
-typeReplacements.set("uint32_t", u32);
-typeReplacements.set("int32_t", s32);
-typeReplacements.set("uint64_t", u64);
+initializeDefaultStore("typRepl char", s8);
+initializeDefaultStore("typRepl uint8_t", s8);
+initializeDefaultStore("typRepl uint32_t", u32);
+initializeDefaultStore("typRepl int32_t", s32);
+initializeDefaultStore("typRepl uint64_t", u64);
 
-typeReplacements.set("HANDLE", WindowsHandle);
-typeReplacements.set("HINSTANCE", HINSTANCE);
-typeReplacements.set("HWND", HWND);
-typeReplacements.set("SECURITY_ATTRIBUTES", SECURITY_ATTRIBUTES);
-typeReplacements.set("DWORD", DWORD);
-typeReplacements.set("LPCWSTR", LPCWSTR);
+initializeDefaultStore("typRepl HANDLE", "Windows::Handle");
+initializeDefaultStore("typRepl HINSTANCE", "Windows::Handle");
+initializeDefaultStore("typRepl HWND", "Windows::Handle");
+initializeDefaultStore("typRepl SECURITY_ATTRIBUTES", "Windows::SecurityAttributes");
+initializeDefaultStore("typRepl DWORD", u32);
+initializeDefaultStore("typRepl LPCWSTR", "const wchar_t*");
 
 var statusText =				document.getElementById("statusText");
 var featureList =				document.getElementById("featureSelection");
 var headerVersionSpan =			document.getElementById("headerVersion"); 
 
-var typesDiv =					document.getElementById("types");
+var interfacesDiv =				document.getElementById("interfaces");
 var commandTypeDefsDiv =		document.getElementById("commandTypeDefs");
 var externPfnDiv =				document.getElementById("externPfns");
 var cmdDefsDiv =				document.getElementById("cmdDefs");
@@ -91,6 +82,10 @@ var vulkanNamespaceInput =		document.getElementById("vulkanNamespace");
 var implementationDefineInput =	document.getElementById("implementationDefine");
 var callingConventionSelect =	document.getElementById("callingConvention");
 
+var typeReplacementList =		document.getElementById("typeReplacement");
+
+var createHeaderButton =		document.getElementById("createHeaderButton");
+
 var setupStuff = 				document.getElementById("setupStuff");
 var setupPart2 =				document.getElementById("setupPart2");
 
@@ -103,7 +98,7 @@ restoreInput("implementationDefine", implementationDefineInput);
 restoreSelect("callingConventionSelect", callingConventionSelect);
 
 var availableFeatures = new Map();
-var availableNamed = new Map();
+var availableInterfaces = new Map();
 
 var flags = [];
 var interfaces = [];
@@ -131,6 +126,14 @@ if (!vkxmlTextInput.value)
 else 
 {
 	statusText.textContent = "XML textfield populated with cached contents.";
+}
+
+function initializeDefaultStore(key, value)
+{
+	if (!localStorage.getItem(key))
+	{
+		localStorage.setItem(key, value);
+	}
 }
 
 function restoreInput(localStoreKey, input)
@@ -233,7 +236,8 @@ function onXhrLoad()
 
 function readXML(vkxml)
 {
-	featureList.textContent = "";// Clear placeholder text
+	featureList.textContent = "";// Clear placeholder text and previous lists
+	typeReplacementList.textContent = "";
 	
 	for (let node of vkxml.childNodes)
 	{
@@ -387,7 +391,7 @@ function parseTypes(xml)
 					}
 				}
 				
-				availableNamed.set(namedThing.name, namedThing);
+				availableInterfaces.set(namedThing.name, namedThing);
 				break;
 			}
 			case "bitmask":
@@ -411,7 +415,7 @@ function parseTypes(xml)
 				}
 				if (namedThing.name)
 				{
-					availableNamed.set(namedThing.name, namedThing);
+					availableInterfaces.set(namedThing.name, namedThing);
 				}
 				
 				break;
@@ -420,7 +424,7 @@ function parseTypes(xml)
 			case "union":
 			{
 				namedThing.members = [];
-				availableNamed.set(namedThing.name, namedThing);
+				availableInterfaces.set(namedThing.name, namedThing);
 				
 				var memberNodes = typeNode.children;
 				for(var j = 0; j < memberNodes.length; ++j)
@@ -474,14 +478,17 @@ function parseTypes(xml)
 				}
 				break;
 			}
+			
 			case "define":
-				// Specific data is in the child nodes:
+			{			
+				// Just parsing header version:
 				var typeChildNodes = typeNode.childNodes;
 				for (var j = 0; j < typeChildNodes.length; ++j)
 				{
 					let node = typeChildNodes.item(j);
 					if (node.tagName == "name")
 					{
+						namedThing.name = node.textContent;
 						if (node.textContent == "VK_HEADER_VERSION")
 						{
 							let nextIndex = j + 1;
@@ -497,7 +504,9 @@ function parseTypes(xml)
 					
 					}
 				}
-			// fall through to default:
+				availableInterfaces.set(namedThing.name, namedThing);
+			}
+			break;
 			default:
 			{
 				if (!namedThing.category)
@@ -505,7 +514,7 @@ function parseTypes(xml)
 					namedThing.category = "EXTERNAL";// capitalized category to avoid collision with future new categories.
 				}
 				
-				if (namedThing.name){	availableNamed.set(namedThing.name, namedThing);	}
+				if (namedThing.name){	availableInterfaces.set(namedThing.name, namedThing);	}
 				break;
 			}
 				
@@ -540,7 +549,7 @@ function parseEnums(enumsNode)
 				constant.value = constant.value = "(1 << " + bitPos + ")";
 				
 			}
-			availableNamed.set(constant.name, constant);
+			availableInterfaces.set(constant.name, constant);
 			
 			constant.type = determineType(constant.value);
 		}
@@ -553,7 +562,7 @@ function parseEnums(enumsNode)
 		cEnum.name = enumName;
 		cEnum.constants = [];
 		
-		availableNamed.set(cEnum.name, cEnum);
+		availableInterfaces.set(cEnum.name, cEnum);
 		
 		cEnum.isBitMask = enumType == "bitmask";
 		
@@ -655,7 +664,7 @@ function parseCommand(xml)
 		}
 		command.parameters.push(parameter);
 	}
-	availableNamed.set(command.name, command);
+	availableInterfaces.set(command.name, command);
 }
 
 function parseFeature(xml)
@@ -927,12 +936,40 @@ function listFeatures()
 		featureList.appendChild(uncheckAllButton);
 	}
 	
-	let createHeaderButton = document.createElement("button");
-	createHeaderButton.textContent = "Create Header";
+	// Type replacement interface:
+	for( let interf of availableInterfaces.values())
+	{
+		if (interf.category == "EXTERNAL")
+		{
+			let typeEntry = document.createElement("li");
+			let interfaceLabel = document.createElement("label");
+			interf.input = document.createElement("Input");
+			
+			interfaceLabel.setAttribute("for", interf.name);
+			interfaceLabel.textContent = interf.name;
+			interfaceLabel.title = "";
+			if (interf.requires)
+			{
+				interfaceLabel.title += "originally defined by: " + interf.requires;
+			}
+			
+			interf.input.setAttribute("id", interf.name);
+			interf.input.setAttribute("type", "text");
+			interf.input.value = localStorage.getItem("typRepl " + interf.name);
+			if (!interf.input.value)
+			{
+				interf.input.value = interf.name;
+			}
+			
+			typeEntry.appendChild(interfaceLabel);
+			typeEntry.appendChild(interf.input);
+			
+			typeReplacementList.appendChild(typeEntry);
+			
+		}
+	}
+
 	createHeaderButton.addEventListener("click", createHeader);
-	
-	setupStuff.appendChild(createHeaderButton);
-	
 	statusText.textContent = "Features listing complete. Select features and extensions and press \"Create Header\"...";
 }
 
@@ -1005,6 +1042,7 @@ function isExtensionEnabled(feature, extensionName)
 function createHeader()
 {
 	statusText.textContent = "Applying custom settings:";
+	
 	if (typeIncludeInput.value)
 	{
 		addLineOfCode(extraIncludesDiv, "#include \"" + typeIncludeInput.value + "\"");
@@ -1079,7 +1117,7 @@ function createHeader()
 					{
 						case "extensionEnum":
 						{
-							let cEnum = availableNamed.get(interf.extending);
+							let cEnum = availableInterfaces.get(interf.extending);
 							if (!cEnum)
 							{
 								console.error("extended enum not found: " + interf.extending);
@@ -1100,7 +1138,7 @@ function createHeader()
 							constant.type = interf.type
 							constant.category = "constant";
 						
-							availableNamed.set(constant.name, constant);
+							availableInterfaces.set(constant.name, constant);
 							registerSymbol(interf.name);
 						}
 						break;
@@ -1113,7 +1151,7 @@ function createHeader()
 					}
 					if (extension.protect)
 					{
-						let target = availableNamed.get(interf.name);
+						let target = availableInterfaces.get(interf.name);
 						if (target)
 						{
 							target.protect = extension.protect;
@@ -1135,6 +1173,15 @@ function createHeader()
 	localStorage.setItem("vulkanNamespace", vulkanNamespaceInput.value);
 	localStorage.setItem("implementationDefine", implementationDefineInput.value);
 	localStorage.setItem("callingConventionSelect", callingConventionSelect.selectedIndex);
+	
+	for( let interf of availableInterfaces.values())
+	{
+		if (interf.category == "EXTERNAL")
+		{
+			localStorage.setItem("typRepl " + interf.name, interf.input.value);
+			typeReplacements.set(interf.name, interf.input.value);
+		}
+	}
 	
 	
 	// Replace types and changes names:
@@ -1246,6 +1293,18 @@ function createHeader()
 		}
 	}
 	
+	s8 = localStorage.getItem("typRepl uint8_t");
+	u32 = localStorage.getItem("typRepl uint32_t");
+	s32 = localStorage.getItem("typRepl int32_t");
+	u64 = localStorage.getItem("typRepl uint64_t");
+	ub32 = localStorage.getItem("typRepl VkBool32");
+	
+	let nodes = document.getElementsByClassName("typeReplace");
+	for (let node of nodes)
+	{
+		node.textContent = typeReplacement(node.textContent);
+	}
+	
 	// Write header:
 	statusText.textContent = "Writing Header...";
 	setupStuff.setAttribute("class", "hidden");
@@ -1254,7 +1313,7 @@ function createHeader()
 
 	if (headerVersion)
 	{
-		addLineOfCode(typesDiv, padTabs(padTabs(indentation(1) + "const " + u32, 16) + "HEADER_VERSION" + " = ", 90) + headerVersion + ";");
+		addLineOfCode(interfacesDiv, padTabs(padTabs(indentation(1) + "const " + u32, 16) + "HEADER_VERSION" + " = ", 90) + headerVersion + ";");
 	}
 	
 	let lastCategory = "";
@@ -1266,8 +1325,8 @@ function createHeader()
 		let nextIndex = i + 1;
 		if (interf.protect && interf.protect != lastProtect)
 		{
-			addLineOfCode(typesDiv, indentation(1));
-			addLineOfCode(typesDiv, "#ifdef " + interf.protect);
+			addLineOfCode(interfacesDiv, indentation(1));
+			addLineOfCode(interfacesDiv, "#ifdef " + interf.protect);
 		}
 		
 		switch(interf.category)
@@ -1275,51 +1334,51 @@ function createHeader()
 			case "struct":
 			case "union":
 			{
-				addLineOfCode(typesDiv, indentation(1));
-				addLineOfCode(typesDiv, indentation(1) + interf.category + " " + interf.name + " {");
+				addLineOfCode(interfacesDiv, indentation(1));
+				addLineOfCode(interfacesDiv, indentation(1) + interf.category + " " + interf.name + " {");
 				for (let j = 0; j < interf.members.length; ++j)
 				{
 					let member = interf.members[j];
-					addLineOfCode(typesDiv, padTabs(indentation(2) + member.preType + member.type + member.postType, 89) + member.name + member.preEnum + member.cEnum + member.postEnum + ";");
+					addLineOfCode(interfacesDiv, padTabs(indentation(2) + member.preType + member.type + member.postType, 89) + member.name + member.preEnum + member.cEnum + member.postEnum + ";");
 				}
-				addLineOfCode(typesDiv, indentation(1) + "};");
+				addLineOfCode(interfacesDiv, indentation(1) + "};");
 			}
 			break;
 			case "funcpointer":
 			{
-				addLineOfCode(typesDiv, indentation(1));
+				addLineOfCode(interfacesDiv, indentation(1));
 				
 				if (lastCategory != interf.category)
 				{
-					addLineOfCode(typesDiv, indentation(1));
-					addLineOfCode(typesDiv, indentation(1) + "namespace PFN {");
+					addLineOfCode(interfacesDiv, indentation(1));
+					addLineOfCode(interfacesDiv, indentation(1) + "namespace PFN {");
 				}
 				
-				addLineOfCode(typesDiv, indentation(2) + interf.preName + interf.name + interf.postName.trim());
+				addLineOfCode(interfacesDiv, indentation(2) + interf.preName + interf.name + interf.postName.trim());
 				
 				for(let j= 0; j < interf.parameters.length; ++j)
 				{
 					let parameter = interf.parameters[j];
-					addLineOfCode(typesDiv, padTabs(indentation(3) + parameter.preType + parameter.type + parameter.postType, 86) + parameter.name);
+					addLineOfCode(interfacesDiv, padTabs(indentation(3) + parameter.preType + parameter.type + parameter.postType, 86) + parameter.name);
 				}
 				
 				if (nextIndex >= interfaces.length || interfaces[nextIndex].category != interf.category)
 				{
-					addLineOfCode(typesDiv, indentation(1) + "}");
+					addLineOfCode(interfacesDiv, indentation(1) + "}");
 				}
 			}
 			break;
 			case "basetype":
 			{
-				addLineOfCode(typesDiv, indentation(1));
-				addLineOfCode(typesDiv, padTabs(indentation(1) + "typedef " + interf.type, 92) + interf.name + ";");
+				addLineOfCode(interfacesDiv, indentation(1));
+				addLineOfCode(interfacesDiv, padTabs(indentation(1) + "typedef " + interf.type, 92) + interf.name + ";");
 			}
 			break;
 			case "constant":
 			{
 				if (lastCategory != interf.category && lastCategory != "")
 				{
-					addLineOfCode(typesDiv, indentation(1));
+					addLineOfCode(interfacesDiv, indentation(1));
 				}
 				
 				let postName = "";
@@ -1328,14 +1387,14 @@ function createHeader()
 					interf.type = s8;
 					postName = "[]";
 				}
-				addLineOfCode(typesDiv, padTabs(padTabs(indentation(1) + "const " + interf.type, 16) + interf.name + postName + " = ", 90) + interf.value + ";");
+				addLineOfCode(interfacesDiv, padTabs(padTabs(indentation(1) + "const " + interf.type, 16) + interf.name + postName + " = ", 90) + interf.value + ";");
 			}
 			break;
 			case "enum":
 			{
 				let enumDiv = document.createElement("div");
 				enumDiv.setAttribute("id", interf.name);
-				typesDiv.appendChild(enumDiv);
+				interfacesDiv.appendChild(enumDiv);
 				
 				addLineOfCode( enumDiv, indentation(1));
 				addLineOfCode(enumDiv, indentation(1) + "enum class " + interf.name);
@@ -1363,18 +1422,18 @@ function createHeader()
 			{
 				if (lastCategory != interf.category && lastCategory != "")
 				{
-					addLineOfCode(typesDiv, indentation(1));
+					addLineOfCode(interfacesDiv, indentation(1));
 				}
 				let handleName = interf.name;
-				addLineOfCode(typesDiv, padTabs(indentation(1) + "typedef struct " + handleName + "_Handle*", 92) + handleName + ";");
+				addLineOfCode(interfacesDiv, padTabs(indentation(1) + "typedef struct " + handleName + "_Handle*", 92) + handleName + ";");
 			}
 			break;
 			case "command":
 			{
 				if (lastCategory != interf.category)
 				{
-					addLineOfCode(typesDiv, indentation(1));
-					addLineOfCode(typesDiv, indentation(1) + "namespace PFN {");
+					addLineOfCode(interfacesDiv, indentation(1));
+					addLineOfCode(interfacesDiv, indentation(1) + "namespace PFN {");
 				}
 				let parametersText = "";
 				for(let j=0;j < interf.parameters.length; ++j)
@@ -1384,8 +1443,8 @@ function createHeader()
 					parametersText += "\n" + padTabs(indentation(3) + parameter.preType + parameter.type + parameter.postType, 86) + parameter.name;
 				}
 				
-				addLineOfCode( typesDiv, padTabs(indentation(2) + "typedef " + interf.returnType, 24) + "(" + VKAPI_PTR + " *" + interf.name + ")(" + parametersText + ");" );
-				addLineOfCode( typesDiv, indentation(2));
+				addLineOfCode( interfacesDiv, padTabs(indentation(2) + "typedef " + interf.returnType, 24) + "(" + VKAPI_PTR + " *" + interf.name + ")(" + parametersText + ");" );
+				addLineOfCode( interfacesDiv, indentation(2));
 				
 				// Function defintions:
 				if (interf.protect)
@@ -1405,7 +1464,7 @@ function createHeader()
 				
 				if (nextIndex >= interfaces.length || interfaces[nextIndex].category != interf.category)
 				{
-					addLineOfCode(typesDiv, indentation(1) + "}");
+					addLineOfCode(interfacesDiv, indentation(1) + "}");
 				}
 				
 				
@@ -1437,7 +1496,7 @@ function createHeader()
 		{
 			if (nextIndex >= interfaces.length || interfaces[nextIndex].protect != interf.protect)
 			{
-				addLineOfCode(typesDiv, "#endif");
+				addLineOfCode(interfacesDiv, "#endif");
 			}
 		}
 		
@@ -1461,7 +1520,7 @@ function registerSymbol(symbolName)
 {
 	if (symbolName == "vkGetDeviceProcAddr" || symbolName == "vkGetInstanceProcAddr"){ return; }
 	
-	let found = availableNamed.get(symbolName);
+	let found = availableInterfaces.get(symbolName);
 	if (found)
 	{
 		if (found.requires){

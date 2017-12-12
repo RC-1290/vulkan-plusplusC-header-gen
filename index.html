@@ -31,30 +31,37 @@
 
 		<h2>Settings</h2>
 		<p>In case you want to customize the header creation, here are some things you can change.</p>
-		<div>
-			<label class="setting" for="typedefInclude">Typedef include header:</label>
-			<input id="typedefInclude" type="text" placeholder="../TypeDefs.h"></input>
+		<div id="settings">
+			<div>
+				<label for="typedefInclude">Typedef include header:</label>
+				<input id="typedefInclude" type="text" placeholder="../TypeDefs.h"></input>
+			</div>
+			<div>
+				<label for="surfaceInclude">Surface include header:</label>
+				<input id="surfaceInclude" type="text" placeholder="../WinAPI.h"></input>
+			</div>
+			<div>
+				<label for="vulkanNamespace">Vulkan API namespace:</label>
+				<input id="vulkanNamespace" type="text" placeholder="Vk"></input>
+			</div>
+			<div>
+				<label for="implementationDefine">ProcAddrLookup Define:</label>
+				<input id="implementationDefine" type="text" placeholder="IMPLEMENT_VK_COMMAND_LOOKUP"></input>
+			</div>
+			<div>
+				<label for="callingConvention" title="Platform-specific calling conventions. Used to set VKAPI_ATTR, VKAPI_CALL and VKAPI_PTR." >Calling Convention:</label>
+				<select id="callingConvention">
+					<option value="default">default</option>
+					<option value="hardfloat">hardfloat (Android)</option>
+					<option value="stdcall">stdcall (Windows)</option>
+				</select>
+			</div>
 		</div>
-		<div>
-			<label class="setting" for="surfaceInclude">Surface include header:</label>
-			<input id="surfaceInclude" type="text" placeholder="../WinAPI.h"></input>
-		</div>
-		<div>
-			<label class="setting" for="vulkanNamespace">Vulkan API namespace:</label>
-			<input id="vulkanNamespace" type="text" placeholder="Vk"></input>
-		</div>
-		<div>
-			<label class="setting" for="implementationDefine">ProcAddrLookup Define:</label>
-			<input id="implementationDefine" type="text" placeholder="IMPLEMENT_VK_COMMAND_LOOKUP"></input>
-		</div>
-		<div>
-		<label class="setting" for="callingConvention">Calling Convention:</label>
-		<select id="callingConvention">
-			<option value="default">default</option>
-			<option value="hardfloat">hardfloat (Android)</option>
-			<option value="stdcall">stdcall (Windows)</option>
-		</select>
-		</div>
+		<h2>Type Replacements</h2>
+		<ul id="typeReplacement" class="autoColumn">
+			
+		</ul>
+		<button id="createHeaderButton">CreateHeader</button>
 	</div>
 </div>
 
@@ -79,13 +86,13 @@
 <div id="extraIncludes"></div>
 namespace <span class="namespaceVulkan">Vk</span>
 {	
-	extern constexpr u32 MakeVersion( u32 major, u32 minor, u32 patch );
-	extern constexpr u32 VersionPatch( u32 version );
-	extern constexpr u32 VersionMinor( u32 version );
-	extern constexpr u32 VersionMajor( u32 version );
+	extern constexpr <span class="typeReplace">uint32_t</span> MakeVersion( <span class="typeReplace">uint32_t</span> major, <span class="typeReplace">uint32_t</span> minor, <span class="typeReplace">uint32_t</span> patch );
+	extern constexpr <span class="typeReplace">uint32_t</span> VersionPatch( <span class="typeReplace">uint32_t</span> version );
+	extern constexpr <span class="typeReplace">uint32_t</span> VersionMinor( <span class="typeReplace">uint32_t</span> version );
+	extern constexpr <span class="typeReplace">uint32_t</span> VersionMajor( <span class="typeReplace">uint32_t</span> version );
 	
-	const u32 API_VERSION_1_0 = 4194304;// MakeVersion(1,0,0);
-	<div id="types"></div>
+	const <span class="typeReplace">uint32_t</span>	API_VERSION_1_0 =															4194304;// MakeVersion(1,0,0);
+	<div id="interfaces"></div>
 	
 	<div id="externPfns"></div>
 }
@@ -97,21 +104,21 @@ extern "C" <span id="vkGetInstanceProcAddrDefine"></span>
 
 namespace <span class="namespaceVulkan">Vk</span>
 {
-	constexpr u32 MakeVersion( u32 major, u32 minor, u32 patch )
+	constexpr <span class="typeReplace">uint32_t</span> MakeVersion( <span class="typeReplace">uint32_t</span> major, <span class="typeReplace">uint32_t</span> minor, <span class="typeReplace">uint32_t</span> patch )
 	{
 		return (((major) << 22) | ((minor) << 12) | (patch));
 	}
-	constexpr u32 VersionMajor( u32 version )
+	constexpr <span class="typeReplace">uint32_t</span> VersionMajor( <span class="typeReplace">uint32_t</span> version )
 	{
-		return ((u32)(version) >> 22);
+		return ((<span class="typeReplace">uint32_t</span>)(version) >> 22);
 	}
-	constexpr u32 VersionMinor( u32 version )
+	constexpr <span class="typeReplace">uint32_t</span> VersionMinor( <span class="typeReplace">uint32_t</span> version )
 	{
-		return (((u32)(version) >> 12) & 0x3ff);
+		return (((<span class="typeReplace">uint32_t</span>)(version) >> 12) & 0x3ff);
 	}
-	constexpr u32 VersionPatch( u32 version )
+	constexpr <span class="typeReplace">uint32_t</span> VersionPatch( <span class="typeReplace">uint32_t</span> version )
 	{
-		return ((u32)(version) & 0xfff);
+		return ((<span class="typeReplace">uint32_t</span>)(version) & 0xfff);
 	}
 	<div id="cmdDefs"></div>}
 namespace <span class="namespaceNewCode">CodeAnimo</span>
@@ -120,7 +127,7 @@ namespace <span class="namespaceNewCode">CodeAnimo</span>
 	{
 		void LoadIndependentCommands()
 		{<div id="independentCmdLoading"></div>		}
-		void LoadInstanceCommands( Vk::Instance instance)
+		void LoadInstanceCommands( <span class="namespaceVulkan">Vk</span>::Instance instance)
 		{<div id="instanceCmdLoading"></div>		}
 	}
 }

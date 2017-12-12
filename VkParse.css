@@ -26,14 +26,13 @@ pre, textarea{
 	color : #AAA;
 }
 
-.setting
+ul
 {
-	display: inline-block;
-	width : 180px;
+	list-style : none;
 }
 
 .autoColumn{
-	column-width: 350px;
+	column-width: 340px;
 }
 
 .hidden
@@ -43,4 +42,18 @@ pre, textarea{
 
 #statusText, #headerVersion{
 	font-style: italic;
+}
+
+#settings label
+{
+	display: inline-block;
+	width : 200px;
+}
+
+#typeReplacement label
+{
+	text-align : right;
+	padding-right : 10px;
+	display: inline-block;
+	width: 180px;
 }
