@@ -23,7 +23,7 @@
 	</div>
 	<p>Paste vk.xml you want to use above. By default it uses an (possibly outdated) local copy stored alongside this page.</p>
 	<p>If you want to verify the contents first you can manually copy the <a href="https://raw.githubusercontent.com/KhronosGroup/Vulkan-Docs/1.0/src/spec/vk.xml">latest version from GitHub</a>. Alternatively if you trust that it's fine, you can have it automatically filled in for you with the "Load from GitHub" button above.</p>
-	<button id="parseTextButton">List Features/Extensions</button>
+	<button id="parseTextButton" title="Show a list of all the features and extension available in the xml above.">List Features/Extensions</button>
 	<div id="setupPart2" class="hidden">
 		<h2>Features and Extensions</h2>
 		<p>Header version: <span id="headerVersion"></span></p>
@@ -32,32 +32,29 @@
 		<h2>Settings</h2>
 		<p>In case you want to customize the header creation, here are some things you can change.</p>
 		<div id="settings">
-			<div>
-				<label for="typedefInclude">Typedef include header:</label>
-				<input id="typedefInclude" type="text" placeholder="../TypeDefs.h"></input>
-			</div>
-			<div>
-				<label for="surfaceInclude">Surface include header:</label>
-				<input id="surfaceInclude" type="text" placeholder="../WinAPI.h"></input>
-			</div>
-			<div>
-				<label for="vulkanNamespace">Vulkan API namespace:</label>
-				<input id="vulkanNamespace" type="text" placeholder="Vk"></input>
-			</div>
-			<div>
-				<label for="implementationDefine">ProcAddrLookup Define:</label>
-				<input id="implementationDefine" type="text" placeholder="IMPLEMENT_VK_COMMAND_LOOKUP"></input>
-			</div>
-			<div>
-				<label for="callingConvention" title="Platform-specific calling conventions. Used to set VKAPI_ATTR, VKAPI_CALL and VKAPI_PTR." >Calling Convention:</label>
+			<div title="Platform-specific calling conventions. Used to set VKAPI_ATTR, VKAPI_CALL and VKAPI_PTR.">
+				<label for="callingConvention">Calling Convention:</label>
 				<select id="callingConvention">
 					<option value="default">default</option>
 					<option value="hardfloat">hardfloat (Android)</option>
-					<option value="stdcall">stdcall (Windows)</option>
+					<option value="stdcall" selected>stdcall (Windows)</option>
 				</select>
 			</div>
+			<div title="You'll probably need to include a header for the surface and any custom type definitions you might want to use.">
+				<label for="customInclude">Custom header to include:</label>
+				<input id="customInclude" type="text" placeholder="../WinAPI.h"></input>
+			</div>
+			<div title="The namespace that all official Vulkan API interfaces end up in.">
+				<label for="vulkanNamespace">Vulkan API namespace:</label>
+				<input id="vulkanNamespace" type="text" placeholder="Vk"></input>
+			</div>
+			<div title="To make this a single file include, some code has to be hidden away behind a pre processor #define. This setting changes the name of that #define.">
+				<label for="implementationDefine">ProcAddrLookup #define:</label>
+				<input id="implementationDefine" type="text" placeholder="IMPLEMENT_VK_COMMAND_LOOKUP"></input>
+			</div>
 		</div>
-		<h2>Type Replacements</h2>
+		<h2>Type Renaming (optional)</h2>
+		<p>These settings let you use your own custom types that you've declared elsewhere (with other custom headers or typedefs), in this header. To see where the type is usually defined, hover the label to see a tooltip.</p>
 		<ul id="typeReplacement" class="autoColumn">
 			
 		</ul>

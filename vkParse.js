@@ -46,6 +46,7 @@ initializeDefaultStore("typRepl char", s8);
 initializeDefaultStore("typRepl uint8_t", s8);
 initializeDefaultStore("typRepl uint32_t", u32);
 initializeDefaultStore("typRepl int32_t", s32);
+initializeDefaultStore("typRepl int", s32);
 initializeDefaultStore("typRepl uint64_t", u64);
 
 initializeDefaultStore("typRepl HANDLE", "Windows::Handle");
@@ -76,8 +77,7 @@ var loadRawGithubBtn =			document.getElementById("loadRawGithubBtn");
 
 var vkxmlTextInput = 			document.getElementById("vkxmlText");
 var extraIncludesDiv =			document.getElementById("extraIncludes");
-var typeIncludeInput =			document.getElementById("typedefInclude");
-var surfaceIncludeInput =		document.getElementById("surfaceInclude");
+var customIncludeInput =		document.getElementById("customInclude");
 var vulkanNamespaceInput =		document.getElementById("vulkanNamespace");
 var implementationDefineInput =	document.getElementById("implementationDefine");
 var callingConventionSelect =	document.getElementById("callingConvention");
@@ -91,8 +91,7 @@ var setupPart2 =				document.getElementById("setupPart2");
 
 let ranBefore = localStorage.getItem("ranBefore");
 
-restoreInput("typedefInclude", typeIncludeInput);
-restoreInput("surfaceInclude", surfaceIncludeInput);
+restoreInput("customInclude", customIncludeInput);
 restoreInput("vulkanNamespace", vulkanNamespaceInput);
 restoreInput("implementationDefine", implementationDefineInput);
 restoreSelect("callingConventionSelect", callingConventionSelect);
@@ -942,16 +941,17 @@ function listFeatures()
 		if (interf.category == "EXTERNAL")
 		{
 			let typeEntry = document.createElement("li");
+			typeEntry.title = interf.name;
+			if (interf.requires)
+			{
+				typeEntry.title += " originally defined by: " + interf.requires;
+			}
+			
 			let interfaceLabel = document.createElement("label");
 			interf.input = document.createElement("Input");
 			
 			interfaceLabel.setAttribute("for", interf.name);
 			interfaceLabel.textContent = interf.name;
-			interfaceLabel.title = "";
-			if (interf.requires)
-			{
-				interfaceLabel.title += "originally defined by: " + interf.requires;
-			}
 			
 			interf.input.setAttribute("id", interf.name);
 			interf.input.setAttribute("type", "text");
@@ -1043,13 +1043,9 @@ function createHeader()
 {
 	statusText.textContent = "Applying custom settings:";
 	
-	if (typeIncludeInput.value)
+	if (customIncludeInput.value)
 	{
-		addLineOfCode(extraIncludesDiv, "#include \"" + typeIncludeInput.value + "\"");
-	}
-	if (surfaceIncludeInput.value)
-	{
-		addLineOfCode(extraIncludesDiv, "#include \"" + surfaceIncludeInput.value + "\"");
+		addLineOfCode(extraIncludesDiv, "#include \"" + customIncludeInput.value + "\"");
 	}
 	if (vulkanNamespaceInput.value)
 	{
@@ -1168,8 +1164,7 @@ function createHeader()
 	localStorage.setItem("selectedFeatures", selectedFeatures);
 	localStorage.setItem("selectedExtensions", selectedExtensions);
 	
-	localStorage.setItem("typedefInclude", typeIncludeInput.value);
-	localStorage.setItem("surfaceInclude", surfaceIncludeInput.value);
+	localStorage.setItem("surfaceInclude", customIncludeInput.value);
 	localStorage.setItem("vulkanNamespace", vulkanNamespaceInput.value);
 	localStorage.setItem("implementationDefine", implementationDefineInput.value);
 	localStorage.setItem("callingConventionSelect", callingConventionSelect.selectedIndex);
