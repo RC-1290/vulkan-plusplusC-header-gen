@@ -26,6 +26,12 @@ pre, textarea{
 	color : #AAA;
 }
 
+.setting
+{
+	display: inline-block;
+	width : 180px;
+}
+
 .autoColumn{
 	column-width: 350px;
 }
