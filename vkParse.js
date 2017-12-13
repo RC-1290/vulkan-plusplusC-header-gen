@@ -1290,7 +1290,7 @@ function createHeader()
 		}
 	}
 	
-	s8 = localStorage.getItem("typRepl uint8_t");
+	s8 = localStorage.getItem("typRepl char");
 	u32 = localStorage.getItem("typRepl uint32_t");
 	s32 = localStorage.getItem("typRepl int32_t");
 	u64 = localStorage.getItem("typRepl uint64_t");
