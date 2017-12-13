@@ -43,7 +43,7 @@ var headerVersion;
 var typeReplacements = new Map();
 
 initializeDefaultStore("typRepl char", s8);
-initializeDefaultStore("typRepl uint8_t", s8);
+initializeDefaultStore("typRepl uint8_t", u8);
 initializeDefaultStore("typRepl uint32_t", u32);
 initializeDefaultStore("typRepl int32_t", s32);
 initializeDefaultStore("typRepl int", s32);
