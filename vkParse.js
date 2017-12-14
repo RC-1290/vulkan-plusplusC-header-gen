@@ -28,7 +28,7 @@ var tab = "	";
 var tabSpaceWidth = 4;// If you change this, you might want to change the css too.
 
 // Replacement Types:
-var s8 = "s8";// signed 8-bit
+var x8 = "x8";// signed/undefined 8-bit (compiler dependent)
 var u32 = "u32";// unsigned 32-bit
 var s32 = "s32";// signed 32-bit
 var ub32 = "ub32";// unsigned 32-bit boolean
@@ -42,7 +42,7 @@ var VKAPI_PTR = "";
 var headerVersion;
 var typeReplacements = new Map();
 
-initializeDefaultStore("typRepl char", s8);
+initializeDefaultStore("typRepl char", x8);
 initializeDefaultStore("typRepl uint8_t", "u8");
 initializeDefaultStore("typRepl uint32_t", u32);
 initializeDefaultStore("typRepl int32_t", s32);
@@ -1290,7 +1290,7 @@ function createHeader()
 		}
 	}
 	
-	s8 = localStorage.getItem("typRepl char");
+	x8 = localStorage.getItem("typRepl char");
 	u32 = localStorage.getItem("typRepl uint32_t");
 	s32 = localStorage.getItem("typRepl int32_t");
 	u64 = localStorage.getItem("typRepl uint64_t");
@@ -1306,7 +1306,7 @@ function createHeader()
 	statusText.textContent = "Writing Header...";
 	setupStuff.setAttribute("class", "hidden");
 	document.getElementById("hiddenUntilCreation").removeAttribute("class");
-	document.getElementById("vkGetInstanceProcAddrDefine").textContent = VKAPI_ATTR + vulkanNamespace + "::PFN::VoidFunction " + VKAPI_CALL + " vkGetInstanceProcAddr( " + vulkanNamespace + "::Instance instance, const " + s8 + "* pName );";
+	document.getElementById("vkGetInstanceProcAddrDefine").textContent = VKAPI_ATTR + vulkanNamespace + "::PFN::VoidFunction " + VKAPI_CALL + " vkGetInstanceProcAddr( " + vulkanNamespace + "::Instance instance, const " + x8 + "* pName );";
 
 	if (headerVersion)
 	{
@@ -1381,7 +1381,7 @@ function createHeader()
 				let postName = "";
 				if (interf.type == "string")
 				{
-					interf.type = s8;
+					interf.type = x8;
 					postName = "[]";
 				}
 				addLineOfCode(interfacesDiv, padTabs(padTabs(indentation(1) + "const " + interf.type, 16) + interf.name + postName + " = ", 90) + interf.value + ";");
