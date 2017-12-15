@@ -44,10 +44,21 @@ ul
 	font-style: italic;
 }
 
+#settings
+{
+	width : 400px;
+}
+
+#settings select
+{
+	width : 145px;
+}
+
 #settings label
 {
 	display: inline-block;
 	width : 200px;
+	text-align : right;
 }
 
 #typeReplacement label

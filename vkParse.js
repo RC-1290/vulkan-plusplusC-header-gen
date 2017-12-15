@@ -39,6 +39,8 @@ var VKAPI_ATTR = "";// used on Android
 var VKAPI_CALL = "";// calling convention
 var VKAPI_PTR = "";
 
+var funcRenaming = "aliaspfn";
+
 var headerVersion;
 var typeReplacements = new Map();
 
@@ -66,6 +68,8 @@ var externPfnDiv =				document.getElementById("externPfns");
 var cmdDefsDiv =				document.getElementById("cmdDefs");
 var independentCmdLoadingDiv =	document.getElementById("independentCmdLoading");
 var instanceCmdLoadingDiv =		document.getElementById("instanceCmdLoading");
+var linkedFunctionsDiv =		document.getElementById("linkedFunctions");
+var functionAliasesDiv =		document.getElementById("functionAliases");
 
 //
 var parseTextButton =			document.getElementById("parseTextButton");
@@ -81,6 +85,7 @@ var customIncludeInput =		document.getElementById("customInclude");
 var vulkanNamespaceInput =		document.getElementById("vulkanNamespace");
 var implementationDefineInput =	document.getElementById("implementationDefine");
 var callingConventionSelect =	document.getElementById("callingConvention");
+var funcRenamingSelect =		document.getElementById("funcRenaming");
 
 var typeReplacementList =		document.getElementById("typeReplacement");
 
@@ -95,6 +100,7 @@ restoreInput("customInclude", customIncludeInput);
 restoreInput("vulkanNamespace", vulkanNamespaceInput);
 restoreInput("implementationDefine", implementationDefineInput);
 restoreSelect("callingConventionSelect", callingConventionSelect);
+restoreSelect("funcRenamingSelect", funcRenamingSelect);
 
 var availableFeatures = new Map();
 var availableInterfaces = new Map();
@@ -291,6 +297,8 @@ function parseRegistry(xml)
 
 function parseTypes(xml)
 {
+	headerVersion = "";
+	
 	var typeNodes = xml.children;
 	for(let i = 0; i < typeNodes.length; ++i)
 	{
@@ -624,8 +632,6 @@ function parseCommand(xml)
 	
 	command.returnType = protoNode.getElementsByTagName("type").item(0).textContent;
 	command.name = protoNode.getElementsByTagName("name").item(0).textContent;
-	
-	if (command.name == "vkGetDeviceProcAddr" || command.name == "vkGetInstanceProcAddr"){ return; }
 	
 	var commandChildren = xml.children;
 	
@@ -1074,6 +1080,7 @@ function createHeader()
 			VKAPI_ATTR = "";
 		break;
 	}
+	funcRenaming = funcRenamingSelect.selectedOptions.item(0).value;
 	
 
 	// Remember selected features and extensions between sessions:
@@ -1091,8 +1098,6 @@ function createHeader()
 		{
 			registerSymbol(require);
 		}
-		
-		registerSymbol("PFN_vkVoidFunction");// We manually implement the only functions that use this, so add it here manually too.
 		
 		
 		for (let extension of feature.availableExtensions.values())
@@ -1169,7 +1174,9 @@ function createHeader()
 	localStorage.setItem("surfaceInclude", customIncludeInput.value);
 	localStorage.setItem("vulkanNamespace", vulkanNamespaceInput.value);
 	localStorage.setItem("implementationDefine", implementationDefineInput.value);
+	
 	localStorage.setItem("callingConventionSelect", callingConventionSelect.selectedIndex);
+	localStorage.setItem("funcRenamingSelect", funcRenamingSelect.selectedIndex);
 	
 	for( let interf of availableInterfaces.values())
 	{
@@ -1214,7 +1221,7 @@ function createHeader()
 			break;
 			case "funcpointer":
 				interf.originalName = interf.name;
-				interf.name = stripVk(stripPFN(interf.name));
+				interf.name = "_" + stripVk(stripPFN(interf.name));
 				interf.preName = interf.preName.replace(/\bVkBool32\b/, ub32);// manual replacement, since the xml lacks return type markup.
 				interf.preName = interf.preName.replace(/\bVKAPI_PTR\b/, VKAPI_PTR);
 				
@@ -1306,7 +1313,6 @@ function createHeader()
 	statusText.textContent = "Writing Header...";
 	setupStuff.setAttribute("class", "hidden");
 	document.getElementById("hiddenUntilCreation").removeAttribute("class");
-	document.getElementById("vkGetInstanceProcAddrDefine").textContent = VKAPI_ATTR + vulkanNamespace + "::PFN::VoidFunction " + VKAPI_CALL + " vkGetInstanceProcAddr( " + vulkanNamespace + "::Instance instance, const " + x8 + "* pName );";
 
 	if (headerVersion)
 	{
@@ -1443,45 +1449,68 @@ function createHeader()
 				addLineOfCode( interfacesDiv, padTabs(indentation(2) + "typedef " + interf.returnType, 24) + "(" + VKAPI_PTR + " *" + interf.name + ")(" + parametersText + ");" );
 				addLineOfCode( interfacesDiv, indentation(2));
 				
-				// Function defintions:
-				if (interf.protect)
-				{
-					addLineOfCode(externPfnDiv, "#ifdef " + interf.protect);
-					addLineOfCode(cmdDefsDiv, "#ifdef " + interf.protect);
-				}
-				
-				addLineOfCode(externPfnDiv, padTabs(indentation(1) + "extern PFN::" + interf.name, 68) + interf.name + ";");
-				addLineOfCode(cmdDefsDiv,	padTabs(indentation(1) + "PFN::" + interf.name, 68) + interf.name + ";");
-				
-				if (interf.protect)
-				{
-					addLineOfCode(externPfnDiv, "#endif");
-					addLineOfCode(cmdDefsDiv, "#endif");
-				}
-				
 				if (nextIndex >= interfaces.length || interfaces[nextIndex].category != interf.category)
 				{
 					addLineOfCode(interfacesDiv, indentation(1) + "}");
 				}
 				
-				
-				if (interf.originalName == "vkEnumerateInstanceLayerProperties" || interf.originalName == "vkEnumerateInstanceExtensionProperties" || interf.originalName == "vkCreateInstance")
-				{
-					addLineOfCode(independentCmdLoadingDiv, indentation(3) + vulkanNamespace + '::' + interf.name + ' = (' + vulkanNamespace + '::PFN::' + interf.name + ') vkGetInstanceProcAddr( nullptr, "' + interf.originalName + '" );');
-					// addLineOfCode(independentCmdLoadingDiv, indentation(3) + 'if(!' + vulkanNamespace + '::' + command.name + ') { return false; }');
-				}
-				else 
+				if (interf.link == "lookup")
 				{
 					if (interf.protect)
 					{
-						addLineOfCode(instanceCmdLoadingDiv, "#ifdef " + interf.protect);
+						addLineOfCode(externPfnDiv, "#ifdef " + interf.protect);
+						addLineOfCode(cmdDefsDiv, "#ifdef " + interf.protect);
 					}
-					addLineOfCode(instanceCmdLoadingDiv, indentation(3) + vulkanNamespace + '::' + interf.name + ' = (' + vulkanNamespace + '::PFN::' + interf.name + ') vkGetInstanceProcAddr( instance, "' + interf.originalName + '" );');
-					// addLineOfCode(instanceCmdLoadingDiv, indentation(3) + 'if(!' + vulkanNamespace + '::' + command.name + ') { return false; }');
+					
+					addLineOfCode(externPfnDiv, padTabs(indentation(1) + "extern PFN::" + interf.name, 68) + interf.name + ";");
+					addLineOfCode(cmdDefsDiv,	padTabs(indentation(1) + "PFN::" + interf.name, 68) + interf.name + ";");
 					
 					if (interf.protect)
 					{
-						addLineOfCode(instanceCmdLoadingDiv, "#endif");
+						addLineOfCode(externPfnDiv, "#endif");
+						addLineOfCode(cmdDefsDiv, "#endif");
+					}
+					
+					
+					if (interf.originalName == "vkEnumerateInstanceLayerProperties" || interf.originalName == "vkEnumerateInstanceExtensionProperties" || interf.originalName == "vkCreateInstance")
+					{
+						addLineOfCode(independentCmdLoadingDiv, indentation(3) + vulkanNamespace + '::' + interf.name + ' = (' + vulkanNamespace + '::PFN::' + interf.name + ') Vk::GetInstanceProcAddr( nullptr, "' + interf.originalName + '" );');
+						// addLineOfCode(independentCmdLoadingDiv, indentation(3) + 'if(!' + vulkanNamespace + '::' + command.name + ') { return false; }');
+					}
+					else 
+					{
+						if (interf.protect)
+						{
+							addLineOfCode(instanceCmdLoadingDiv, "#ifdef " + interf.protect);
+						}
+						addLineOfCode(instanceCmdLoadingDiv, indentation(3) + vulkanNamespace + '::' + interf.name + ' = (' + vulkanNamespace + '::PFN::' + interf.name + ') Vk::GetInstanceProcAddr( instance, "' + interf.originalName + '" );');
+						// addLineOfCode(instanceCmdLoadingDiv, indentation(3) + 'if(!' + vulkanNamespace + '::' + command.name + ') { return false; }');
+						
+						if (interf.protect)
+						{
+							addLineOfCode(instanceCmdLoadingDiv, "#endif");
+						}
+					}
+				}
+				else if (interf.link == "static")
+				{
+					if (interf.protect)
+					{
+						addLineOfCode(linkedFunctionsDiv, "#ifdef " + interf.protect);
+						addLineOfCode(functionAliasesDiv, "#ifdef " + interf.protect);
+					}
+					
+					
+					addLineOfCode( linkedFunctionsDiv, indentation(2) + interf.returnType + " " + VKAPI_PTR + " " + interf.originalName + "(" + parametersText + ");" );
+					addLineOfCode( linkedFunctionsDiv, indentation(2));
+					
+					addLineOfCode(functionAliasesDiv, padTabs(indentation(1) + "const PFN::" + interf.name, 68) + interf.name + " = " + interf.originalName + ";");
+					
+					
+					if (interf.protect)
+					{
+						addLineOfCode(linkedFunctionsDiv, "#endif");
+						addLineOfCode(functionAliasesDiv, "#endif");
 					}
 				}
 				lastCommand = interf;
@@ -1515,8 +1544,6 @@ function typeReplacement(original)
 
 function registerSymbol(symbolName)
 {
-	if (symbolName == "vkGetDeviceProcAddr" || symbolName == "vkGetInstanceProcAddr"){ return; }
-	
 	let found = availableInterfaces.get(symbolName);
 	if (found)
 	{
@@ -1541,6 +1568,19 @@ function registerSymbol(symbolName)
 				pushIfNew(interfaces, found);
 			break;
 			case "command":
+				if (symbolName == "vkGetDeviceProcAddr" || symbolName == "vkGetInstanceProcAddr")
+				{
+					found.link = "static";
+				}
+				else if (symbolName == "vkCreateDebugReportCallbackEXT" || symbolName == "vkDestroyDebugReportCallbackEXT")
+				{
+					found.link = "lookup";
+				}
+				else
+				{
+					found.link = funcRenaming;
+				}
+			
 				registerSymbol(found.returnType);
 				for (let i = 0; i < found.parameters.length; ++i)
 				{
