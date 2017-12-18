@@ -42,7 +42,6 @@ var VKAPI_PTR = "";
 var funcRenaming = "aliaspfn";
 
 var headerVersion;
-var typeReplacements = new Map();
 
 initializeDefaultStore("typRepl char", x8);
 initializeDefaultStore("typRepl uint8_t", "u8");
@@ -93,6 +92,7 @@ var createHeaderButton =		document.getElementById("createHeaderButton");
 
 var setupStuff = 				document.getElementById("setupStuff");
 var setupPart2 =				document.getElementById("setupPart2");
+
 
 let ranBefore = localStorage.getItem("ranBefore");
 
@@ -735,6 +735,10 @@ function parseExtension(xml)
 	if (requiredExtensions)
 	{
 		extension.dependencies = requiredExtensions.split(",");
+		for (let dependency of extension.dependencies)
+		{
+			dependency = dependency.trim();
+		}
 	}
 	
 	feature.availableExtensions.set(extension.name, extension);
@@ -924,7 +928,7 @@ function listFeatures()
 				extension.checkbox.checked = true;
 			}
 			
-			extension.checkbox.addEventListener("change", checkRequiredExtensions);
+			extension.checkbox.addEventListener("change", checkboxChanged);
 		}
 		
 		let checkAllButton = document.createElement("button");
@@ -999,26 +1003,45 @@ function uncheckAllFeatureExtensions()
 	}
 }
 
-function checkRequiredExtensions()
+function checkboxChanged()
 {
-	var feature = availableFeatures.get(this.getAttribute("featureName"));
-	var extension = feature.availableExtensions.get(this.getAttribute("extensionName"));
+	statusText.textContent = "Checkbox Selection updated, checking dependencies... (Note: Header creation saves changes.)"
+	var selectedFeature = availableFeatures.get(this.getAttribute("featureName"));
+	var changedExtension = selectedFeature.availableExtensions.get(this.getAttribute("extensionName"));
 	
-	if (extension.checkbox.checked && extension.dependencies)
+	updateExtensionDependencies(selectedFeature, changedExtension);
+}
+
+function updateExtensionDependencies(selectedFeature, changedExtension)
+{
+	// Select extensions this depends on.
+	if (changedExtension.checkbox.checked)
 	{
-		for (let dependency of extension.dependencies)
+		if (!changedExtension.dependencies){ return; }
+		for (let dependencyName of changedExtension.dependencies)
 		{
+			let dependency = selectedFeature.availableExtensions.get(dependencyName);
 			if (dependency)
 			{
-				var requiredExtension = feature.availableExtensions.get(dependency.trim());
-				if (requiredExtension)
+				dependency.checkbox.checked = true;
+				updateExtensionDependencies(selectedFeature, dependency);
+			}
+		}
+	}
+	else // De-select extensions that depend on this.
+	{
+		for (let extension of selectedFeature.availableExtensions.values())
+		{
+			if (!extension.dependencies){ continue; }
+			for (let dependencyName of extension.dependencies)
+			{
+				if (dependencyName == changedExtension.name)
 				{
-					requiredExtension.checkbox.checked = true;
+					extension.checkbox.checked = false;
+					updateExtensionDependencies(selectedFeature, extension);
 				}
 			}
 		}
-		
-		
 	}
 }
 
@@ -1050,6 +1073,8 @@ function createHeader()
 	statusText.textContent = "Applying custom settings:";
 	
 	window.scroll(0,150);
+	setupStuff.setAttribute("class", "hidden");
+	document.getElementById("hiddenUntilCreation").removeAttribute("class");
 	
 	if (customIncludeInput.value)
 	{
@@ -1178,6 +1203,8 @@ function createHeader()
 	localStorage.setItem("callingConventionSelect", callingConventionSelect.selectedIndex);
 	localStorage.setItem("funcRenamingSelect", funcRenamingSelect.selectedIndex);
 	
+	var typeReplacements = new Map();
+	
 	for( let interf of availableInterfaces.values())
 	{
 		if (interf.category == "EXTERNAL")
@@ -1209,11 +1236,11 @@ function createHeader()
 				for (let j = 0; j < interf.members.length; ++j)
 				{
 					let member = interf.members[j];
-					member.type = typeReplacement(member.type);
+					member.type = typeReplacement(member.type, typeReplacements);
 					
 					if (member.cEnum)
 					{
-						member.cEnum = typeReplacement(member.cEnum);
+						member.cEnum = typeReplacement(member.cEnum, typeReplacements);
 					}
 				}
 				
@@ -1229,7 +1256,7 @@ function createHeader()
 				for (let j = 0; j < interf.parameters.length; ++j)
 				{
 					let parameter = interf.parameters[j];
-					parameter.type = typeReplacement(parameter.type);
+					parameter.type = typeReplacement(parameter.type, typeReplacements);
 				}
 				
 				typeReplacements.set(interf.originalName, "PFN::" + interf.name);
@@ -1238,7 +1265,7 @@ function createHeader()
 				interf.originalName = interf.name;
 				interf.name = stripVk(interf.name);
 				
-				interf.type = typeReplacement(interf.type);
+				interf.type = typeReplacement(interf.type, typeReplacements);
 				
 				typeReplacements.set(interf.originalName, interf.name);
 			break;
@@ -1249,7 +1276,7 @@ function createHeader()
 				typeReplacements.set(interf.originalName, interf.name);
 				
 				// enum alias renaming:
-				interf.value = typeReplacement(interf.value);
+				interf.value = typeReplacement(interf.value, typeReplacements);
 			}
 			break;
 			case "enum":
@@ -1285,12 +1312,12 @@ function createHeader()
 				interf.originalName = interf.name;
 				interf.name = stripVk(interf.name);
 				
-				interf.returnType = typeReplacement(interf.returnType);
+				interf.returnType = typeReplacement(interf.returnType, typeReplacements);
 				
 				for (let j = 0; j < interf.parameters.length; ++j)
 				{
 					let parameter = interf.parameters[j];
-					parameter.type = typeReplacement(parameter.type);
+					parameter.type = typeReplacement(parameter.type, typeReplacements);
 				}
 			}
 			break;
@@ -1306,13 +1333,11 @@ function createHeader()
 	let nodes = document.getElementsByClassName("typeReplace");
 	for (let node of nodes)
 	{
-		node.textContent = typeReplacement(node.textContent);
+		node.textContent = typeReplacement(node.textContent, typeReplacements);
 	}
 	
 	// Write header:
 	statusText.textContent = "Writing Header...";
-	setupStuff.setAttribute("class", "hidden");
-	document.getElementById("hiddenUntilCreation").removeAttribute("class");
 
 	if (headerVersion)
 	{
@@ -1535,9 +1560,9 @@ function createHeader()
 	statusText.textContent = "Header completed writing.";
 }
 
-function typeReplacement(original)
+function typeReplacement(original, map)
 {
-	let replacement = typeReplacements.get(original);
+	let replacement = map.get(original);
 	if (replacement){	return replacement;	}
 	else{	return original;	}
 }
