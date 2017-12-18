@@ -1661,7 +1661,22 @@ function selectHeader()
 
 function copyHeader()
 {
-	selectHeader();
+	let selection = window.getSelection();
+	
+	// Backup old selection:
+	let rangesBackup = [];
+	let backupRangeCount = selection.rangeCount;
+	for(let i = 0; i< backupRangeCount; ++i)
+	{
+		rangesBackup.push(selection.getRangeAt(i));
+	}
+	
+	// Select header
+	selection.removeAllRanges();
+	
+	let range = document.createRange();
+	range.selectNodeContents(vulkanHeader);
+	selection.addRange(range);
 	try
 	{
 		document.execCommand("copy");
@@ -1670,6 +1685,13 @@ function copyHeader()
 	catch(err)
 	{
 		console.error("copy is not supported in this browser");
+	}
+	
+	// Restore old selection:
+	selection.removeAllRanges();
+	for(let i = 0; i< backupRangeCount; ++i)
+	{
+		selection.addRange(rangesBackup[i]);
 	}
 }
 
