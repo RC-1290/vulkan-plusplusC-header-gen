@@ -731,10 +731,10 @@ function parseExtension(xml)
 	extension.requires = [];
 	
 	
-	let requiredExtensions = xml.getAttribute("requires");//TODO: parse for comma separated list of required extensions.
-	if (requiredExtensions)
+	extension.requiredExtensions = xml.getAttribute("requires");//TODO: parse for comma separated list of required extensions.
+	if (extension.requiredExtensions)
 	{
-		extension.dependencies = requiredExtensions.split(",");
+		extension.dependencies = extension.requiredExtensions.split(",");
 		for (let dependency of extension.dependencies)
 		{
 			dependency = dependency.trim();
@@ -915,7 +915,13 @@ function listFeatures()
 			var extensionLi = document.createElement("li");
 			extensionUl.appendChild(extensionLi);
 			
-			extension.checkbox = addCheckbox(extensionLi, extension.name, extension.name, "Type: " + extension.type + ", Contact: " + extension.contact);
+			let tooltip = "Type: " + extension.type + ", Contact: " + extension.contact;
+			if (extension.requiredExtensions)
+			{
+				tooltip += ", Requires: " + extension.requiredExtensions;
+			}
+			
+			extension.checkbox = addCheckbox(extensionLi, extension.name, extension.name, tooltip);
 			extension.checkbox.setAttribute("extensionName", extension.name);
 			extension.checkbox.setAttribute("featureName", feature.name);
 			
