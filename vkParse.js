@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+"use strict";
+
 // namespaces:
 var vulkanNamespace = "Vk";
 var newCodeNamespace = "CodeAnimo";
@@ -31,7 +33,6 @@ var tabSpaceWidth = 4;// If you change this, you might want to change the css to
 var x8 = "x8";// signed/undefined 8-bit (compiler dependent)
 var u32 = "u32";// unsigned 32-bit
 var s32 = "s32";// signed 32-bit
-var ub32 = "ub32";// unsigned 32-bit boolean
 var u64 = "u64";// unsigned 64-bit
 
 // Vulkan function call settings:
@@ -61,14 +62,8 @@ var statusText =				document.getElementById("statusText");
 var featureList =				document.getElementById("featureSelection");
 var headerVersionSpan =			document.getElementById("headerVersion"); 
 
-var interfacesDiv =				document.getElementById("interfaces");
-var commandTypeDefsDiv =		document.getElementById("commandTypeDefs");
-var externPfnDiv =				document.getElementById("externPfns");
-var cmdDefsDiv =				document.getElementById("cmdDefs");
-var independentCmdLoadingDiv =	document.getElementById("independentCmdLoading");
-var instanceCmdLoadingDiv =		document.getElementById("instanceCmdLoading");
-var linkedFunctionsDiv =		document.getElementById("linkedFunctions");
-var functionAliasesDiv =		document.getElementById("functionAliases");
+var vulkanHeaderDiv =			document.getElementById("vulkanHeader");
+var blankHTML = 				vulkanHeaderDiv.innerHTML;
 
 //
 var parseTextButton =			document.getElementById("parseTextButton");
@@ -93,7 +88,6 @@ var createHeaderButton =		document.getElementById("createHeaderButton");
 var setupStuff = 				document.getElementById("setupStuff");
 var setupPart2 =				document.getElementById("setupPart2");
 
-
 let ranBefore = localStorage.getItem("ranBefore");
 
 restoreInput("customInclude", customIncludeInput);
@@ -102,12 +96,11 @@ restoreInput("implementationDefine", implementationDefineInput);
 restoreSelect("callingConventionSelect", callingConventionSelect);
 restoreSelect("funcRenamingSelect", funcRenamingSelect);
 
-var availableFeatures = new Map();
-var availableInterfaces = new Map();
+var availableFeatures;
+var availableInterfaces;
 
-var flags = [];
-var interfaces = [];
-var commands = [];
+var flags;
+var interfaces;
 
 statusText.textContent = "Ready for action. Load some XML first.";
 var xhr = new XMLHttpRequest();
@@ -131,6 +124,22 @@ if (!vkxmlTextInput.value)
 else 
 {
 	statusText.textContent = "XML textfield populated with cached contents.";
+}
+
+window.history.replaceState("","Start");
+window.addEventListener("popstate", onHistoryPop);
+
+
+function onHistoryPop(event)
+{
+	if (event.state)
+	{
+		displayHeader();
+	}
+	else
+	{
+		hideHeaderShowSettings();
+	}
 }
 
 function initializeDefaultStore(key, value)
@@ -200,7 +209,7 @@ function loadTextXhr(url)
 
 function parseText()
 {
-	setupPart2.setAttribute("class", "");
+	setupPart2.removeAttribute("class");
 	
 	statusText.textContent = "Trying to open vk.xml";
 	let xmlParser = new DOMParser();
@@ -243,6 +252,10 @@ function readXML(vkxml)
 {
 	featureList.textContent = "";// Clear placeholder text and previous lists
 	typeReplacementList.textContent = "";
+	
+	availableFeatures = new Map();
+	availableInterfaces = new Map();
+	headerVersion = "";
 	
 	for (let node of vkxml.childNodes)
 	{
@@ -296,9 +309,7 @@ function parseRegistry(xml)
 }
 
 function parseTypes(xml)
-{
-	headerVersion = "";
-	
+{	
 	var typeNodes = xml.children;
 	for(let i = 0; i < typeNodes.length; ++i)
 	{
@@ -1078,6 +1089,18 @@ function createHeader()
 {
 	statusText.textContent = "Applying custom settings:";
 	
+	flags = [];
+	interfaces = [];
+	
+	vulkanHeader.innerHTML = blankHTML;
+	var interfacesDiv =				document.getElementById("interfaces");
+	var externPfnDiv =				document.getElementById("externPfns");
+	var cmdDefsDiv =				document.getElementById("cmdDefs");
+	var independentCmdLoadingDiv =	document.getElementById("independentCmdLoading");
+	var instanceCmdLoadingDiv =		document.getElementById("instanceCmdLoading");
+	var linkedFunctionsDiv =		document.getElementById("linkedFunctions");
+	var functionAliasesDiv =		document.getElementById("functionAliases");
+		
 	window.scroll(0,150);
 	setupStuff.setAttribute("class", "hidden");
 	document.getElementById("hiddenUntilCreation").removeAttribute("class");
@@ -1224,6 +1247,11 @@ function createHeader()
 	// Replace types and changes names:
 	statusText.textContent = "Replacing type names...";
 	
+	x8 = localStorage.getItem("typRepl char");
+	u32 = localStorage.getItem("typRepl uint32_t");
+	s32 = localStorage.getItem("typRepl int32_t");
+	u64 = localStorage.getItem("typRepl uint64_t");
+	
 	for(let i = 0; i < flags.length; ++i)
 	{
 		let flag = flags[i];
@@ -1255,7 +1283,7 @@ function createHeader()
 			case "funcpointer":
 				interf.originalName = interf.name;
 				interf.name = "_" + stripVk(stripPFN(interf.name));
-				interf.preName = interf.preName.replace(/\bVkBool32\b/, ub32);// manual replacement, since the xml lacks return type markup.
+				interf.preName = interf.preName.replace(/\bVkBool32\b/, "Bool32");// manual replacement, since the xml lacks return type markup.
 				interf.preName = interf.preName.replace(/\bVKAPI_PTR\b/, VKAPI_PTR);
 				
 				
@@ -1329,12 +1357,6 @@ function createHeader()
 			break;
 		}
 	}
-	
-	x8 = localStorage.getItem("typRepl char");
-	u32 = localStorage.getItem("typRepl uint32_t");
-	s32 = localStorage.getItem("typRepl int32_t");
-	u64 = localStorage.getItem("typRepl uint64_t");
-	ub32 = localStorage.getItem("typRepl VkBool32");
 	
 	let nodes = document.getElementsByClassName("typeReplace");
 	for (let node of nodes)
@@ -1544,7 +1566,6 @@ function createHeader()
 						addLineOfCode(functionAliasesDiv, "#endif");
 					}
 				}
-				lastCommand = interf;
 			}
 			break;
 		}
@@ -1561,7 +1582,10 @@ function createHeader()
 		lastProtect = interf.protect;
 	}
 	
-	setupDownload();
+	setupDownload(vulkanHeaderDiv.innerText);
+	
+	var historyState = "header shown";
+	window.history.pushState(historyState, "Header displayed");
 	
 	statusText.textContent = "Header completed writing.";
 }
@@ -1650,17 +1674,17 @@ function registerSymbol(symbolName)
 	else {	console.error("symbol not found: " + symbolName); }
 }
 
-function setupDownload()
+function setupDownload(text)
 {
 	statusText.textContent = "Setting up download button.";
-	downloadBtn.setAttribute("href", "data:text/plain;charset=utf-8," + encodeURIComponent(vulkanHeader.innerText));
+	downloadBtn.setAttribute("href", "data:text/plain;charset=utf-8," + encodeURIComponent(text));
 }
 
 function selectHeader()
 {
 	var sel = window.getSelection();
 	var range = document.createRange();
-	range.selectNodeContents(vulkanHeader);
+	range.selectNodeContents(vulkanHeaderDiv);
 	sel.removeAllRanges();
 	sel.addRange(range);
 }
@@ -1681,7 +1705,7 @@ function copyHeader()
 	selection.removeAllRanges();
 	
 	let range = document.createRange();
-	range.selectNodeContents(vulkanHeader);
+	range.selectNodeContents(vulkanHeaderDiv);
 	selection.addRange(range);
 	try
 	{
@@ -1811,4 +1835,19 @@ function padTabs(text, length)
 function pushIfNew( targetArray, targetObject)
 {
 	if (targetArray.indexOf(targetObject) == -1){	return targetArray.push(targetObject);	}
+}
+
+
+function hideHeaderShowSettings()
+{
+	document.getElementById("hiddenUntilCreation").setAttribute("class", "hidden");
+	setupPart2.setAttribute("class", "hidden");
+	setupStuff.removeAttribute("class");
+}
+
+function displayHeader()
+{
+	// window.scroll(0,150);
+	setupStuff.setAttribute("class", "hidden");
+	document.getElementById("hiddenUntilCreation").removeAttribute("class");
 }
