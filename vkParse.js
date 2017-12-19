@@ -79,6 +79,7 @@ var vulkanNamespaceInput =		document.getElementById("vulkanNamespace");
 var implementationDefineInput =	document.getElementById("implementationDefine");
 var callingConventionSelect =	document.getElementById("callingConvention");
 var funcRenamingSelect =		document.getElementById("funcRenaming");
+var useProtectInput =			document.getElementById("useProtect");
 
 var typeReplacementList =		document.getElementById("typeReplacement");
 
@@ -97,6 +98,7 @@ restoreInput("vulkanNamespace", vulkanNamespaceInput);
 restoreInput("implementationDefine", implementationDefineInput);
 restoreSelect("callingConventionSelect", callingConventionSelect);
 restoreSelect("funcRenamingSelect", funcRenamingSelect);
+restoreCheckbox("useProtect", useProtectInput);
 
 var availableFeatures;
 var availableInterfaces;
@@ -185,6 +187,18 @@ function restoreSelect(localStoreKey, select)
 		{
 			select.selectedIndex = restored;
 		}
+	}
+}
+
+function restoreCheckbox(localStoreKey, checkbox)
+{
+	if (ranBefore)
+	{
+		let restored = localStorage.getItem(localStoreKey);
+		if (restored === null)
+		{ return; }
+	
+		checkbox.checked = restored == "false" ? false : true; 
 	}
 }
 
@@ -935,10 +949,14 @@ function listFeatures()
 			var extensionLi = document.createElement("li");
 			extensionUl.appendChild(extensionLi);
 			
-			let tooltip = "Type: " + extension.type + ", Contact: " + extension.contact;
+			let tooltip = "[Type: " + extension.type + "] [Contact: " + extension.contact + "]";
 			if (extension.requiredExtensions)
 			{
-				tooltip += ", Requires: " + extension.requiredExtensions;
+				tooltip += " [Requires: " + extension.requiredExtensions + "]";
+			}
+			if (extension.protect)
+			{
+				tooltip += " [Protect: " + extension.protect + "]";
 			}
 			
 			extension.checkbox = addCheckbox(extensionLi, extension.name, extension.name, tooltip);
@@ -1214,7 +1232,7 @@ function createHeader()
 							// Ignore Enum aliases for now...
 						break;
 					}
-					if (extension.protect)
+					if (extension.protect && useProtectInput.checked)
 					{
 						let target = availableInterfaces.get(interf.name);
 						if (target)
@@ -1233,12 +1251,13 @@ function createHeader()
 	localStorage.setItem("selectedFeatures", selectedFeatures);
 	localStorage.setItem("selectedExtensions", selectedExtensions);
 	
-	localStorage.setItem("surfaceInclude", customIncludeInput.value);
+	localStorage.setItem("customInclude", customIncludeInput.value);
 	localStorage.setItem("vulkanNamespace", vulkanNamespaceInput.value);
 	localStorage.setItem("implementationDefine", implementationDefineInput.value);
 	
 	localStorage.setItem("callingConventionSelect", callingConventionSelect.selectedIndex);
 	localStorage.setItem("funcRenamingSelect", funcRenamingSelect.selectedIndex);
+	localStorage.setItem("useProtect", useProtectInput.checked);
 	
 	var typeReplacements = new Map();
 	
@@ -1597,7 +1616,7 @@ function createHeader()
 	let historyState = {};
 	historyState.status = statusText.textContent;
 	historyState.headerCreated = true;
-	historyState.header = vulkanHeaderDiv.innerHTML;
+	historyState.header = vulkanHeaderDiv.innerText;
 	window.history.pushState(historyState, "Header displayed");
 }
 

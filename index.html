@@ -59,6 +59,10 @@
 				<label for="implementationDefine">ProcAddrLookup #define:</label>
 				<input id="implementationDefine" type="text" placeholder="IMPLEMENT_VK_COMMAND_LOOKUP">
 			</li>
+			<li title="Some extensions have a 'protect' attribute that signals they should only be compiled if that attribute's value is defined. This is useful if you want one header for all platforms. You can disable this if you only include extensions that your platform supports">
+				<label for="useProtect">Use Protect #define:</label>
+				<input id="useProtect" type="checkbox" checked>
+			</li>
 		</ul>
 		<h2>Type Renaming (optional)</h2>
 		<p>These settings let you use your own custom types that you've declared elsewhere (with other custom headers or typedefs), in this header. To see where the type is usually defined, hover the label to see a tooltip.</p>
