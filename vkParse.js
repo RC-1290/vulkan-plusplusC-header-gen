@@ -63,7 +63,6 @@ var featureList =				document.getElementById("featureSelection");
 var headerVersionSpan =			document.getElementById("headerVersion"); 
 
 var vulkanHeaderDiv =			document.getElementById("vulkanHeader");
-var blankHTML = 				vulkanHeaderDiv.innerHTML;
 
 //
 var parseTextButton =			document.getElementById("parseTextButton");
@@ -87,6 +86,9 @@ var createHeaderButton =		document.getElementById("createHeaderButton");
 
 var setupStuff = 				document.getElementById("setupStuff");
 var setupPart2 =				document.getElementById("setupPart2");
+
+setInitialHistory();
+window.addEventListener("popstate", onHistoryPop);
 
 let ranBefore = localStorage.getItem("ranBefore");
 
@@ -126,15 +128,23 @@ else
 	statusText.textContent = "XML textfield populated with cached contents.";
 }
 
-window.history.replaceState("","Start");
-window.addEventListener("popstate", onHistoryPop);
-
+function setInitialHistory()
+{
+	let historyState = {};
+	historyState.status = statusText.textContent;
+	historyState.headerCreated = false;
+	historyState.header = vulkanHeaderDiv.innerHTML;
+	window.history.replaceState(historyState,"Start");
+}
 
 function onHistoryPop(event)
 {
-	if (event.state)
+	vulkanHeaderDiv.innerHTML = event.state.header;
+	statusText.textContent = event.state.status;
+	
+	if (event.state.headerCreated)
 	{
-		displayHeader();
+		displayHeader(event.state.header);
 	}
 	else
 	{
@@ -256,8 +266,7 @@ function readXML(vkxml)
 	availableFeatures = new Map();
 	availableInterfaces = new Map();
 	headerVersion = "";
-	
-	for (let node of vkxml.childNodes)
+	for (let node of vkxml.childNodes.values())
 	{
 		if (!node.nodeType == Node.ELEMENT_NODE) { continue; }
 		
@@ -269,7 +278,7 @@ function readXML(vkxml)
 
 function parseRegistry(xml)
 {
-	for (let node of xml.childNodes)
+	for (let node of xml.childNodes.values())
 	{
 		if (node.nodeType != Node.ELEMENT_NODE) { continue; }
 		
@@ -1092,7 +1101,6 @@ function createHeader()
 	flags = [];
 	interfaces = [];
 	
-	vulkanHeader.innerHTML = blankHTML;
 	var interfacesDiv =				document.getElementById("interfaces");
 	var externPfnDiv =				document.getElementById("externPfns");
 	var cmdDefsDiv =				document.getElementById("cmdDefs");
@@ -1584,10 +1592,13 @@ function createHeader()
 	
 	setupDownload(vulkanHeaderDiv.innerText);
 	
-	var historyState = "header shown";
-	window.history.pushState(historyState, "Header displayed");
-	
 	statusText.textContent = "Header completed writing.";
+	
+	let historyState = {};
+	historyState.status = statusText.textContent;
+	historyState.headerCreated = true;
+	historyState.header = vulkanHeaderDiv.innerHTML;
+	window.history.pushState(historyState, "Header displayed");
 }
 
 function typeReplacement(original, map)
@@ -1845,9 +1856,11 @@ function hideHeaderShowSettings()
 	setupStuff.removeAttribute("class");
 }
 
-function displayHeader()
+function displayHeader(headerHTML)
 {
 	// window.scroll(0,150);
+	vulkanHeaderDiv.innerHTML = headerHTML;
+	setupDownload(vulkanHeaderDiv.innerText);
 	setupStuff.setAttribute("class", "hidden");
 	document.getElementById("hiddenUntilCreation").removeAttribute("class");
 }

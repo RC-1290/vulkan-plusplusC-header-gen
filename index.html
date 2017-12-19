@@ -49,15 +49,15 @@
 			</li>
 			<li title="The text you fill in here will be added in an #include at the top of the file. You'll probably need to include a header for the WSI surface, and any custom type definitions you might want to use.">
 				<label for="customInclude">Custom header to include:</label>
-				<input id="customInclude" type="text" placeholder="../WinAPI.h"></input>
+				<input id="customInclude" type="text" placeholder="../WinAPI.h">
 			</li>
 			<li title="The namespace that all official Vulkan API interfaces end up in.">
 				<label for="vulkanNamespace">Vulkan API namespace:</label>
-				<input id="vulkanNamespace" type="text" placeholder="Vk"></input>
+				<input id="vulkanNamespace" type="text" placeholder="Vk">
 			</li>
 			<li title="To make this a single file include, some code has to be hidden away behind a pre processor #define. This setting changes the name of that #define.">
 				<label for="implementationDefine">ProcAddrLookup #define:</label>
-				<input id="implementationDefine" type="text" placeholder="IMPLEMENT_VK_COMMAND_LOOKUP"></input>
+				<input id="implementationDefine" type="text" placeholder="IMPLEMENT_VK_COMMAND_LOOKUP">
 			</li>
 		</ul>
 		<h2>Type Renaming (optional)</h2>
@@ -121,15 +121,15 @@ namespace <span class="namespaceVulkan">Vk</span>
 {
 	constexpr <span class="typeReplace">uint32_t</span> MakeVersion( <span class="typeReplace">uint32_t</span> major, <span class="typeReplace">uint32_t</span> minor, <span class="typeReplace">uint32_t</span> patch )
 	{
-		return (((major) << 22) | ((minor) << 12) | (patch));
+		return (((major) &lt;&lt; 22) | ((minor) &lt;&lt; 12) | (patch));
 	}
 	constexpr <span class="typeReplace">uint32_t</span> VersionMajor( <span class="typeReplace">uint32_t</span> version )
 	{
-		return ((<span class="typeReplace">uint32_t</span>)(version) >> 22);
+		return ((<span class="typeReplace">uint32_t</span>)(version) &gt;&gt; 22);
 	}
 	constexpr <span class="typeReplace">uint32_t</span> VersionMinor( <span class="typeReplace">uint32_t</span> version )
 	{
-		return (((<span class="typeReplace">uint32_t</span>)(version) >> 12) & 0x3ff);
+		return (((<span class="typeReplace">uint32_t</span>)(version) &gt;&gt; 12) & 0x3ff);
 	}
 	constexpr <span class="typeReplace">uint32_t</span> VersionPatch( <span class="typeReplace">uint32_t</span> version )
 	{
