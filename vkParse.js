@@ -250,14 +250,14 @@ function parseText()
 
 function onXhrLoad()
 {
-	if (xhr.readyState === 4)
+	if (this.readyState === 4)
 	{
-		if (xhr.status === 200)
+		if (this.status === 200)
 		{
-			if (xhr.responseType == "")
+			if (this.responseType == "")
 			{
 				statusText.textContent = "vk.xml loaded from " + xmlSource + ". If this is the version you want to use, press \"List Features/Extensions\" to continue...";
-				vkxmlTextInput.value = xhr.responseText;
+				vkxmlTextInput.value = this.responseText;
 			}
 			else
 			{
@@ -267,7 +267,7 @@ function onXhrLoad()
 		else 
 		{
 			statusText.textContent = "xhr failed: " + xhr.statusText;
-			console.error("xhr failed: " + xhr.statusText);
+			console.error("xhr failed: " + this.statusText);
 		}
 	}
 }
