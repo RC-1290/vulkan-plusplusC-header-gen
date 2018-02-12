@@ -252,7 +252,7 @@ function onXhrLoad()
 {
 	if (this.status === 200)
 	{
-		if (this.responseType == "" || this.responseType = "text")
+		if (this.responseType == "" || this.responseType == "text")
 		{
 			statusText.textContent = "vk.xml loaded from " + xmlSource + ". If this is the version you want to use, press \"List Features/Extensions\" to continue...";
 			vkxmlTextInput.value = this.responseText;
@@ -619,7 +619,8 @@ function parseEnums(enumsNode)
 			}
 			let constant = {};
 			constant.name = constantNode.getAttribute("name");
-			constant.value = parseInt(constantNode.getAttribute("value"), 10);
+			constant.value = parseInt(constantNode.getAttribute("value"), 0);
+			console.log(constant);
 			
 			if (cEnum.isBitMask)
 			{
