@@ -250,25 +250,22 @@ function parseText()
 
 function onXhrLoad()
 {
-	if (this.readyState === 4)
+	if (this.status === 200)
 	{
-		if (this.status === 200)
+		if (this.responseType == "" || this.responseType = "text")
 		{
-			if (this.responseType == "")
-			{
-				statusText.textContent = "vk.xml loaded from " + xmlSource + ". If this is the version you want to use, press \"List Features/Extensions\" to continue...";
-				vkxmlTextInput.value = this.responseText;
-			}
-			else
-			{
-				statusText.textContent = "The XHR request did not return a valid XML document.";
-			}
+			statusText.textContent = "vk.xml loaded from " + xmlSource + ". If this is the version you want to use, press \"List Features/Extensions\" to continue...";
+			vkxmlTextInput.value = this.responseText;
 		}
-		else 
+		else
 		{
-			statusText.textContent = "xhr failed: " + xhr.statusText;
-			console.error("xhr failed: " + this.statusText);
+			statusText.textContent = "The XHR request did not return a valid XML document.";
 		}
+	}
+	else 
+	{
+		statusText.textContent = "xhr failed: " + xhr.statusText;
+		console.error("xhr failed: " + this.statusText);
 	}
 }
 
