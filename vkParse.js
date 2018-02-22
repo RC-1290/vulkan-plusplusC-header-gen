@@ -34,6 +34,7 @@ var x8 = "x8";// signed/undefined 8-bit (compiler dependent)
 var u32 = "u32";// unsigned 32-bit
 var s32 = "s32";// signed 32-bit
 var u64 = "u64";// unsigned 64-bit
+var f32 = "f32";// 32-bit floating point
 
 // Vulkan function call settings:
 var VKAPI_ATTR = "";// used on Android
@@ -50,6 +51,7 @@ initializeDefaultStore("typRepl uint32_t", u32);
 initializeDefaultStore("typRepl int32_t", s32);
 initializeDefaultStore("typRepl int", s32);
 initializeDefaultStore("typRepl uint64_t", u64);
+initializeDefaultStore("typRepl float", f32);
 
 initializeDefaultStore("typRepl HANDLE", "Windows::Handle");
 initializeDefaultStore("typRepl HINSTANCE", "Windows::Handle");
@@ -577,7 +579,7 @@ function parseEnums(enumsNode)
 				
 			constant.category = "constant";
 			constant.name = constantNode.getAttribute("name");
-			constant.type = "u32";
+			constant.type = u32;
 			constant.value = constantNode.getAttribute("value");
 			
 			if (!constant.value)
@@ -887,7 +889,7 @@ function determineType(text)
 				}
 			break;
 			case 'f':
-				return "float";
+				return f32;
 			break;
 			case '"':
 				return "string";
@@ -1276,6 +1278,7 @@ function createHeader()
 	u32 = localStorage.getItem("typRepl uint32_t");
 	s32 = localStorage.getItem("typRepl int32_t");
 	u64 = localStorage.getItem("typRepl uint64_t");
+	f32 = localStorage.getItem("typRepl float");
 	
 	for(let i = 0; i < flags.length; ++i)
 	{
