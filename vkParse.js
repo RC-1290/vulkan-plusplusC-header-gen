@@ -300,6 +300,7 @@ function parseRegistry(xml)
 			case "comment":
 			case "vendorids":
 			case "tags":
+			case "platforms":
 				//ignore
 			break;
 			case "types":
@@ -622,7 +623,6 @@ function parseEnums(enumsNode)
 			let constant = {};
 			constant.name = constantNode.getAttribute("name");
 			constant.value = parseInt(constantNode.getAttribute("value"), 0);
-			console.log(constant);
 			
 			if (cEnum.isBitMask)
 			{
@@ -710,7 +710,8 @@ function parseFeature(xml)
 {
 	var feature = {};
 
-	feature.name = xml.getAttribute("api");
+	feature.api = xml.getAttribute("api");
+	feature.name = xml.getAttribute("name");
 	feature.version = xml.getAttribute("number");
 	feature.description = xml.getAttribute("comment");
 	feature.availableExtensions = new Map();
@@ -740,7 +741,6 @@ function parseFeature(xml)
 			}
 		}
 	}
-	
 }
 
 function parseExtension(xml)
@@ -749,15 +749,27 @@ function parseExtension(xml)
 	
 	extension.support = xml.getAttribute("supported");
 	if (extension.support == "disabled") { return; }
+	extension.name = xml.getAttribute("name");
 	
-	let feature = availableFeatures.get(extension.support);
-	if (!feature)
+	let noMatchFound = true;
+	
+	for (let feature of availableFeatures.values())
+	{
+		let exactMatchTest = RegExp('^'+ extension.support + '$');
+		if (exactMatchTest.test(feature.api))
+		{
+			noMatchFound = false;
+			feature.availableExtensions.set(extension.name, extension);
+		}
+	}
+	
+	if (noMatchFound)
 	{
 		console.error("extension supports unknown feature: " + extension.support);
 		return;
 	}
 	
-	extension.name = xml.getAttribute("name");
+	
 	extension.number = parseInt(xml.getAttribute("number"));
 	extension.type = xml.getAttribute("type");
 	extension.contact = xml.getAttribute("contact");
@@ -774,8 +786,7 @@ function parseExtension(xml)
 			dependency = dependency.trim();
 		}
 	}
-	
-	feature.availableExtensions.set(extension.name, extension);
+
 	
 	for (let requireOrRemove of xml.childNodes.values())
 	{
