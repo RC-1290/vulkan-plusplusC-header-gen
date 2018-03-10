@@ -62,6 +62,7 @@ initializeDefaultStore("typRepl LPCWSTR", "const wchar_t*");
 
 var statusText =				document.getElementById("statusText");
 var featureList =				document.getElementById("featureSelection");
+var extensionList = 			document.getElementById("extensionSelection");
 var headerVersionSpan =			document.getElementById("headerVersion"); 
 
 var vulkanHeaderDiv =			document.getElementById("vulkanHeader");
@@ -103,6 +104,7 @@ restoreSelect("funcRenamingSelect", funcRenamingSelect);
 restoreCheckbox("useProtect", useProtectInput);
 
 var availableFeatures;
+var availableExtensions
 var availableInterfaces;
 
 var flags;
@@ -273,10 +275,13 @@ function onXhrLoad()
 
 function readXML(vkxml)
 {
-	featureList.textContent = "";// Clear placeholder text and previous lists
+	// Clear placeholder text and previous lists
+	featureList.textContent = "";
+	extensionList.textContent = "";
 	typeReplacementList.textContent = "";
 	
 	availableFeatures = new Map();
+	availableExtensions = new Map();
 	availableInterfaces = new Map();
 	headerVersion = "";
 	for (let node of vkxml.childNodes.values())
@@ -339,12 +344,10 @@ function parseTypes(xml)
 		var typeNode = typeNodes.item(i);
 		if (typeNode.tagName == "comment") { continue; }
 		
-		var category = typeNode.getAttribute("category");
-		
 		let namedThing = {};
 		namedThing.category = typeNode.getAttribute("category");
 		namedThing.name = typeNode.getAttribute("name");
-		namedThing.requires = typeNode.getAttribute("requires");
+		namedThing.requiredTypes = typeNode.getAttribute("requires");
 		if (!namedThing.name)
 		{
 			let nameTags = typeNode.getElementsByTagName("name");
@@ -714,33 +717,10 @@ function parseFeature(xml)
 	feature.name = xml.getAttribute("name");
 	feature.version = xml.getAttribute("number");
 	feature.description = xml.getAttribute("comment");
-	feature.availableExtensions = new Map();
-	feature.requires = [];
 	
 	availableFeatures.set(feature.name, feature);
 	
-	for (let requireOrRemove of xml.childNodes.values())
-	{
-		if (requireOrRemove.tagName == "remove")
-		{ console.error("feature remove tags aren't supported yet. (They weren't used when this generator was written"); }
-		else if (requireOrRemove.tagName == "require")
-		{
-			if (requireOrRemove.getAttribute("profile")		||
-				requireOrRemove.getAttribute("extension")	||
-				requireOrRemove.getAttribute("api"))
-			{
-				console.error("When this generator was written, profile, extension and api attributes on feature require and remove tags weren't used, so they're not currently evaluated in this generator.");
-			}
-			
-			for (const node of requireOrRemove.childNodes.values())
-			{
-				if (node.nodeType == 1)
-				{
-					feature.requires.push(node.getAttribute("name"));
-				}
-			}
-		}
-	}
+	feature.requires = parseRequires(xml.childNodes);
 }
 
 function parseExtension(xml)
@@ -750,34 +730,15 @@ function parseExtension(xml)
 	extension.support = xml.getAttribute("supported");
 	if (extension.support == "disabled") { return; }
 	extension.name = xml.getAttribute("name");
-	
-	let noMatchFound = true;
-	
-	for (let feature of availableFeatures.values())
-	{
-		let exactMatchTest = RegExp('^'+ extension.support + '$');
-		if (exactMatchTest.test(feature.api))
-		{
-			noMatchFound = false;
-			feature.availableExtensions.set(extension.name, extension);
-		}
-	}
-	
-	if (noMatchFound)
-	{
-		console.error("extension supports unknown feature: " + extension.support);
-		return;
-	}
-	
-	
+	availableExtensions.set(extension.name, extension);
 	extension.number = parseInt(xml.getAttribute("number"));
-	extension.type = xml.getAttribute("type");
 	extension.contact = xml.getAttribute("contact");
+	extension.type = xml.getAttribute("type");
 	extension.protect = xml.getAttribute("protect");
-	extension.requires = [];
+	extension.platform = xml.getAttribute("platform");
 	
-	
-	extension.requiredExtensions = xml.getAttribute("requires");//TODO: parse for comma separated list of required extensions.
+	// Parse which other extensions are required
+	extension.requiredExtensions = xml.getAttribute("requires");
 	if (extension.requiredExtensions)
 	{
 		extension.dependencies = extension.requiredExtensions.split(",");
@@ -787,26 +748,35 @@ function parseExtension(xml)
 		}
 	}
 
+	extension.requires = parseRequires(xml.childNodes, extension.number);
 	
-	for (let requireOrRemove of xml.childNodes.values())
+}
+
+function parseRequires(nodeList, fallbackExtensionNumber)
+{
+	let requires = [];
+	for (let requireOrRemoveNode of nodeList.values())
 	{
-		if (requireOrRemove.nodeType != Node.ELEMENT_NODE) { continue; }
-		if (requireOrRemove.tagName != "require")
+		if (requireOrRemoveNode.nodeType != Node.ELEMENT_NODE) { continue; }
+		if (requireOrRemoveNode.tagName != "require")
 		{
 			console.error("Currently only require nodes are supported. Extension name: " + extension.name);
 			continue;
 		}
-		let require = {};
-		require.interfaces = [];
-		require.extension = requireOrRemove.getAttribute("extension");
-		extension.requires.push(require);
 		
-		if (requireOrRemove.getAttribute("profile"))
+		let require = {};
+		requires.push(require);
+
+		require.interfaces = [];
+		require.onlyForExtension = requireOrRemoveNode.getAttribute("extension");
+		require.onlyForFeature = requireOrRemoveNode.getAttribute("feature");
+		
+		if (requireOrRemoveNode.getAttribute("profile"))
 		{
 			console.error("When this generator was written, profiles weren't used by extension requires, so they're currently not supported.");
 		}
 		
-		for (let symbolNode of requireOrRemove.childNodes.values())
+		for (let symbolNode of requireOrRemoveNode.childNodes.values())
 		{
 			if (symbolNode.nodeType != Node.ELEMENT_NODE) { continue; }
 			let type = {};
@@ -817,61 +787,49 @@ function parseExtension(xml)
 			{
 				case "enum":
 					type.extending = symbolNode.getAttribute("extends");
-					if (type.extending)
+					type.form = type.extending ? "extensionEnum" : "constant";
+					
+					// Value might come from various sources:
+					if (symbolNode.hasAttribute("value"))
 					{
-						type.form = "extensionEnum";
-						
-						let constantBitPos = symbolNode.getAttribute("bitpos");
-						if (constantBitPos)
-						{
-							type.value = "(1 << " + constantBitPos + ")";
-						}
-						else 
-						{
-							let offsetAttribute = symbolNode.getAttribute("offset");
-							if (offsetAttribute)
-							{
-								let offset = parseInt(offsetAttribute);
-								type.value = 1000000000 + offset + (1000 * (extension.number - 1))
-								if (symbolNode.getAttribute("dir") == "-")
-								{
-									type.value = -type.value;
-								}
-							}
-							else if (type.value = symbolNode.getAttribute("value"))
-							{
-								// special case for VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE
-							}
-							else 
-							{
-								console.error("expected either a bitpos or an offset for: " + type.name);
-								continue;
-							}
-						}						
-					}
-					else 
-					{
-						type.form = "constant";
 						type.value = symbolNode.getAttribute("value");
-						if (!type.value)
+						if (type.value != null && type.value.startsWith("VK_"))
 						{
-							let constantBitPos = symbolNode.getAttribute("bitpos");
-							if (constantBitPos)
+							type.form = "constEnumAlias";
+						}
+					}
+					else if (symbolNode.hasAttribute("bitpos"))
+					{
+						let bitPos = symbolNode.getAttribute("bitpos");
+						if (bitPos){	type.value = "(1 << " + bitPos + ")";	}
+					}
+					else if (symbolNode.hasAttribute("alias"))
+					{
+						type.alias = symbolNode.getAttribute("alias"); 
+					}
+					else if (symbolNode.hasAttribute("offset"))
+					{
+						let offsetAttribute = symbolNode.getAttribute("offset");
+						if (offsetAttribute)
+						{
+							let startingRange = symbolNode.getAttribute("extnumber");
+							
+							if (!startingRange)
 							{
-								type.value = "(1 << " + constantBitPos + ")";
+								startingRange = fallbackExtensionNumber;
+								if (!fallbackExtensionNumber) { console.error("Can't determine extension number.");	}
 							}
-							else
+							let offset = parseInt(offsetAttribute);
+							type.value = 1000000000 + offset + (1000 * (startingRange - 1))
+							if (symbolNode.getAttribute("dir") == "-")
 							{
-								type.form = "reference";
-								break;
+								type.value = -type.value;
 							}
 						}
-						else if (type.value.startsWith("VK_"))
-						{
-							type.form = "enumAlias";
-						}
-						
-						type.type = determineType(type.value);
+					}
+					else
+					{
+						type.form = "reference";
 					}
 				break;
 				case "type":
@@ -883,8 +841,9 @@ function parseExtension(xml)
 		}
 		
 	}
-	
+	return requires;
 }
+
 
 function determineType(text)
 {
@@ -938,9 +897,14 @@ function listFeatures()
 	statusText.textContent = "Listing Features...";
 	headerVersionSpan.textContent = headerVersion;
 	
+	var featureUl = document.createElement("ul");
+	featureUl.setAttribute("class", "autoColumn");
+	featureList.appendChild(featureUl);
 	for (let feature of availableFeatures.values())
 	{
-		feature.checkbox = addCheckbox(featureList, feature.name, feature.description, feature.name + ", version: " + feature.version);
+		var featureLi = document.createElement("li");
+		featureUl.appendChild(featureLi);
+		feature.checkbox = addCheckbox(featureLi, feature.name, feature.description, feature.name + ", version: " + feature.version);
 		
 		if (ranBefore)
 		{
@@ -950,55 +914,52 @@ function listFeatures()
 		{
 			feature.checkbox.checked = true;
 		}
+	}
+
+	var extensionUl = document.createElement("ul");
+	extensionUl.setAttribute("class", "autoColumn");
+	extensionList.appendChild(extensionUl);	
+	for(let extension of availableExtensions.values())
+	{
+		var extensionLi = document.createElement("li");
+		extensionUl.appendChild(extensionLi);
 		
-		var extensionUl = document.createElement("ul");
-		extensionUl.setAttribute("class", "autoColumn");
-		featureList.appendChild(extensionUl);
-		
-		for(let extension of feature.availableExtensions.values())
+		let tooltip = "[Type: " + extension.type + "] [Contact: " + extension.contact + "]";
+		if (extension.requiredExtensions)
 		{
-			var extensionLi = document.createElement("li");
-			extensionUl.appendChild(extensionLi);
-			
-			let tooltip = "[Type: " + extension.type + "] [Contact: " + extension.contact + "]";
-			if (extension.requiredExtensions)
-			{
-				tooltip += " [Requires: " + extension.requiredExtensions + "]";
-			}
-			if (extension.protect)
-			{
-				tooltip += " [Protect: " + extension.protect + "]";
-			}
-			
-			extension.checkbox = addCheckbox(extensionLi, extension.name, extension.name, tooltip);
-			extension.checkbox.setAttribute("extensionName", extension.name);
-			extension.checkbox.setAttribute("featureName", feature.name);
-			
-			if (ranBefore)
-			{
-				if (extensionSelectionMap.get(extension.name)){	extension.checkbox.checked = true;	}
-			}
-			else 
-			{
-				extension.checkbox.checked = true;
-			}
-			
-			extension.checkbox.addEventListener("change", checkboxChanged);
+			tooltip += " [Requires: " + extension.requiredExtensions + "]";
+		}
+		if (extension.protect)
+		{
+			tooltip += " [Protect: " + extension.protect + "]";
 		}
 		
-		let checkAllButton = document.createElement("button");
-		checkAllButton.textContent = "Check all";
-		checkAllButton.setAttribute("featureName", feature.name);
-		checkAllButton.addEventListener("click", checkAllFeatureExtensions);
+		extension.checkbox = addCheckbox(extensionLi, extension.name, extension.name, tooltip);
+		extension.checkbox.setAttribute("extensionName", extension.name);
 		
-		let uncheckAllButton = document.createElement("button");
-		uncheckAllButton.textContent = "Uncheck all";
-		uncheckAllButton.setAttribute("featureName", feature.name);
-		uncheckAllButton.addEventListener("click", uncheckAllFeatureExtensions);
+		if (ranBefore)
+		{
+			if (extensionSelectionMap.get(extension.name)){	extension.checkbox.checked = true;	}
+		}
+		else 
+		{
+			extension.checkbox.checked = true;
+		}
 		
-		featureList.appendChild(checkAllButton);
-		featureList.appendChild(uncheckAllButton);
+		extension.checkbox.addEventListener("change", checkboxChanged);
 	}
+	
+	let checkAllButton = document.createElement("button");
+	checkAllButton.textContent = "Check all";
+	checkAllButton.addEventListener("click", checkAllExtensions);
+	
+	let uncheckAllButton = document.createElement("button");
+	uncheckAllButton.textContent = "Uncheck all";
+	uncheckAllButton.addEventListener("click", uncheckAllExtensions);
+	
+	extensionList.appendChild(checkAllButton);
+	extensionList.appendChild(uncheckAllButton);
+
 	
 	// Type replacement interface:
 	for( let interf of availableInterfaces.values())
@@ -1038,21 +999,17 @@ function listFeatures()
 	statusText.textContent = "Features listing complete. Select features and extensions and press \"Create Header\"...";
 }
 
-function checkAllFeatureExtensions()
-{
-	var feature = availableFeatures.get(this.getAttribute("featureName"));
-	
-	for(let extension of feature.availableExtensions.values())
+function checkAllExtensions()
+{	
+	for(let extension of availableExtensions.values())
 	{
 		extension.checkbox.checked = true;
 	}
 }
 
-function uncheckAllFeatureExtensions()
+function uncheckAllExtensions()
 {
-	var feature = availableFeatures.get(this.getAttribute("featureName"));
-	
-	for(let extension of feature.availableExtensions.values())
+	for(let extension of availableExtensions.values())
 	{
 		extension.checkbox.checked = false;
 	}
@@ -1061,13 +1018,12 @@ function uncheckAllFeatureExtensions()
 function checkboxChanged()
 {
 	statusText.textContent = "Checkbox Selection updated, checking dependencies... (Note: Header creation saves changes.)"
-	var selectedFeature = availableFeatures.get(this.getAttribute("featureName"));
-	var changedExtension = selectedFeature.availableExtensions.get(this.getAttribute("extensionName"));
+	var changedExtension = availableExtensions.get(this.getAttribute("extensionName"));
 	
-	updateExtensionDependencies(selectedFeature, changedExtension);
+	updateExtensionDependencies(changedExtension);
 }
 
-function updateExtensionDependencies(selectedFeature, changedExtension)
+function updateExtensionDependencies(changedExtension)
 {
 	// Select extensions this depends on.
 	if (changedExtension.checkbox.checked)
@@ -1075,17 +1031,17 @@ function updateExtensionDependencies(selectedFeature, changedExtension)
 		if (!changedExtension.dependencies){ return; }
 		for (let dependencyName of changedExtension.dependencies)
 		{
-			let dependency = selectedFeature.availableExtensions.get(dependencyName);
+			let dependency = availableExtensions.get(dependencyName);
 			if (dependency)
 			{
 				dependency.checkbox.checked = true;
-				updateExtensionDependencies(selectedFeature, dependency);
+				updateExtensionDependencies( dependency);
 			}
 		}
 	}
 	else // De-select extensions that depend on this.
 	{
-		for (let extension of selectedFeature.availableExtensions.values())
+		for (let extension of availableExtensions.values())
 		{
 			if (!extension.dependencies){ continue; }
 			for (let dependencyName of extension.dependencies)
@@ -1093,7 +1049,7 @@ function updateExtensionDependencies(selectedFeature, changedExtension)
 				if (dependencyName == changedExtension.name)
 				{
 					extension.checkbox.checked = false;
-					updateExtensionDependencies(selectedFeature, extension);
+					updateExtensionDependencies(extension);
 				}
 			}
 		}
@@ -1109,18 +1065,65 @@ function replaceClassNodeContents(className, value)
 	}
 }
 
-function isExtensionEnabled(feature, extensionName)
+function registerRequires(requires)
 {
-	for (let extension of feature.availableExtensions.values())
+	for (let require of requires)
 	{
-		if (extension.name == extensionName)
+		// Skip this require for extensions that aren't enabled.
+		if (require.onlyForExtension)
 		{
-			if (extension.checkbox.checked){	return true;	}
-			else{	return false;	}
+			let found = availableExtensions.get((require.onlyForExtension));
+			if (!found){ continue; }
+			else if (!found.checkbox.checked){	continue;}
+		}
+		// Skip this require for features that aren't enabled.
+		if (require.onlyForFeature)
+		{
+			let found = availableFeatures.get((require.onlyForFeature));
+			if (!found){ continue; }
+			else if (!found.checkbox.checked){	continue;}
+		}
+		
+		for (let interf of require.interfaces)
+		{					
+			switch(interf.form)
+			{
+				case "extensionEnum":
+				{
+					let cEnum = availableInterfaces.get(interf.extending);
+					if (!cEnum)
+					{
+						console.error("extended enum not found: " + interf.extending);
+						return;
+					}
+					let constant = {};
+					constant.name = interf.name;
+					constant.value = interf.value;
+					
+					cEnum.constants.push(constant);
+				}
+				break;
+				case "constant":
+				{
+					let constant = {};
+					constant.name = interf.name
+					constant.value = interf.value;
+					constant.type = determineType(constant.value);
+					constant.category = "constant";
+				
+					availableInterfaces.set(constant.name, constant);// make constants added by extensions available
+					registerSymbol(interf.name);
+				}
+				break;
+				case "reference":
+					registerSymbol(interf.name);
+				break;
+				case "constEnumAlias":
+					// Ignore constant Enum aliases for now...
+				break;
+			}		
 		}
 	}
-	
-	return false;
 }
 
 function createHeader()
@@ -1174,88 +1177,64 @@ function createHeader()
 	funcRenaming = funcRenamingSelect.selectedOptions.item(0).value;
 	
 
-	// Remember selected features and extensions between sessions:
+	// Remember which features and extensions were used this time, so they can be stored for next session.:
 	let selectedFeatures = "";
 	let selectedExtensions = "";
 	
-	// Sort everything by usage:
-	statusText.textContent = "Sorting commands, types and enums...";
+	// Sort by usage:
+	statusText.textContent = "Sorting commands, types and enums by usage...";
 	for(let feature of availableFeatures.values())
 	{
 		if (!feature.checkbox.checked) { continue; }
 		selectedFeatures += feature.name + ","
 		
-		for (let require of feature.requires)
+		registerRequires(feature.requires);
+	}
+
+	statusText.textContent = "Applying extensions";
+	for (let extension of availableExtensions.values())
+	{
+		if (!extension.checkbox.checked) { continue; }
+		selectedExtensions += extension.name + ",";
+
+		// figure out if the extension is supported
+		let noMatchFound = true;
+		for (let feature of availableFeatures.values())
 		{
-			registerSymbol(require);
-		}
-		
-		
-		for (let extension of feature.availableExtensions.values())
-		{
-			if (!extension.checkbox.checked) { continue; }
-			
-			selectedExtensions += extension.name + ",";
-			
-			// Apply extension changes.
-			for (let require of extension.requires)
+			if (!feature.checkbox.checked) { continue; }
+			let exactMatchTest = RegExp('^'+ extension.support + '$');
+			if (exactMatchTest.test(feature.api))
 			{
-				if (require.extension)
+				noMatchFound = false;
+				break;
+			}
+		}
+		if (noMatchFound)
+		{
+			console.error("extension "+ extension.name + " not supported, skipping...");
+			continue;
+		}
+
+		registerRequires(extension.requires);
+		
+		// Add protect information for registered interfaces:
+		for (let require of extension.requires)
+		{	
+			for (let interf of require.interfaces)
+			{
+				if (extension.protect && useProtectInput.checked)
 				{
-					isExtensionEnabled(feature, require.extension);
+					let target = availableInterfaces.get(interf.name);
+					if (target)
+					{
+						target.protect = extension.protect;
+					}
 				}
 				
-				for (let interf of require.interfaces)
-				{					
-					switch(interf.form)
-					{
-						case "extensionEnum":
-						{
-							let cEnum = availableInterfaces.get(interf.extending);
-							if (!cEnum)
-							{
-								console.error("extended enum not found: " + interf.extending);
-								continue;
-							}
-							let constant = {};
-							constant.name = interf.name;
-							constant.value = interf.value;
-							
-							cEnum.constants.push(constant);
-						}
-						break;
-						case "constant":
-						{
-							let constant = {};
-							constant.name = interf.name
-							constant.value = interf.value;
-							constant.type = interf.type
-							constant.category = "constant";
-						
-							availableInterfaces.set(constant.name, constant);
-							registerSymbol(interf.name);
-						}
-						break;
-						case "reference":
-							registerSymbol(interf.name);
-						break;
-						case "enumAlias":
-							// Ignore Enum aliases for now...
-						break;
-					}
-					if (extension.protect && useProtectInput.checked)
-					{
-						let target = availableInterfaces.get(interf.name);
-						if (target)
-						{
-							target.protect = extension.protect;
-						}
-					}
-					
-				}
 			}
 		}
 	}
+
 	statusText.textContent = "Saving state for next run...";
 	
 	localStorage.setItem("ranBefore", true);
@@ -1363,6 +1342,10 @@ function createHeader()
 					constant.originalName = constant.name;
 					constant.name = stripEnumName(constant.name, interf.originalName);
 					typeReplacements.set(constant.originalName, interf.name + "::" + constant.name);
+					if (constant.isAlias)
+					{
+						constant.value = typeReplacement(constant.value, typeReplacements);
+					}
 				}
 				if (!interf.isBitMask)
 				{
@@ -1644,8 +1627,8 @@ function registerSymbol(symbolName)
 	let found = availableInterfaces.get(symbolName);
 	if (found)
 	{
-		if (found.requires){
-			registerSymbol(found.requires);
+		if (found.requiredTypes){
+			registerSymbol(found.requiredTypes);
 		}
 		
 		switch(found.category)
