@@ -337,17 +337,27 @@ function parseRegistry(xml)
 
 	for( let interf of availableInterfaces.values())
 	{
-		if (interf.category == "COMMAND_ALIAS")
+		switch (interf.category)
 		{
-			// Become a copy of the alias, except for the name:
-			let aliasedCommand = availableInterfaces.get(interf.aliasFor);
-			if (!aliasedCommand)
+			case "COMMAND_ALIAS":
 			{
-				console.error("Could not find the aliased command with the name: " + interf.aliasFor);
+				// Become a copy of the alias, except for the name:
+				let aliasedCommand = availableInterfaces.get(interf.aliasFor);
+				if (!aliasedCommand){	console.error("Could not find the aliased command with the name: " + interf.aliasFor);	}
+				interf.parameters = aliasedCommand.parameters;
+				interf.returnType = aliasedCommand.returnType;
+				interf.category = aliasedCommand.category;
 			}
-			interf.parameters = aliasedCommand.parameters;
-			interf.returnType = aliasedCommand.returnType;
-			interf.category = aliasedCommand.category;
+			break;
+			case "CONSTANT_ALIAS":
+			{
+				let aliasedConstant = availableInterfaces.get(interf.aliasFor);
+				if (!aliasedConstant){	console.error("Could not find the aliased constant with the name: " + interf.aliasFor);	}
+				interf.value = aliasedConstant.name;
+				interf.type = aliasedConstant.type;
+				interf.category = "constant";
+			}
+			break;
 		}
 	}
 
@@ -609,19 +619,25 @@ function parseEnums(enumsNode)
 				
 			constant.category = "constant";
 			constant.name = constantNode.getAttribute("name");
-			constant.type = u32;
-			constant.value = constantNode.getAttribute("value");
-			
-			if (!constant.value)
-			{
-				let bitPos = constantNode.getAttribute("bitPos");
-				if (!bitPos){	continue;	}
-				constant.value = constant.value = "(1 << " + bitPos + ")";
-				
-			}
 			availableInterfaces.set(constant.name, constant);
 			
-			constant.type = determineType(constant.value);
+			if (constantNode.getAttribute("alias"))
+			{
+				constant.category = "CONSTANT_ALIAS";
+				constant.aliasFor = constantNode.getAttribute("alias");
+			}
+			else
+			{
+				constant.value = constantNode.getAttribute("value");
+				if (!constant.value)
+				{
+					let bitPos = constantNode.getAttribute("bitPos");
+					if (!bitPos){	continue;	}
+					constant.value = constant.value = "(1 << " + bitPos + ")";
+				}
+				constant.type = u32;
+				constant.type = determineType(constant.value);
+			}
 		}
 	}
 	else
@@ -652,6 +668,11 @@ function parseEnums(enumsNode)
 			let constant = {};
 			constant.name = constantNode.getAttribute("name");
 			constant.value = parseInt(constantNode.getAttribute("value"), 0);
+
+			if (constantNode.hasAttribute("alias"))
+			{
+				console.error("Found alias attribute on: " + constant + ". When this generator was written, the xml didn't use this, so support was omitted");
+			}
 			
 			if (cEnum.isBitMask)
 			{
@@ -840,7 +861,7 @@ function parseRequires(nodeList, fallbackExtensionNumber)
 					}
 					else if (symbolNode.hasAttribute("alias"))
 					{
-						type.alias = symbolNode.getAttribute("alias"); 
+						type.aliasFor = symbolNode.getAttribute("alias"); 
 					}
 					else if (symbolNode.hasAttribute("offset"))
 					{
@@ -1134,7 +1155,12 @@ function registerRequires(requires)
 					}
 					let constant = {};
 					constant.name = interf.name;
-					constant.value = interf.value;
+					if (interf.aliasFor)
+					{
+						constant.value = interf.aliasFor;
+						constant.isAlias = true;
+					}
+					else { constant.value = interf.value; }
 					
 					cEnum.constants.push(constant);
 				}
@@ -1142,13 +1168,28 @@ function registerRequires(requires)
 				case "constant":
 				{
 					let constant = {};
-					constant.name = interf.name
-					constant.value = interf.value;
-					constant.type = determineType(constant.value);
+					constant.name = interf.name;
 					constant.category = "constant";
-				
 					availableInterfaces.set(constant.name, constant);// make constants added by extensions available
 					registerSymbol(interf.name);
+					if (interf.aliasFor)
+					{
+						let aliasedConstant = availableInterfaces.get(interf.aliasFor);
+						if (!aliasedConstant)
+						{
+							console.error("Could not find referenced aliased constant with name: " + interf.aliasFor);
+						}
+						else
+						{
+							constant.value = interf.aliasFor;
+							constant.type = aliasedConstant.type;
+						}
+					}
+					else
+					{
+						constant.value = interf.value;
+						constant.type = determineType(constant.value);
+					}
 				}
 				break;
 				case "reference":
@@ -1378,9 +1419,10 @@ function createHeader()
 					constant.originalName = constant.name;
 					constant.name = stripEnumName(constant.name, interf.originalName);
 					typeReplacements.set(constant.originalName, interf.name + "::" + constant.name);
+
 					if (constant.isAlias)
 					{
-						constant.value = typeReplacement(constant.value, typeReplacements);
+						constant.value = stripEnumName(constant.value, interf.originalName);
 					}
 				}
 				if (!interf.isBitMask)
