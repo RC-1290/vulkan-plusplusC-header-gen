@@ -58,7 +58,7 @@ initializeDefaultStore("typRepl HINSTANCE", "Windows::Handle");
 initializeDefaultStore("typRepl HWND", "Windows::Handle");
 initializeDefaultStore("typRepl SECURITY_ATTRIBUTES", "Windows::SecurityAttributes");
 initializeDefaultStore("typRepl DWORD", u32);
-initializeDefaultStore("typRepl LPCWSTR", "const wchar_t*");
+initializeDefaultStore("typRepl LPCWSTR", "const u16*");
 
 var statusText =				document.getElementById("statusText");
 var featureList =				document.getElementById("featureSelection");
@@ -106,6 +106,7 @@ restoreCheckbox("useProtect", useProtectInput);
 var availableFeatures;
 var availableExtensions
 var availableInterfaces;
+var availablePlatforms;
 
 var flags;
 var interfaces;
@@ -283,6 +284,7 @@ function readXML(vkxml)
 	availableFeatures = new Map();
 	availableExtensions = new Map();
 	availableInterfaces = new Map();
+	availablePlatforms = new Map();
 	headerVersion = "";
 	for (let node of vkxml.childNodes.values())
 	{
@@ -305,7 +307,6 @@ function parseRegistry(xml)
 			case "comment":
 			case "vendorids":
 			case "tags":
-			case "platforms":
 				//ignore
 			break;
 			case "types":
@@ -328,6 +329,9 @@ function parseRegistry(xml)
 				break;
 			case "extension": 
 				parseExtension(node);
+			break;
+			case "platforms":
+				parsePlatforms(node);
 			break;
 			default:
 				console.warn("unexpected tagName: " + node.tagName);
@@ -901,6 +905,22 @@ function parseRequires(nodeList, fallbackExtensionNumber)
 	return requires;
 }
 
+function parsePlatforms(xml)
+{
+	var platformNodes = xml.children;
+	for(let i = 0; i < platformNodes.length; ++i)
+	{
+		var platformNode = platformNodes.item(i);
+		if (platformNode.tagName != "platform") { continue; }
+
+		let platform = {};
+		platform.name = platformNode.getAttribute("name");
+		platform.protectDefine = platformNode.getAttribute("protect");
+
+		availablePlatforms.set(platform.name, platform);
+	}
+}
+
 
 function determineType(text)
 {
@@ -985,6 +1005,10 @@ function listFeatures()
 		if (extension.requiredExtensions)
 		{
 			tooltip += " [Requires: " + extension.requiredExtensions + "]";
+		}
+		if (extension.platform)
+		{
+			tooltip += " [Platform: " + extension.platform + "]";
 		}
 		if (extension.protect)
 		{
@@ -1151,16 +1175,26 @@ function registerRequires(requires)
 					if (!cEnum)
 					{
 						console.error("extended enum not found: " + interf.extending);
-						return;
+						break;
 					}
 					let constant = {};
 					constant.name = interf.name;
+
+					// There are now duplicate enum entries in vk.xml, so we have to ignore those:
+					let uniqueConstant = true;
+					for (let i = 0; i < cEnum.constants.length; ++i)
+					{
+						if (cEnum.constants[i].name == constant.name){ uniqueConstant = false; break;}
+					}
+					if (!uniqueConstant){ break; }
+
 					if (interf.aliasFor)
 					{
 						constant.value = interf.aliasFor;
 						constant.isAlias = true;
 					}
 					else { constant.value = interf.value; }
+					
 					
 					cEnum.constants.push(constant);
 				}
@@ -1295,19 +1329,36 @@ function createHeader()
 		registerRequires(extension.requires);
 		
 		// Add protect information for registered interfaces:
-		for (let require of extension.requires)
-		{	
-			for (let interf of require.interfaces)
+		if (useProtectInput.checked)
+		{
+			if (extension.platform)
 			{
-				if (extension.protect && useProtectInput.checked)
+				if (extension.protect)
 				{
-					let target = availableInterfaces.get(interf.name);
-					if (target)
+					console.error("When this generator was written, nothing used both protect and platform tags... so that's not supported. But used on"+ extension);
+				}
+				let platform = availablePlatforms.get(extension.platform);
+				if (!platform)
+				{
+					console.error("The referenced platform could not be found: "+ extension.platform);
+					continue;
+				}
+				extension.protect = platform.protectDefine;
+			}
+
+			for (let require of extension.requires)
+			{	
+				for (let interf of require.interfaces)
+				{
+					if (extension.protect )
 					{
-						target.protect = extension.protect;
+						let target = availableInterfaces.get(interf.name);
+						if (target)
+						{
+							target.protect = extension.protect;
+						}
 					}
 				}
-				
 			}
 		}
 	}
@@ -1685,7 +1736,7 @@ function createHeader()
 			break;
 			case "TYPE_ALIAS":
 			{
-				addLineOfCode( interfacesDiv, padTabs(indentation(2) + "typedef " + interf.aliasFor, 24) + interf.name + ");" );
+				addLineOfCode( interfacesDiv, padTabs(indentation(1) + "typedef " + interf.aliasFor, 68) + interf.name + ";" );
 			}
 			break;
 		}
