@@ -334,6 +334,23 @@ function parseRegistry(xml)
 				break;
 		}
 	}
+
+	for( let interf of availableInterfaces.values())
+	{
+		if (interf.category == "COMMAND_ALIAS")
+		{
+			// Become a copy of the alias, except for the name:
+			let aliasedCommand = availableInterfaces.get(interf.aliasFor);
+			if (!aliasedCommand)
+			{
+				console.error("Could not find the aliased command with the name: " + interf.aliasFor);
+			}
+			interf.parameters = aliasedCommand.parameters;
+			interf.returnType = aliasedCommand.returnType;
+			interf.category = aliasedCommand.category;
+		}
+	}
+
 }
 
 function parseTypes(xml)
@@ -345,15 +362,29 @@ function parseTypes(xml)
 		if (typeNode.tagName == "comment") { continue; }
 		
 		let namedThing = {};
-		namedThing.category = typeNode.getAttribute("category");
 		namedThing.name = typeNode.getAttribute("name");
-		namedThing.requiredTypes = typeNode.getAttribute("requires");
 		if (!namedThing.name)
 		{
 			let nameTags = typeNode.getElementsByTagName("name");
 			if (nameTags.length > 0){	namedThing.name = nameTags.item(0).textContent;	}
 		}
 		
+		if (typeNode.hasAttribute("alias"))
+		{
+			namedThing.aliasFor = typeNode.getAttribute("alias");
+			namedThing.category = "TYPE_ALIAS";
+		}
+		else if (typeNode.hasAttribute("category"))
+		{
+			namedThing.category = typeNode.getAttribute("category");
+		}
+		else
+		{
+			namedThing.category = "EXTERNAL";// capitalized category to avoid collision with future new categories.
+		}
+		
+		if (typeNode.hasAttribute("requires")) {	namedThing.requiredTypes = typeNode.getAttribute("requires");	}
+
 		switch(namedThing.category)
 		{
 			case "funcpointer":		
@@ -552,12 +583,7 @@ function parseTypes(xml)
 			}
 			break;
 			default:
-			{
-				if (!namedThing.category)
-				{
-					namedThing.category = "EXTERNAL";// capitalized category to avoid collision with future new categories.
-				}
-				
+			{		
 				if (namedThing.name){	availableInterfaces.set(namedThing.name, namedThing);	}
 				break;
 			}
@@ -662,6 +688,15 @@ function parseCommand(xml)
 {
 	let command = {};
 	command.category = "command";
+	if (xml.hasAttribute("alias"))
+	{
+		command.category = "COMMAND_ALIAS"
+		command.aliasFor = xml.getAttribute("alias");
+		command.name = xml.getAttribute("name");
+		availableInterfaces.set(command.name, command);
+		return;
+	}
+
 	command.parameters = [];		
 
 	var protoNode = xml.getElementsByTagName("proto").item(0);
@@ -834,6 +869,7 @@ function parseRequires(nodeList, fallbackExtensionNumber)
 				break;
 				case "type":
 				case "command":
+				case "TYPE_ALIAS":
 					type.form = "reference";
 				break;
 			}			
@@ -1377,6 +1413,21 @@ function createHeader()
 				}
 			}
 			break;
+			case "TYPE_ALIAS":
+			{
+				// If funcpointer aliases are ever used, they're going to require some special attention:
+				let aliasedInterface = availableInterfaces.get(interf.aliasFor);
+				if (aliasedInterface && aliasedInterface.category == "funcpointer")
+				{
+					console.error("Encountered an alias for a funcpointer. When writing this generator, there were no aliases for funcpointers, so their different renaming requirements have not been taken into account.");
+				}
+
+				// Name changes:
+				interf.originalName = interf.name;
+				interf.name = stripVk(interf.name);
+				interf.aliasFor = typeReplacement(interf.aliasFor, typeReplacements);
+			}
+			break;
 		}
 	}
 	
@@ -1590,6 +1641,11 @@ function createHeader()
 				}
 			}
 			break;
+			case "TYPE_ALIAS":
+			{
+				addLineOfCode( interfacesDiv, padTabs(indentation(2) + "typedef " + interf.aliasFor, 24) + interf.name + ");" );
+			}
+			break;
 		}
 		
 		if (interf.protect)
@@ -1683,6 +1739,7 @@ function registerSymbol(symbolName)
 			case "handle":
 			case "constant":
 			case "basetype":
+			case "TYPE_ALIAS":
 				pushIfNew(interfaces, found);
 			break;
 			case "include":
