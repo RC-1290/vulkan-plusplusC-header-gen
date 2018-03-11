@@ -223,7 +223,7 @@ function loadLocal()
 function loadFromGithub()
 {
 	xmlSource = "GitHub";
-	loadTextXhr("https://raw.githubusercontent.com/KhronosGroup/Vulkan-Docs/1.0/src/spec/vk.xml");
+	loadTextXhr("https://raw.githubusercontent.com/KhronosGroup/Vulkan-Docs/master/src/spec/vk.xml");
 }
 
 

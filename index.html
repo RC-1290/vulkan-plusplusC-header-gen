@@ -9,7 +9,7 @@
 <body>
 
 <h1>Vulkan Header Generator</h1>
-<p>This generator tries to turn <a href="https://github.com/KhronosGroup/Vulkan-Docs/blob/1.0/src/spec/vk.xml">vk.xml</a> into a ++C header file (for C++11 compilers) and implementation file. It works on my machine™ (I've been using the latest version of Firefox, other browsers might not display matching tab sizes). You can find more information, and the files of the generator on <a href="https://github.com/RC-1290/vulkan-plusplusC-header-gen/">GitHub</a>.</p>
+<p>This generator tries to turn <a href="https://github.com/KhronosGroup/Vulkan-Docs/blob/master/src/spec/vk.xml">vk.xml</a> into a ++C header file (for C++11 compilers) and implementation file. It works on my machine™ (I've been using the latest version of Firefox, other browsers might not display matching tab sizes). You can find more information, and the files of the generator on <a href="https://github.com/RC-1290/vulkan-plusplusC-header-gen/">GitHub</a>.</p>
 
 <div id="statusBar">
 	<p>Status: <span id="statusText">This status text will be replaced by javascript, if the script works.</span></p>
@@ -22,7 +22,7 @@
 		<button id="localVkXmlBtn" title="A version of vk.xml stored with the files of this site, just in case it can't be loaded from github. This version is probably outdated.">Load Local vk.xml</button>
 		<button id="loadRawGithubBtn" title="Load the raw vk.xml directly from GitHub. Let's hope no one replaced the github code with a bunch of weird stuff.">Load from GitHub</button>
 	</div>
-	<p>If you want to verify the contents first you can manually copy the <a href="https://raw.githubusercontent.com/KhronosGroup/Vulkan-Docs/1.0/src/spec/vk.xml">latest version from GitHub</a>. Alternatively if you trust that it's fine, you can have it automatically filled in for you with the "Load from GitHub" button above.</p>
+	<p>If you want to verify the contents first you can manually copy the <a href="https://raw.githubusercontent.com/KhronosGroup/Vulkan-Docs/master/src/spec/vk.xml">latest version from GitHub</a>. Alternatively if you trust that it's fine, you can have it automatically filled in for you with the "Load from GitHub" button above.</p>
 	<button id="parseTextButton" title="Show a list of all the features and extension available in the xml above.">List Features/Extensions</button>
 	<div id="setupPart2" class="hidden">
 		<p>Header version: <span id="headerVersion"></span></p>
