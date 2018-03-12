@@ -339,6 +339,7 @@ function parseRegistry(xml)
 		}
 	}
 
+	// Alias processing:
 	for( let interf of availableInterfaces.values())
 	{
 		switch (interf.category)
@@ -593,6 +594,26 @@ function parseTypes(xml)
 					
 					}
 				}
+
+				switch(namedThing.name)
+				{
+					case "VK_API_VERSION_1_0":
+					{
+						namedThing.category = "constant";
+						namedThing.type = u32;
+						namedThing.value = 0x400000; 
+					}
+					break;
+					case "VK_API_VERSION_1_1":
+					{
+						namedThing.category = "constant";
+						namedThing.type = u32;
+						namedThing.value = 0x401000; 
+					}
+					break;
+				}
+
+
 				availableInterfaces.set(namedThing.name, namedThing);
 			}
 			break;
@@ -1166,7 +1187,7 @@ function registerRequires(requires)
 		}
 		
 		for (let interf of require.interfaces)
-		{					
+		{
 			switch(interf.form)
 			{
 				case "extensionEnum":
