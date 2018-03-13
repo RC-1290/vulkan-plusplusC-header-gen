@@ -19,7 +19,6 @@ The header and generator have a couple of advantages over the default ones.
 3. Custom types for things like Window Handles. (if you also use custom Windows headers)
 4. Selective Extension inclusion. Perhaps you simply want a smaller header, or a custom header per platform.
 5. This generator doesn't require any installations (useful for derivative generator projects). No need to follow an installation guide for a specific version of Python. Your browser has XML parsing functionality built-in.
-6. If you just want a smaller vulkan header for some reason, you can exclude header code for extensions that you don't need.
 
 One of the reasons I originally wrote this generator was to support writing tiny programs that don't use the C Runtime Library, or windows.h. Since Vulkan 1.1 this specific aspect is now also supported when using the headers provided by LunarG, by letting you include the WSI Extensions without forcing you to include windows.h (yay!).
 
