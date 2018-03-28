@@ -1323,6 +1323,11 @@ function createHeader()
 		registerRequires(feature.requires);
 	}
 
+	if (!selectedFeatures)
+	{
+		console.warn("No features selected. Header might end up empty.");
+	}
+
 	statusText.textContent = "Applying extensions";
 	for (let extension of availableExtensions.values())
 	{
