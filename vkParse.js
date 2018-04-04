@@ -571,46 +571,109 @@ function parseTypes(xml)
 			
 			case "define":
 			{			
-				// Just parsing header version:
-				var typeChildNodes = typeNode.childNodes;
-				for (var j = 0; j < typeChildNodes.length; ++j)
+				// Find name of this define:
+				let usedTypes = [];
+				let typeChildNodes = typeNode.childNodes;
+				for (let j = 0; j < typeChildNodes.length; ++j)
 				{
 					let node = typeChildNodes.item(j);
 					if (node.tagName == "name")
 					{
 						namedThing.name = node.textContent;
-						if (node.textContent == "VK_HEADER_VERSION")
+						switch(namedThing.name)
 						{
-							let nextIndex = j + 1;
-							if (nextIndex >= typeChildNodes.length){	break;	}
-							
-							let nextNode = typeChildNodes.item(nextIndex);
-							if (headerVersion)
-							{
-								console.warn("more than one header version detected. That's odd.");
+							case "VK_HEADER_VERSION":
+							{					
+								let nextIndex = j + 1;
+								if (nextIndex >= typeChildNodes.length){	break;	}
+								let nextNode = typeChildNodes.item(nextIndex);
+								
+								namedThing.value = parseInt(nextNode.textContent);
+								namedThing.category = "constant";
+								namedThing.type = u32;
+								
+								if (headerVersion)
+								{ debug.warn("multiple header versions detected.");	}
+								headerVersion = namedThing.value;
 							}
-							headerVersion = parseInt(nextNode.textContent);
-						}
-					
+							break;
+							case "VK_API_VERSION_1_0":
+							case "VK_API_VERSION_1_1":
+							{
+								namedThing.category = "constant";
+								namedThing.type = u32;
+								namedThing.functionCalls = usedTypes;
+							}
+							break;
+							case "VK_MAKE_VERSION":
+							case "VK_VERSION_MAJOR":
+							case "VK_VERSION_MINOR":
+							case "VK_VERSION_PATCH":
+							{
+								namedThing.category = "constexpr";
+								namedThing.returnType = u32;
+								namedThing.parameters = [];
+								switch(namedThing.name)
+								{
+									case "VK_MAKE_VERSION":
+									{
+										let major = {};
+										major.type = u32;
+										major.name = "major"
+										let minor = {};
+										minor.type = u32;
+										minor.name = "minor";
+										let patch = {};
+										patch.type = u32;
+										patch.name = "patch";
+										namedThing.parameters.push(major);
+										namedThing.parameters.push(minor);
+										namedThing.parameters.push(patch);
+										namedThing.expressionBody = "return (((major) << 22) | ((minor) << 12) | (patch))";
+									}
+									break;
+									case "VK_VERSION_MAJOR":
+									{
+										let version = {};
+										version.type = u32;
+										version.name = "version";
+										namedThing.parameters.push(version);
+										namedThing.expressionBody = "return ((u32)(version) >> 22)";
+									}
+									break;
+									case "VK_VERSION_MINOR":
+									{
+										let version = {};
+										version.type = u32;
+										version.name = "version";
+										namedThing.parameters.push(version);
+										namedThing.expressionBody = "return (((u32)(version) >> 12) & 0x3ff)";
+									}
+									break;
+									case "VK_VERSION_PATCH":
+									{
+										let version = {};
+										version.type = u32;
+										version.name = "version";
+										namedThing.parameters.push(version);
+										namedThing.expressionBody = "return ((u32)(version) & 0xfff)";
+									}
+									break;
+								}
+							}
+						}					
 					}
-				}
-
-				switch(namedThing.name)
-				{
-					case "VK_API_VERSION_1_0":
+					if (node.tagName == "type")
 					{
-						namedThing.category = "constant";
-						namedThing.type = u32;
-						namedThing.value = 0x400000; 
+						let functionCall = {};
+						functionCall.type = node.textContent;
+						let postTypeText = typeChildNodes.item(j + 1).textContent;
+						let postTypeTexts = postTypeText.split('//');
+						functionCall.parameters = postTypeTexts[0];
+						functionCall.comment = postTypeTexts[1];
+						
+						usedTypes.push(functionCall);
 					}
-					break;
-					case "VK_API_VERSION_1_1":
-					{
-						namedThing.category = "constant";
-						namedThing.type = u32;
-						namedThing.value = 0x401000; 
-					}
-					break;
 				}
 
 
@@ -1480,6 +1543,14 @@ function createHeader()
 				interf.originalName = interf.name;
 				interf.name = stripVk(interf.name);
 				typeReplacements.set(interf.originalName, interf.name);
+
+				if (interf.functionCalls)
+				{
+					for (let i = 0; i < interf.functionCalls.length; ++i)
+					{
+						interf.functionCalls[i].type = typeReplacement(interf.functionCalls[i].type, typeReplacements);
+					}
+				}
 				
 				// enum alias renaming:
 				interf.value = typeReplacement(interf.value, typeReplacements);
@@ -1547,6 +1618,20 @@ function createHeader()
 				interf.aliasFor = typeReplacement(interf.aliasFor, typeReplacements);
 			}
 			break;
+			case "constexpr":
+			{
+				interf.originalName = interf.name;
+				interf.name = stripVk(interf.name);
+				typeReplacements.set(interf.originalName, interf.name);
+
+				for(let j = 0; j < interf.parameters.length; ++j)
+				{
+					let parameter = interf.parameters[j];
+					parameter.type = typeReplacement(parameter.type, typeReplacements);
+				}
+
+			}
+			break;
 		}
 	}
 	
@@ -1558,11 +1643,6 @@ function createHeader()
 	
 	// Write header:
 	statusText.textContent = "Writing Header...";
-
-	if (headerVersion)
-	{
-		addLineOfCode(interfacesDiv, padTabs(padTabs(indentation(1) + "const " + u32, 16) + "HEADER_VERSION" + " = ", 90) + headerVersion + ";");
-	}
 	
 	let lastCategory = "";
 	let lastProtect = "";
@@ -1635,7 +1715,15 @@ function createHeader()
 					interf.type = x8;
 					postName = "[]";
 				}
-				addLineOfCode(interfacesDiv, padTabs(padTabs(indentation(1) + "const " + interf.type, 16) + interf.name + postName + " = ", 90) + interf.value + ";");
+
+				let comment = "";
+				if (!interf.value && interf.functionCalls)
+				{
+					interf.value = interf.functionCalls[0].type + interf.functionCalls[0].parameters;
+					if (interf.functionCalls[0].comment) comment = "//" + interf.functionCalls[0].comment;
+				}
+
+				addLineOfCode(interfacesDiv, padTabs(padTabs(indentation(1) + "const " + interf.type, 16) + interf.name + postName + " = ", 90) + interf.value + ";" + comment);
 			}
 			break;
 			case "enum":
@@ -1764,6 +1852,22 @@ function createHeader()
 			{
 				addLineOfCode( interfacesDiv, padTabs(indentation(1) + "typedef " + interf.aliasFor, 68) + interf.name + ";" );
 			}
+			case "constexpr":
+			{
+				let parameters = "";
+				for(let j =0;j < interf.parameters.length; ++j)
+				{
+					if (j > 0){ parameters += ", "; }
+					parameters += interf.parameters[j].type + " " +interf.parameters[j].name;
+				}
+				
+				addLineOfCode(interfacesDiv, indentation(1) + "extern constexpr " +interf.returnType + " " + interf.name + "(" + parameters + ");");
+
+				addLineOfCode( cmdDefsDiv, indentation(1) + "constexpr " + interf.returnType + " " + interf.name + "( " + parameters + " )");
+				addLineOfCode( cmdDefsDiv, indentation(1) + "{");
+				addLineOfCode( cmdDefsDiv, indentation(2) + interf.expressionBody + ";")
+				addLineOfCode( cmdDefsDiv, indentation(1) + "}");
+			}
 			break;
 		}
 		
@@ -1810,6 +1914,7 @@ function registerSymbol(symbolName)
 		{
 			case "struct":
 			case "union":
+			{	
 				for (let i = 0; i < found.members.length; ++i)
 				{
 					// Let's hope there's no circular references in the XML, otherwise this won't complete.
@@ -1821,8 +1926,10 @@ function registerSymbol(symbolName)
 					}
 				}
 				pushIfNew(interfaces, found);
+			}
 			break;
 			case "command":
+			{
 				if (symbolName == "vkGetDeviceProcAddr" || symbolName == "vkGetInstanceProcAddr")
 				{
 					found.link = "static";
@@ -1842,27 +1949,42 @@ function registerSymbol(symbolName)
 					registerSymbol(found.parameters[i].type);
 				}
 				pushIfNew(interfaces, found);
+			}
 			break;
 			case "funcpointer":
+			{
 				// registerSymbol(found.type);
 				for (let i = 0; i < found.parameters.length; ++i)
 				{
 					registerSymbol(found.parameters[i].type);
 				}
 				pushIfNew(interfaces, found);
+			}
 			break;
 			case "bitmask":
 				pushIfNew(flags, found);
 			break;
+			case "constant":
+			{
+				if (found.functionCalls)
+				{
+					for (let i = 0;i < found.functionCalls.length; ++i)
+					{
+						registerSymbol(found.functionCalls[i].type);
+					}
+				}
+				pushIfNew(interfaces, found);
+			}
+			break;
 			case "enum":
 			case "handle":
-			case "constant":
+			case "constexpr":
 			case "basetype":
 			case "TYPE_ALIAS":
 				pushIfNew(interfaces, found);
 			break;
-			case "include":
 			case "define":
+			case "include":
 			case "EXTERNAL":
 				// ignored...
 			break;

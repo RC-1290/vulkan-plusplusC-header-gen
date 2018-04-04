@@ -85,10 +85,10 @@
 <button id="copyBtn">Copy Header Text</button>
 <a id="downloadBtn" download="vulkanppc.h" title="vulkanppc.h">Save header to file.</a>
 <pre><code id="vulkanHeader">// This header is generated from the Khronos Vulkan XML API Registry,
-// https://github.com/KhronosGroup/Vulkan-Docs/blob/1.0/src/spec/vk.xml
-// The custom header generator was written by Laurens Mathot (@RC_1290).
+// https://github.com/KhronosGroup/Vulkan-Docs/blob/master/src/spec/vk.xml
 // This generated code is also licensed under the Appache License, Version 2.0.
 // http://www.apache.org/licenses/LICENSE-2.0
+// The custom header generator was written by Laurens Mathot (@RC_1290).
 // The generator code can be found at https://github.com/RC-1290/vulkan-plusplusC-header-gen/
 	
 // Vulkan Header for C++ compilers.
@@ -100,11 +100,6 @@
 <div id="extraIncludes"></div>
 namespace <span class="namespaceVulkan">Vk</span>
 {	
-	extern constexpr <span class="typeReplace">uint32_t</span> MakeVersion( <span class="typeReplace">uint32_t</span> major, <span class="typeReplace">uint32_t</span> minor, <span class="typeReplace">uint32_t</span> patch );
-	extern constexpr <span class="typeReplace">uint32_t</span> VersionPatch( <span class="typeReplace">uint32_t</span> version );
-	extern constexpr <span class="typeReplace">uint32_t</span> VersionMinor( <span class="typeReplace">uint32_t</span> version );
-	extern constexpr <span class="typeReplace">uint32_t</span> VersionMajor( <span class="typeReplace">uint32_t</span> version );
-	
 	<div id="interfaces"></div>
 	
 	<div id="externPfns"></div>
@@ -126,22 +121,6 @@ namespace <span class="namespaceVulkan">Vk</span>
 
 namespace <span class="namespaceVulkan">Vk</span>
 {
-	constexpr <span class="typeReplace">uint32_t</span> MakeVersion( <span class="typeReplace">uint32_t</span> major, <span class="typeReplace">uint32_t</span> minor, <span class="typeReplace">uint32_t</span> patch )
-	{
-		return (((major) &lt;&lt; 22) | ((minor) &lt;&lt; 12) | (patch));
-	}
-	constexpr <span class="typeReplace">uint32_t</span> VersionMajor( <span class="typeReplace">uint32_t</span> version )
-	{
-		return ((<span class="typeReplace">uint32_t</span>)(version) &gt;&gt; 22);
-	}
-	constexpr <span class="typeReplace">uint32_t</span> VersionMinor( <span class="typeReplace">uint32_t</span> version )
-	{
-		return (((<span class="typeReplace">uint32_t</span>)(version) &gt;&gt; 12) & 0x3ff);
-	}
-	constexpr <span class="typeReplace">uint32_t</span> VersionPatch( <span class="typeReplace">uint32_t</span> version )
-	{
-		return ((<span class="typeReplace">uint32_t</span>)(version) & 0xfff);
-	}
 	<div id="cmdDefs"></div>}
 namespace <span class="namespaceNewCode">CodeAnimo</span>
 {
