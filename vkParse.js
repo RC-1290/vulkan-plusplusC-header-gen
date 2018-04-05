@@ -598,11 +598,19 @@ function parseTypes(xml)
 							}
 							break;
 							case "VK_API_VERSION_1_0":
+							{
+								namedThing.category = "constant";
+								namedThing.type = u32;
+								namedThing.functionCalls = usedTypes;
+								namedThing.value = 0x400000;// hardcoded to avoid creation of crt sections
+							}
+							break;
 							case "VK_API_VERSION_1_1":
 							{
 								namedThing.category = "constant";
 								namedThing.type = u32;
 								namedThing.functionCalls = usedTypes;
+								namedThing.value = 0x401000;// hardcoded to avoid creation of crt sections
 							}
 							break;
 							case "VK_MAKE_VERSION":
@@ -1717,10 +1725,10 @@ function createHeader()
 				}
 
 				let comment = "";
-				if (!interf.value && interf.functionCalls)
+				if ( interf.functionCalls)
 				{
-					interf.value = interf.functionCalls[0].type + interf.functionCalls[0].parameters;
-					if (interf.functionCalls[0].comment) comment = "//" + interf.functionCalls[0].comment;
+					comment = "// " +interf.functionCalls[0].type + interf.functionCalls[0].parameters;
+					if (interf.functionCalls[0].comment) comment += "//" + interf.functionCalls[0].comment;
 				}
 
 				addLineOfCode(interfacesDiv, padTabs(padTabs(indentation(1) + "const " + interf.type, 16) + interf.name + postName + " = ", 90) + interf.value + ";" + comment);
