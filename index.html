@@ -9,7 +9,7 @@
 <body>
 
 <h1>Vulkan Header Generator</h1>
-<p>This generator tries to turn <a href="https://github.com/KhronosGroup/Vulkan-Docs/blob/master/src/spec/vk.xml">vk.xml</a> into a ++C header file (for C++11 compilers) and implementation file. It works on my machine™ (I've been using the latest version of Firefox, other browsers might not display matching tab sizes). You can find more information, and the files of the generator on <a href="https://github.com/RC-1290/vulkan-plusplusC-header-gen/">GitHub</a>.</p>
+<p>This generator tries to turn <a href="https://github.com/KhronosGroup/Vulkan-Docs/blob/master/xml/vk.xml">vk.xml</a> into a ++C header file (for C++11 compilers) and implementation file. It works on my machine™ (I've been using the latest version of Firefox, other browsers might not display matching tab sizes). You can find more information, and the files of the generator on <a href="https://github.com/RC-1290/vulkan-plusplusC-header-gen/">GitHub</a>.</p>
 
 <div id="statusBar">
 	<p>Status: <span id="statusText">This status text will be replaced by javascript, if the script works.</span></p>
@@ -22,7 +22,7 @@
 		<button id="localVkXmlBtn" title="A version of vk.xml stored with the files of this site, just in case it can't be loaded from github. This version is probably outdated.">Load Local vk.xml</button>
 		<button id="loadRawGithubBtn" title="Load the raw vk.xml directly from GitHub. Let's hope no one replaced the github code with a bunch of weird stuff.">Load from GitHub</button>
 	</div>
-	<p>If you want to verify the contents first you can manually copy the <a href="https://raw.githubusercontent.com/KhronosGroup/Vulkan-Docs/master/src/spec/vk.xml">latest version from GitHub</a>. Alternatively if you trust that it's fine, you can have it automatically filled in for you with the "Load from GitHub" button above.</p>
+	<p>If you want to verify the contents first you can manually copy the <a href="https://raw.githubusercontent.com/KhronosGroup/Vulkan-Docs/master/xml/vk.xml">latest version from GitHub</a>. Alternatively if you trust that it's fine, you can have it automatically filled in for you with the "Load from GitHub" button above.</p>
 	<button id="parseTextButton" title="Show a list of all the features and extension available in the xml above.">List Features/Extensions</button>
 	<div id="setupPart2" class="hidden">
 		<p>Header version: <span id="headerVersion"></span></p>
@@ -50,10 +50,6 @@
 					<option value="static" selected>Linked PFN Alias</option>
 				</select>
 			</li>
-			<li title="The text you fill in here will be added in an #include at the top of the file. You'll probably need to include a header for the WSI surface, and any custom type definitions you might want to use.">
-				<label for="customInclude">Custom header to include:</label>
-				<input id="customInclude" type="text" placeholder="../WinAPI.h">
-			</li>
 			<li title="The namespace that all official Vulkan API interfaces end up in.">
 				<label for="vulkanNamespace">Vulkan API namespace:</label>
 				<input id="vulkanNamespace" type="text" placeholder="Vk">
@@ -61,10 +57,6 @@
 			<li title="To make this a single file include, some code has to be hidden away behind a pre processor #define. This setting changes the name of that #define.">
 				<label for="implementationDefine">ProcAddrLookup #define:</label>
 				<input id="implementationDefine" type="text" placeholder="IMPLEMENT_VK_COMMAND_LOOKUP">
-			</li>
-			<li title="Some extensions have a 'protect' attribute that signals they should only be compiled if that attribute's value is defined. This is useful if you want one header for all platforms. You can disable this if you only include extensions that your platform supports">
-				<label for="useProtect">Use Protect #define:</label>
-				<input id="useProtect" type="checkbox" checked>
 			</li>
 		</ul>
 		<h2>Type Renaming (optional)</h2>
@@ -80,40 +72,37 @@
 
 <div id="hiddenUntilCreation" class="hidden">
 
-<h2>Vulkan Header</h2>
-<button id="headerSelectBtn">Select Header Text</button>
-<button id="copyBtn">Copy Header Text</button>
-<a id="downloadBtn" download="vulkanppc.h" title="vulkanppc.h">Save header to file.</a>
+<h2>Vulkan Headers</h2>
+<div id="fileButtons"></div>
+<pre id="platformStuff"></pre>
 <pre><code id="vulkanHeader">// This header is generated from the Khronos Vulkan XML API Registry,
-// https://github.com/KhronosGroup/Vulkan-Docs/blob/master/src/spec/vk.xml
+// https://github.com/KhronosGroup/Vulkan-Docs/blob/master/xml/vk.xml
 // This generated code is also licensed under the Appache License, Version 2.0.
 // http://www.apache.org/licenses/LICENSE-2.0
 // The custom header generator was written by Laurens Mathot (@RC_1290).
 // The generator code can be found at https://github.com/RC-1290/vulkan-plusplusC-header-gen/
-	
+
 // Vulkan Header for C++ compilers.
-// A single translation unit (e.g.: a .cpp file) that includes this header, must have <span class="ProccAddrLookupImplDefine">IMPLEMENT_VK_COMMAND_LOOKUP</span> defined.
+<div class="usageGuide">// A single translation unit (e.g.: a .cpp file) that includes this header, must have <span class="ProccAddrLookupImplDefine">IMPLEMENT_VK_COMMAND_LOOKUP</span> defined.
 // You can then call LoadIndependentCommands and LoadInstanceCommands, to load the ProcAddresses.
-	
+</div>
 #pragma once
 
-<div id="extraIncludes"></div>
 namespace <span class="namespaceVulkan">Vk</span>
-{	
-	<div id="interfaces"></div>
+{	<div class="interfaces"></div>
 	
-	<div id="externPfns"></div>
+	<div class="externPfns"></div>
 	// Linked functions:
 	namespace
 	{
 	extern "C"
-	{<div id="linkedFunctions"></div>	}
+	{<div class="linkedFunctions"></div>	}
 	}
 }
 
 // function aliases
 namespace <span class="namespaceVulkan">Vk</span>
-{<div id="functionAliases"></div>}
+{<div class="functionAliases"></div>}
 
 
 // Proc address retrieval implementation:
@@ -121,15 +110,15 @@ namespace <span class="namespaceVulkan">Vk</span>
 
 namespace <span class="namespaceVulkan">Vk</span>
 {
-	<div id="cmdDefs"></div>}
+	<div class="cmdDefs"></div>}
 namespace <span class="namespaceNewCode">CodeAnimo</span>
 {
 	namespace <span class="namespaceNewCode2">Vulkan</span>
-	{
-		void LoadIndependentCommands()
-		{<div id="independentCmdLoading"></div>		}
-		void LoadInstanceCommands( <span class="namespaceVulkan">Vk</span>::Instance instance)
-		{<div id="instanceCmdLoading"></div>		}
+	{<div class="protectedLookups"></div>
+		void <span class ="loadIndependentCommandsFunctionName">LoadIndependentCommands</span>()
+		{<div class="independentCmdLoading"></div>		}
+		void <span class ="loadInstanceCommandsFunctionName">LoadInstanceCommands</span>( <span class="namespaceVulkan">Vk</span>::Instance instance )
+		{<div class="instanceCmdLoading"></div>		}
 	}
 }
 #endif

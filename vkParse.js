@@ -65,24 +65,17 @@ var featureList =				document.getElementById("featureSelection");
 var extensionList = 			document.getElementById("extensionSelection");
 var headerVersionSpan =			document.getElementById("headerVersion"); 
 
-var vulkanHeaderDiv =			document.getElementById("vulkanHeader");
-
 //
 var parseTextButton =			document.getElementById("parseTextButton");
 var localVkXmlBtn =				document.getElementById("localVkXmlBtn");
-var headerSelectBtn =			document.getElementById("headerSelectBtn");
-var headerCpyBtn =				document.getElementById("copyBtn");
 var clearXmlTextBtn =			document.getElementById("clearXmlTextBtn");
 var loadRawGithubBtn =			document.getElementById("loadRawGithubBtn");
 
 var vkxmlTextInput = 			document.getElementById("vkxmlText");
-var extraIncludesDiv =			document.getElementById("extraIncludes");
-var customIncludeInput =		document.getElementById("customInclude");
 var vulkanNamespaceInput =		document.getElementById("vulkanNamespace");
 var implementationDefineInput =	document.getElementById("implementationDefine");
 var callingConventionSelect =	document.getElementById("callingConvention");
 var funcRenamingSelect =		document.getElementById("funcRenaming");
-var useProtectInput =			document.getElementById("useProtect");
 
 var typeReplacementList =		document.getElementById("typeReplacement");
 
@@ -91,17 +84,15 @@ var createHeaderButton =		document.getElementById("createHeaderButton");
 var setupStuff = 				document.getElementById("setupStuff");
 var setupPart2 =				document.getElementById("setupPart2");
 
-setInitialHistory();
+//setInitialHistory();
 window.addEventListener("popstate", onHistoryPop);
 
 let ranBefore = localStorage.getItem("ranBefore");
 
-restoreInput("customInclude", customIncludeInput);
 restoreInput("vulkanNamespace", vulkanNamespaceInput);
 restoreInput("implementationDefine", implementationDefineInput);
 restoreSelect("callingConventionSelect", callingConventionSelect);
 restoreSelect("funcRenamingSelect", funcRenamingSelect);
-restoreCheckbox("useProtect", useProtectInput);
 
 var availableFeatures;
 var availableExtensions
@@ -120,12 +111,6 @@ parseTextButton.addEventListener("click", parseText);
 localVkXmlBtn.addEventListener("click", loadLocal);
 loadRawGithubBtn.addEventListener("click", loadFromGithub);
 
-var headerSelectBtn = document.getElementById("headerSelectBtn");
-var headerCpyBtn = document.getElementById("copyBtn");
-var downloadBtn = document.getElementById("downloadBtn");
-headerSelectBtn.addEventListener( "click", selectHeader);
-headerCpyBtn.addEventListener("click", copyHeader);
-
 if (!vkxmlTextInput.value)
 {
 	loadLocal();
@@ -134,7 +119,7 @@ else
 {
 	statusText.textContent = "XML textfield populated with cached contents.";
 }
-
+/*
 function setInitialHistory()
 {
 	let historyState = {};
@@ -142,7 +127,7 @@ function setInitialHistory()
 	historyState.headerCreated = false;
 	historyState.header = vulkanHeaderDiv.innerHTML;
 	window.history.replaceState(historyState,"Start");
-}
+}*/
 
 function onHistoryPop(event)
 {
@@ -223,7 +208,7 @@ function loadLocal()
 function loadFromGithub()
 {
 	xmlSource = "GitHub";
-	loadTextXhr("https://raw.githubusercontent.com/KhronosGroup/Vulkan-Docs/master/src/spec/vk.xml");
+	loadTextXhr("https://raw.githubusercontent.com/KhronosGroup/Vulkan-Docs/master/xml/vk.xml");
 }
 
 
@@ -1336,22 +1321,26 @@ function createHeader()
 	flags = [];
 	interfaces = [];
 	
-	var interfacesDiv =				document.getElementById("interfaces");
-	var externPfnDiv =				document.getElementById("externPfns");
-	var cmdDefsDiv =				document.getElementById("cmdDefs");
-	var independentCmdLoadingDiv =	document.getElementById("independentCmdLoading");
-	var instanceCmdLoadingDiv =		document.getElementById("instanceCmdLoading");
-	var linkedFunctionsDiv =		document.getElementById("linkedFunctions");
-	var functionAliasesDiv =		document.getElementById("functionAliases");
-		
+	let files = new Map();
+	let coreFile = {};
+	files.set("default", coreFile);
+
+	coreFile.name = "core";
+	coreFile.outputNode = document.getElementById("vulkanHeader");
+
+	coreFile.interfacesDiv = 			coreFile.outputNode.getElementsByClassName("interfaces").item(0);
+	coreFile.externPfnDiv =				coreFile.outputNode.getElementsByClassName("externPfns").item(0);
+	coreFile.linkedFunctionsDiv =		coreFile.outputNode.getElementsByClassName("linkedFunctions").item(0);
+	coreFile.functionAliasesDiv =		coreFile.outputNode.getElementsByClassName("functionAliases").item(0);
+	coreFile.cmdDefsDiv =				coreFile.outputNode.getElementsByClassName("cmdDefs").item(0);
+	coreFile.independentCmdLoadingDiv =	coreFile.outputNode.getElementsByClassName("independentCmdLoading").item(0);
+	coreFile.instanceCmdLoadingDiv =	coreFile.outputNode.getElementsByClassName("instanceCmdLoading").item(0);
+	coreFile.protectedIncludesDiv = 	coreFile.outputNode.getElementsByClassName("protectedLookups").item(0);
+
 	window.scroll(0,150);
 	setupStuff.setAttribute("class", "hidden");
 	document.getElementById("hiddenUntilCreation").removeAttribute("class");
 	
-	if (customIncludeInput.value)
-	{
-		addLineOfCode(extraIncludesDiv, "#include \"" + customIncludeInput.value + "\"");
-	}
 	if (vulkanNamespaceInput.value)
 	{
 		vulkanNamespace = vulkanNamespaceInput.value;
@@ -1424,36 +1413,74 @@ function createHeader()
 		}
 
 		registerRequires(extension.requires);
-		
-		// Add protect information for registered interfaces:
-		if (useProtectInput.checked)
+
+		// Create an extra output file for the protect / platform specific code:
+		let platformStuffDiv = document.getElementById("platformStuff");
+		if (extension.platform || extension.protect)
 		{
+			let file = {};
+			file.name = extension.platform ? extension.platform : extension.protect;
+			
+			let deep = true;
+			file.outputNode = coreFile.outputNode.cloneNode(deep);
+			
+			platformStuffDiv.appendChild(file.outputNode);
+			files.set(file.name, file);
+
+			file.interfacesDiv = 			file.outputNode.getElementsByClassName("interfaces").item(0);
+			file.externPfnDiv =				file.outputNode.getElementsByClassName("externPfns").item(0);
+			file.linkedFunctionsDiv =		file.outputNode.getElementsByClassName("linkedFunctions").item(0);
+			file.functionAliasesDiv =		file.outputNode.getElementsByClassName("functionAliases").item(0);
+			file.cmdDefsDiv =				file.outputNode.getElementsByClassName("cmdDefs").item(0);
+			file.independentCmdLoadingDiv =	file.outputNode.getElementsByClassName("independentCmdLoading").item(0);
+			file.instanceCmdLoadingDiv =	file.outputNode.getElementsByClassName("instanceCmdLoading").item(0);
+
+			let renameThese = file.outputNode.getElementsByClassName("loadIndependentCommandsFunctionName");
+			for(let nodeIndex = 0; nodeIndex < renameThese.length; ++nodeIndex)
+			{
+				let renameThis = renameThese.item(nodeIndex);
+				renameThis.innerText = file.name + renameThis.innerText;
+				addLineOfCode(coreFile.protectedIncludesDiv, indentation(2) + "void "+ renameThis.innerText + "();");
+				addLineOfCode(coreFile.independentCmdLoadingDiv, indentation(3) + renameThis.innerText + "();");
+			}
+			renameThese = file.outputNode.getElementsByClassName("loadInstanceCommandsFunctionName");
+			for(let nodeIndex = 0; nodeIndex < renameThese.length; ++nodeIndex)
+			{
+				let renameThis = renameThese.item(nodeIndex);
+				renameThis.innerText = file.name + renameThis.innerText;
+				addLineOfCode(coreFile.protectedIncludesDiv, indentation(2) + "void " + renameThis.innerText + "(" + vulkanNamespace + "::Instance instance);");
+				addLineOfCode(coreFile.instanceCmdLoadingDiv, indentation(3) + renameThis.innerText + "(instance);");
+			}
+
+			if (extension.platform && extension.protect)
+			{
+				console.error("When this generator was written, nothing used both protect and platform tags... so that's not supported. But used on"+ extension);
+			}
+			
 			if (extension.platform)
 			{
-				if (extension.protect)
-				{
-					console.error("When this generator was written, nothing used both protect and platform tags... so that's not supported. But used on"+ extension);
-				}
+				/*
 				let platform = availablePlatforms.get(extension.platform);
 				if (!platform)
 				{
 					console.error("The referenced platform could not be found: "+ extension.platform);
 					continue;
 				}
-				extension.protect = platform.protectDefine;
+				extension.protect = platform.protectDefine;*/
+				extension.protect = extension.platform;
 			}
+		}
 
-			for (let require of extension.requires)
-			{	
-				for (let interf of require.interfaces)
+		for (let require of extension.requires)
+		{	
+			for (let interf of require.interfaces)
+			{
+				if (extension.protect )
 				{
-					if (extension.protect )
+					let target = availableInterfaces.get(interf.name);
+					if (target)
 					{
-						let target = availableInterfaces.get(interf.name);
-						if (target)
-						{
-							target.protect = extension.protect;
-						}
+						target.protect = extension.protect;
 					}
 				}
 			}
@@ -1466,13 +1493,11 @@ function createHeader()
 	localStorage.setItem("selectedFeatures", selectedFeatures);
 	localStorage.setItem("selectedExtensions", selectedExtensions);
 	
-	localStorage.setItem("customInclude", customIncludeInput.value);
 	localStorage.setItem("vulkanNamespace", vulkanNamespaceInput.value);
 	localStorage.setItem("implementationDefine", implementationDefineInput.value);
 	
 	localStorage.setItem("callingConventionSelect", callingConventionSelect.selectedIndex);
 	localStorage.setItem("funcRenamingSelect", funcRenamingSelect.selectedIndex);
-	localStorage.setItem("useProtect", useProtectInput.checked);
 	
 	var typeReplacements = new Map();
 	
@@ -1652,69 +1677,73 @@ function createHeader()
 	// Write header:
 	statusText.textContent = "Writing Header...";
 	
+	let selectedFile;
+
 	let lastCategory = "";
-	let lastProtect = "";
 	for (let i = 0; i < interfaces.length; ++i)
 	{
 		let interf = interfaces[i];
-		
-		let nextIndex = i + 1;
-		if (interf.protect && interf.protect != lastProtect)
+
+		if(interf.protect)
 		{
-			addLineOfCode(interfacesDiv, indentation(1));
-			addLineOfCode(interfacesDiv, "#ifdef " + interf.protect);
+			selectedFile = files.get(interf.protect);
+		}
+		else
+		{
+			selectedFile = coreFile;
 		}
 		
+		let nextIndex = i + 1;
 		switch(interf.category)
 		{			
 			case "struct":
 			case "union":
 			{
-				addLineOfCode(interfacesDiv, indentation(1));
-				addLineOfCode(interfacesDiv, indentation(1) + interf.category + " " + interf.name + " {");
+				addLineOfCode( selectedFile.interfacesDiv, indentation(1));
+				addLineOfCode( selectedFile.interfacesDiv, indentation(1) + interf.category + " " + interf.name + " {");
 				for (let j = 0; j < interf.members.length; ++j)
 				{
 					let member = interf.members[j];
-					addLineOfCode(interfacesDiv, padTabs(indentation(2) + member.preType + member.type + member.postType, 89) + member.name + member.preEnum + member.cEnum + member.postEnum + ";");
+					addLineOfCode( selectedFile.interfacesDiv, padTabs(indentation(2) + member.preType + member.type + member.postType, 89) + member.name + member.preEnum + member.cEnum + member.postEnum + ";");
 				}
-				addLineOfCode(interfacesDiv, indentation(1) + "};");
+				addLineOfCode( selectedFile.interfacesDiv, indentation(1) + "};");
 			}
 			break;
 			case "funcpointer":
 			{
-				addLineOfCode(interfacesDiv, indentation(1));
+				addLineOfCode(selectedFile.interfacesDiv, indentation(1));
 				
 				if (lastCategory != interf.category)
 				{
-					addLineOfCode(interfacesDiv, indentation(1));
-					addLineOfCode(interfacesDiv, indentation(1) + "namespace PFN {");
+					addLineOfCode( selectedFile.interfacesDiv, indentation(1));
+					addLineOfCode( selectedFile.interfacesDiv, indentation(1) + "namespace PFN {");
 				}
 				
-				addLineOfCode(interfacesDiv, indentation(2) + interf.preName + interf.name + interf.postName.trim());
+				addLineOfCode( selectedFile.interfacesDiv, indentation(2) + interf.preName + interf.name + interf.postName.trim());
 				
 				for(let j= 0; j < interf.parameters.length; ++j)
 				{
 					let parameter = interf.parameters[j];
-					addLineOfCode(interfacesDiv, padTabs(indentation(3) + parameter.preType + parameter.type + parameter.postType, 86) + parameter.name);
+					addLineOfCode( selectedFile.interfacesDiv, padTabs(indentation(3) + parameter.preType + parameter.type + parameter.postType, 86) + parameter.name);
 				}
 				
 				if (nextIndex >= interfaces.length || interfaces[nextIndex].category != interf.category)
 				{
-					addLineOfCode(interfacesDiv, indentation(1) + "}");
+					addLineOfCode( selectedFile.interfacesDiv, indentation(1) + "}");
 				}
 			}
 			break;
 			case "basetype":
 			{
-				addLineOfCode(interfacesDiv, indentation(1));
-				addLineOfCode(interfacesDiv, padTabs(indentation(1) + "typedef " + interf.type, 92) + interf.name + ";");
+				addLineOfCode( selectedFile.interfacesDiv, indentation(1));
+				addLineOfCode( selectedFile.interfacesDiv, padTabs(indentation(1) + "typedef " + interf.type, 92) + interf.name + ";");
 			}
 			break;
 			case "constant":
 			{
 				if (lastCategory != interf.category && lastCategory != "")
 				{
-					addLineOfCode(interfacesDiv, indentation(1));
+					addLineOfCode( selectedFile.interfacesDiv, indentation(1));
 				}
 				
 				let postName = "";
@@ -1731,18 +1760,18 @@ function createHeader()
 					if (interf.functionCalls[0].comment) comment += "//" + interf.functionCalls[0].comment;
 				}
 
-				addLineOfCode(interfacesDiv, padTabs(padTabs(indentation(1) + "const " + interf.type, 16) + interf.name + postName + " = ", 90) + interf.value + ";" + comment);
+				addLineOfCode(selectedFile.interfacesDiv, padTabs(padTabs(indentation(1) + "const " + interf.type, 16) + interf.name + postName + " = ", 90) + interf.value + ";" + comment);
 			}
 			break;
 			case "enum":
 			{
 				let enumDiv = document.createElement("div");
 				enumDiv.setAttribute("id", interf.name);
-				interfacesDiv.appendChild(enumDiv);
+				selectedFile.interfacesDiv.appendChild(enumDiv);
 				
 				addLineOfCode( enumDiv, indentation(1));
-				addLineOfCode(enumDiv, indentation(1) + "enum class " + interf.name);
-				addLineOfCode(enumDiv, indentation(1) + "{");
+				addLineOfCode( enumDiv, indentation(1) + "enum class " + interf.name);
+				addLineOfCode( enumDiv, indentation(1) + "{");
 				
 				for( let j = 0; j < interf.constants.length; ++j)
 				{
@@ -1766,18 +1795,18 @@ function createHeader()
 			{
 				if (lastCategory != interf.category && lastCategory != "")
 				{
-					addLineOfCode(interfacesDiv, indentation(1));
+					addLineOfCode( selectedFile.interfacesDiv, indentation(1));
 				}
 				let handleName = interf.name;
-				addLineOfCode(interfacesDiv, padTabs(indentation(1) + "typedef struct " + handleName + "_Handle*", 92) + handleName + ";");
+				addLineOfCode( selectedFile.interfacesDiv, padTabs(indentation(1) + "typedef struct " + handleName + "_Handle*", 92) + handleName + ";");
 			}
 			break;
 			case "command":
 			{
 				if (lastCategory != interf.category)
 				{
-					addLineOfCode(interfacesDiv, indentation(1));
-					addLineOfCode(interfacesDiv, indentation(1) + "namespace PFN {");
+					addLineOfCode( selectedFile.interfacesDiv, indentation(1));
+					addLineOfCode( selectedFile.interfacesDiv, indentation(1) + "namespace PFN {");
 				}
 				let parametersText = "";
 				for(let j=0;j < interf.parameters.length; ++j)
@@ -1787,78 +1816,45 @@ function createHeader()
 					parametersText += "\n" + padTabs(indentation(3) + parameter.preType + parameter.type + parameter.postType, 86) + parameter.name;
 				}
 				
-				addLineOfCode( interfacesDiv, padTabs(indentation(2) + "typedef " + interf.returnType, 24) + "(" + VKAPI_PTR + " *" + interf.name + ")(" + parametersText + ");" );
-				addLineOfCode( interfacesDiv, indentation(2));
+				addLineOfCode( selectedFile.interfacesDiv, padTabs(indentation(2) + "typedef " + interf.returnType, 24) + "(" + VKAPI_PTR + " *" + interf.name + ")(" + parametersText + ");" );
+				addLineOfCode( selectedFile.interfacesDiv, indentation(2));
 				
 				if (nextIndex >= interfaces.length || interfaces[nextIndex].category != interf.category)
 				{
-					addLineOfCode(interfacesDiv, indentation(1) + "}");
+					addLineOfCode( selectedFile.interfacesDiv, indentation(1) + "}");
 				}
 				
 				if (interf.link == "lookup")
 				{
-					if (interf.protect)
-					{
-						addLineOfCode(externPfnDiv, "#ifdef " + interf.protect);
-						addLineOfCode(cmdDefsDiv, "#ifdef " + interf.protect);
-					}
-					
-					addLineOfCode(externPfnDiv, padTabs(indentation(1) + "extern PFN::" + interf.name, 68) + interf.name + ";");
-					addLineOfCode(cmdDefsDiv,	padTabs(indentation(1) + "PFN::" + interf.name, 68) + interf.name + ";");
-					
-					if (interf.protect)
-					{
-						addLineOfCode(externPfnDiv, "#endif");
-						addLineOfCode(cmdDefsDiv, "#endif");
-					}
-					
+					addLineOfCode( selectedFile.externPfnDiv, padTabs(indentation(1) + "extern PFN::" + interf.name, 68) + interf.name + ";");
+					addLineOfCode( selectedFile.cmdDefsDiv,	padTabs(indentation(1) + "PFN::" + interf.name, 68) + interf.name + ";");
 					
 					if (interf.originalName == "vkEnumerateInstanceLayerProperties" || interf.originalName == "vkEnumerateInstanceExtensionProperties" || interf.originalName == "vkCreateInstance")
 					{
-						addLineOfCode(independentCmdLoadingDiv, indentation(3) + vulkanNamespace + '::' + interf.name + ' = (' + vulkanNamespace + '::PFN::' + interf.name + ') Vk::GetInstanceProcAddr( nullptr, "' + interf.originalName + '" );');
+						addLineOfCode( selectedFile.independentCmdLoadingDiv, indentation(3) + vulkanNamespace + '::' + interf.name + ' = (' + vulkanNamespace + '::PFN::' + interf.name + ') Vk::GetInstanceProcAddr( nullptr, "' + interf.originalName + '" );');
 						// addLineOfCode(independentCmdLoadingDiv, indentation(3) + 'if(!' + vulkanNamespace + '::' + command.name + ') { return false; }');
 					}
 					else 
 					{
-						if (interf.protect)
-						{
-							addLineOfCode(instanceCmdLoadingDiv, "#ifdef " + interf.protect);
-						}
-						addLineOfCode(instanceCmdLoadingDiv, indentation(3) + vulkanNamespace + '::' + interf.name + ' = (' + vulkanNamespace + '::PFN::' + interf.name + ') Vk::GetInstanceProcAddr( instance, "' + interf.originalName + '" );');
+
+						addLineOfCode(selectedFile.instanceCmdLoadingDiv, indentation(3) + vulkanNamespace + '::' + interf.name + ' = (' + vulkanNamespace + '::PFN::' + interf.name + ') Vk::GetInstanceProcAddr( instance, "' + interf.originalName + '" );');
 						// addLineOfCode(instanceCmdLoadingDiv, indentation(3) + 'if(!' + vulkanNamespace + '::' + command.name + ') { return false; }');
 						
-						if (interf.protect)
-						{
-							addLineOfCode(instanceCmdLoadingDiv, "#endif");
-						}
 					}
 				}
 				else if (interf.link == "static")
 				{
-					if (interf.protect)
-					{
-						addLineOfCode(linkedFunctionsDiv, "#ifdef " + interf.protect);
-						addLineOfCode(functionAliasesDiv, "#ifdef " + interf.protect);
-					}
 					
+					addLineOfCode( selectedFile.linkedFunctionsDiv, indentation(2) + interf.returnType + " " + VKAPI_PTR + " " + interf.originalName + "(" + parametersText + ");" );
+					addLineOfCode( selectedFile.linkedFunctionsDiv, indentation(2));
 					
-					addLineOfCode( linkedFunctionsDiv, indentation(2) + interf.returnType + " " + VKAPI_PTR + " " + interf.originalName + "(" + parametersText + ");" );
-					addLineOfCode( linkedFunctionsDiv, indentation(2));
-					
-					addLineOfCode(functionAliasesDiv, padTabs(indentation(1) + "const PFN::" + interf.name, 68) + interf.name + " = " + interf.originalName + ";");
-					
-					
-					if (interf.protect)
-					{
-						addLineOfCode(linkedFunctionsDiv, "#endif");
-						addLineOfCode(functionAliasesDiv, "#endif");
-					}
+					addLineOfCode( selectedFile.functionAliasesDiv, padTabs(indentation(1) + "const PFN::" + interf.name, 68) + interf.name + " = " + interf.originalName + ";");
 				}
 			}
 			break;
 			case "TYPE_ALIAS":
 			{
-				addLineOfCode( interfacesDiv, padTabs(indentation(1) + "typedef " + interf.aliasFor, 68) + interf.name + ";" );
+				addLineOfCode( selectedFile.interfacesDiv, padTabs(indentation(1) + "typedef " + interf.aliasFor, 68) + interf.name + ";" );
 			}
 			case "constexpr":
 			{
@@ -1869,36 +1865,62 @@ function createHeader()
 					parameters += interf.parameters[j].type + " " +interf.parameters[j].name;
 				}
 				
-				addLineOfCode(interfacesDiv, indentation(1) + "extern constexpr " +interf.returnType + " " + interf.name + "(" + parameters + ");");
+				addLineOfCode( selectedFile.interfacesDiv, indentation(1) + "extern constexpr " +interf.returnType + " " + interf.name + "(" + parameters + ");");
 
-				addLineOfCode( cmdDefsDiv, indentation(1) + "constexpr " + interf.returnType + " " + interf.name + "( " + parameters + " )");
-				addLineOfCode( cmdDefsDiv, indentation(1) + "{");
-				addLineOfCode( cmdDefsDiv, indentation(2) + interf.expressionBody + ";")
-				addLineOfCode( cmdDefsDiv, indentation(1) + "}");
+				addLineOfCode( selectedFile.cmdDefsDiv, indentation(1) + "constexpr " + interf.returnType + " " + interf.name + "( " + parameters + " )");
+				addLineOfCode( selectedFile.cmdDefsDiv, indentation(1) + "{");
+				addLineOfCode( selectedFile.cmdDefsDiv, indentation(2) + interf.expressionBody + ";")
+				addLineOfCode( selectedFile.cmdDefsDiv, indentation(1) + "}");
 			}
 			break;
 		}
 		
-		if (interf.protect)
-		{
-			if (nextIndex >= interfaces.length || interfaces[nextIndex].protect != interf.protect)
-			{
-				addLineOfCode(interfacesDiv, "#endif");
-			}
-		}
-		
 		lastCategory = interf.category;
-		lastProtect = interf.protect;
 	}
 	
-	setupDownload(vulkanHeaderDiv.innerText);
+
+	statusText.textContent = "Setting up download buttons.";
 	
+	let fileUl = document.createElement("ul");
+	let fileButtons = document.getElementById("fileButtons");
+	fileButtons.appendChild(fileUl);
+	
+	for (let file of files.values())
+	{
+		let fileLi = document.createElement("li");
+		fileUl.appendChild(fileLi);
+
+		let headerDownloadButton = document.createElement("a");
+		let headerSelectButton = document.createElement("button");
+		let headerCopyButton = document.createElement("button");
+
+		fileLi.appendChild(headerDownloadButton);
+		fileLi.appendChild(headerSelectButton);
+		fileLi.appendChild(headerCopyButton);
+
+		let fileName = "vulkan_ppc_" + file.name + ".h";
+
+		headerDownloadButton.download = fileName;
+		headerDownloadButton.title = fileName;
+		headerDownloadButton.textContent = fileName;
+		headerDownloadButton.setAttribute("href", "data:text/plain;charset=utf-8," + encodeURIComponent(file.outputNode.innerText));
+
+		headerSelectButton.textContent = "Select Header Text";
+		headerCopyButton.textContent = "Copy Header Text";
+
+		headerSelectButton.targetNode = file.outputNode;
+		headerCopyButton.targetNode = file.outputNode;
+
+		headerSelectButton.addEventListener( "click", selectHeader);
+		headerCopyButton.addEventListener("click", copyHeader);
+	}
+
 	statusText.textContent = "Header completed writing.";
 	
 	let historyState = {};
 	historyState.status = statusText.textContent;
 	historyState.headerCreated = true;
-	historyState.header = vulkanHeaderDiv.innerText;
+	historyState.header = coreFile.outputNode.innerText;
 	window.history.pushState(historyState, "Header displayed");
 }
 
@@ -2005,17 +2027,11 @@ function registerSymbol(symbolName)
 	else {	console.error("symbol not found: " + symbolName); }
 }
 
-function setupDownload(text)
-{
-	statusText.textContent = "Setting up download button.";
-	downloadBtn.setAttribute("href", "data:text/plain;charset=utf-8," + encodeURIComponent(text));
-}
-
 function selectHeader()
 {
 	var sel = window.getSelection();
 	var range = document.createRange();
-	range.selectNodeContents(vulkanHeaderDiv);
+	range.selectNodeContents(this.targetNode);
 	sel.removeAllRanges();
 	sel.addRange(range);
 }
@@ -2036,7 +2052,7 @@ function copyHeader()
 	selection.removeAllRanges();
 	
 	let range = document.createRange();
-	range.selectNodeContents(vulkanHeaderDiv);
+	range.selectNodeContents(this.targetNode);
 	selection.addRange(range);
 	try
 	{
