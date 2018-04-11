@@ -35,14 +35,6 @@
 		<h2>Settings</h2>
 		<p>In case you want to customize the header creation, here are some things you can change.</p>
 		<ul id="settings" class="autoColumn">
-			<li title="Platform-specific calling conventions. Used to set VKAPI_ATTR, VKAPI_CALL and VKAPI_PTR.">
-				<label for="callingConvention">Calling Convention:</label>
-				<select id="callingConvention">
-					<option value="default">default</option>
-					<option value="hardfloat">hardfloat (Android)</option>
-					<option value="stdcall" selected>stdcall (Windows)</option>
-				</select>
-			</li>
 			<li title="This sets the approach that will be taken to apply namespace and name changes. Using function aliases for statically linked functions might reduce the size of your executable, but only works for function symbols exported by your loader.">
 				<label for="funcRenaming">Function Renaming</label>
 				<select id="funcRenaming">
@@ -87,10 +79,25 @@
 // You can then call LoadIndependentCommands and LoadInstanceCommands, to load the ProcAddresses.
 </div>
 #pragma once
+<div class="callingConventions">// Calling conventions:
+#if defined(_WIN32)
+    #define VKAPI_ATTR
+    #define VKAPI_CALL __stdcall
+    #define VKAPI_PTR  __stdcall
+#elif defined(__ANDROID__) && defined(__ARM_ARCH) && __ARM_ARCH < 7
+    #error "Vulkan isn't supported for the 'armeabi' NDK ABI"
+#elif defined(__ANDROID__) && defined(__ARM_ARCH) && __ARM_ARCH >= 7 && defined(__ARM_32BIT_STATE)
+    #define VKAPI_ATTR __attribute__((pcs("aapcs-vfp")))
+    #define VKAPI_CALL
+    #define VKAPI_PTR  __attribute__((pcs("aapcs-vfp")))
+#else
+    #define VKAPI_ATTR
+    #define VKAPI_CALL
+    #define VKAPI_PTR
+#endif</div>
 
 namespace <span class="namespaceVulkan">Vk</span>
 {	<div class="interfaces"></div>
-	
 	<div class="externPfns"></div>
 	// Linked functions:
 	namespace
@@ -121,8 +128,7 @@ namespace <span class="namespaceNewCode">CodeAnimo</span>
 		{<div class="instanceCmdLoading"></div>		}
 	}
 }
-#endif
-</code></pre>
+#endif</code></pre>
 
 </div>
 

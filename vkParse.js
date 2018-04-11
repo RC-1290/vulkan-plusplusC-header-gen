@@ -37,9 +37,9 @@ var u64 = "u64";// unsigned 64-bit
 var f32 = "f32";// 32-bit floating point
 
 // Vulkan function call settings:
-var VKAPI_ATTR = "";// used on Android
-var VKAPI_CALL = "";// calling convention
-var VKAPI_PTR = "";
+var VKAPI_ATTR = "VKAPI_ATTR";
+var VKAPI_CALL = "VKAPI_CALL";
+var VKAPI_PTR = "VKAPI_PTR";
 
 var funcRenaming = "aliaspfn";
 
@@ -74,7 +74,6 @@ var loadRawGithubBtn =			document.getElementById("loadRawGithubBtn");
 var vkxmlTextInput = 			document.getElementById("vkxmlText");
 var vulkanNamespaceInput =		document.getElementById("vulkanNamespace");
 var implementationDefineInput =	document.getElementById("implementationDefine");
-var callingConventionSelect =	document.getElementById("callingConvention");
 var funcRenamingSelect =		document.getElementById("funcRenaming");
 
 var typeReplacementList =		document.getElementById("typeReplacement");
@@ -91,7 +90,6 @@ let ranBefore = localStorage.getItem("ranBefore");
 
 restoreInput("vulkanNamespace", vulkanNamespaceInput);
 restoreInput("implementationDefine", implementationDefineInput);
-restoreSelect("callingConventionSelect", callingConventionSelect);
 restoreSelect("funcRenamingSelect", funcRenamingSelect);
 
 var availableFeatures;
@@ -1351,21 +1349,6 @@ function createHeader()
 		ProccAddrLookupImplDefine = implementationDefineInput.value;
 		replaceClassNodeContents("ProccAddrLookupImplDefine", ProccAddrLookupImplDefine);
 	}
-	
-	switch(callingConventionSelect.selectedOptions.item(0).value)
-	{
-		case "default":
-			VKAPI_ATTR = VKAPI_CALL = VKAPI_PTR = "";
-		break;
-		case "hardfloat":
-			VKAPI_PTR = VKAPI_ATTR = "__attribute__((pcs(\"aapcs-vfp\")))";
-			VKAPI_CALL = "";
-		break;
-		case "stdcall":
-			VKAPI_PTR = VKAPI_CALL = "__stdcall";
-			VKAPI_ATTR = "";
-		break;
-	}
 	funcRenaming = funcRenamingSelect.selectedOptions.item(0).value;
 	
 
@@ -1423,6 +1406,9 @@ function createHeader()
 			
 			let deep = true;
 			file.outputNode = coreFile.outputNode.cloneNode(deep);
+
+			let callingConventionsDiv = file.outputNode.getElementsByClassName("callingConventions").item(0);
+			callingConventionsDiv.parentNode.removeChild(callingConventionsDiv);
 			
 			platformStuffDiv.appendChild(file.outputNode);
 			files.set(file.name, file);
@@ -1460,6 +1446,7 @@ function createHeader()
 			if (extension.platform)
 			{
 				/*
+				// Look up the platform protect define.
 				let platform = availablePlatforms.get(extension.platform);
 				if (!platform)
 				{
@@ -1496,7 +1483,6 @@ function createHeader()
 	localStorage.setItem("vulkanNamespace", vulkanNamespaceInput.value);
 	localStorage.setItem("implementationDefine", implementationDefineInput.value);
 	
-	localStorage.setItem("callingConventionSelect", callingConventionSelect.selectedIndex);
 	localStorage.setItem("funcRenamingSelect", funcRenamingSelect.selectedIndex);
 	
 	var typeReplacements = new Map();
@@ -1845,7 +1831,7 @@ function createHeader()
 				else if (interf.link == "static")
 				{
 					
-					addLineOfCode( selectedFile.linkedFunctionsDiv, indentation(2) + interf.returnType + " " + VKAPI_PTR + " " + interf.originalName + "(" + parametersText + ");" );
+					addLineOfCode( selectedFile.linkedFunctionsDiv, indentation(2) + VKAPI_ATTR + " " + interf.returnType + " " + VKAPI_CALL + " " + interf.originalName + "(" + parametersText + ");" );
 					addLineOfCode( selectedFile.linkedFunctionsDiv, indentation(2));
 					
 					addLineOfCode( selectedFile.functionAliasesDiv, padTabs(indentation(1) + "const PFN::" + interf.name, 68) + interf.name + " = " + interf.originalName + ";");
