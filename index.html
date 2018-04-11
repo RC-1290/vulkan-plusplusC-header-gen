@@ -79,6 +79,7 @@
 // You can then call LoadIndependentCommands and LoadInstanceCommands, to load the ProcAddresses.
 </div>
 #pragma once
+
 <div class="callingConventions">// Calling conventions:
 #if defined(_WIN32)
     #define VKAPI_ATTR
@@ -98,8 +99,7 @@
 
 namespace <span class="namespaceVulkan">Vk</span>
 {	<div class="interfaces"></div>
-	<div class="externPfns"></div>
-	// Linked functions:
+	<div class="externPfns"></div>	// Linked functions:
 	namespace
 	{
 	extern "C"
@@ -111,9 +111,9 @@ namespace <span class="namespaceVulkan">Vk</span>
 namespace <span class="namespaceVulkan">Vk</span>
 {<div class="functionAliases"></div>}
 
-
+<div class="procAddrRetrieval">
 // Proc address retrieval implementation:
-#ifdef <span class="ProccAddrLookupImplDefine">IMPLEMENT_VK_COMMAND_LOOKUP</span>
+#ifdef <span class="ProcAddrLookupImplDefine">IMPLEMENT_VK_COMMAND_LOOKUP</span>
 
 namespace <span class="namespaceVulkan">Vk</span>
 {
@@ -128,7 +128,8 @@ namespace <span class="namespaceNewCode">CodeAnimo</span>
 		{<div class="instanceCmdLoading"></div>		}
 	}
 }
-#endif</code></pre>
+#endif</div>
+</code></pre>
 
 </div>
 

@@ -20,7 +20,7 @@ limitations under the License.
 var vulkanNamespace = "Vk";
 var newCodeNamespace = "CodeAnimo";
 var newCodeNamespace2 = "Vulkan";// nested namespace.
-var ProccAddrLookupImplDefine = "IMPLEMENT_VK_COMMAND_LOOKUP";
+var ProcAddrLookupImplDefine = "IMPLEMENT_VK_COMMAND_LOOKUP";
 
 // 
 var max_enum = "0x7FFFFFFF";
@@ -1335,6 +1335,9 @@ function createHeader()
 	coreFile.instanceCmdLoadingDiv =	coreFile.outputNode.getElementsByClassName("instanceCmdLoading").item(0);
 	coreFile.protectedIncludesDiv = 	coreFile.outputNode.getElementsByClassName("protectedLookups").item(0);
 
+	coreFile.independentCmdCount = 0;
+	coreFile.instanceCmdCount = 0;
+
 	window.scroll(0,150);
 	setupStuff.setAttribute("class", "hidden");
 	document.getElementById("hiddenUntilCreation").removeAttribute("class");
@@ -1346,8 +1349,8 @@ function createHeader()
 	}
 	if (implementationDefineInput.value)
 	{
-		ProccAddrLookupImplDefine = implementationDefineInput.value;
-		replaceClassNodeContents("ProccAddrLookupImplDefine", ProccAddrLookupImplDefine);
+		ProcAddrLookupImplDefine = implementationDefineInput.value;
+		replaceClassNodeContents("ProcAddrLookupImplDefine", ProcAddrLookupImplDefine);
 	}
 	funcRenaming = funcRenamingSelect.selectedOptions.item(0).value;
 	
@@ -1398,7 +1401,6 @@ function createHeader()
 		registerRequires(extension.requires);
 
 		// Create an extra output file for the protect / platform specific code:
-		let platformStuffDiv = document.getElementById("platformStuff");
 		if (extension.platform || extension.protect)
 		{
 			let file = {};
@@ -1410,7 +1412,6 @@ function createHeader()
 			let callingConventionsDiv = file.outputNode.getElementsByClassName("callingConventions").item(0);
 			callingConventionsDiv.parentNode.removeChild(callingConventionsDiv);
 			
-			platformStuffDiv.appendChild(file.outputNode);
 			files.set(file.name, file);
 
 			file.interfacesDiv = 			file.outputNode.getElementsByClassName("interfaces").item(0);
@@ -1421,22 +1422,8 @@ function createHeader()
 			file.independentCmdLoadingDiv =	file.outputNode.getElementsByClassName("independentCmdLoading").item(0);
 			file.instanceCmdLoadingDiv =	file.outputNode.getElementsByClassName("instanceCmdLoading").item(0);
 
-			let renameThese = file.outputNode.getElementsByClassName("loadIndependentCommandsFunctionName");
-			for(let nodeIndex = 0; nodeIndex < renameThese.length; ++nodeIndex)
-			{
-				let renameThis = renameThese.item(nodeIndex);
-				renameThis.innerText = file.name + renameThis.innerText;
-				addLineOfCode(coreFile.protectedIncludesDiv, indentation(2) + "void "+ renameThis.innerText + "();");
-				addLineOfCode(coreFile.independentCmdLoadingDiv, indentation(3) + renameThis.innerText + "();");
-			}
-			renameThese = file.outputNode.getElementsByClassName("loadInstanceCommandsFunctionName");
-			for(let nodeIndex = 0; nodeIndex < renameThese.length; ++nodeIndex)
-			{
-				let renameThis = renameThese.item(nodeIndex);
-				renameThis.innerText = file.name + renameThis.innerText;
-				addLineOfCode(coreFile.protectedIncludesDiv, indentation(2) + "void " + renameThis.innerText + "(" + vulkanNamespace + "::Instance instance);");
-				addLineOfCode(coreFile.instanceCmdLoadingDiv, indentation(3) + renameThis.innerText + "(instance);");
-			}
+			file.independentCmdCount = 0;
+			file.instanceCmdCount = 0;
 
 			if (extension.platform && extension.protect)
 			{
@@ -1817,12 +1804,13 @@ function createHeader()
 					
 					if (interf.originalName == "vkEnumerateInstanceLayerProperties" || interf.originalName == "vkEnumerateInstanceExtensionProperties" || interf.originalName == "vkCreateInstance")
 					{
+						++selectedFile.independentCmdCount;
 						addLineOfCode( selectedFile.independentCmdLoadingDiv, indentation(3) + vulkanNamespace + '::' + interf.name + ' = (' + vulkanNamespace + '::PFN::' + interf.name + ') Vk::GetInstanceProcAddr( nullptr, "' + interf.originalName + '" );');
 						// addLineOfCode(independentCmdLoadingDiv, indentation(3) + 'if(!' + vulkanNamespace + '::' + command.name + ') { return false; }');
 					}
 					else 
 					{
-
+						++selectedFile.instanceCmdCount;
 						addLineOfCode(selectedFile.instanceCmdLoadingDiv, indentation(3) + vulkanNamespace + '::' + interf.name + ' = (' + vulkanNamespace + '::PFN::' + interf.name + ') Vk::GetInstanceProcAddr( instance, "' + interf.originalName + '" );');
 						// addLineOfCode(instanceCmdLoadingDiv, indentation(3) + 'if(!' + vulkanNamespace + '::' + command.name + ') { return false; }');
 						
@@ -1867,12 +1855,48 @@ function createHeader()
 
 	statusText.textContent = "Setting up download buttons.";
 	
+	let platformStuffDiv = document.getElementById("platformStuff");
+
 	let fileUl = document.createElement("ul");
 	let fileButtons = document.getElementById("fileButtons");
 	fileButtons.appendChild(fileUl);
 	
 	for (let file of files.values())
 	{
+		let fileName = "vulkan_ppc_" + file.name + ".h";
+		let fileTitle = document.createElement("h3");
+		fileTitle.textContent = fileName;
+		platformStuffDiv.appendChild(fileTitle);
+		platformStuffDiv.appendChild(file.outputNode);
+
+		if (file != coreFile)
+		{
+			if (file.independentCmdCount + file.instanceCmdCount > 0)
+			{
+				let renameThese = file.outputNode.getElementsByClassName("loadIndependentCommandsFunctionName");
+				for(let nodeIndex = 0; nodeIndex < renameThese.length; ++nodeIndex)
+				{
+					let renameThis = renameThese.item(nodeIndex);
+					renameThis.innerText = file.name + renameThis.innerText;
+					addLineOfCode(coreFile.protectedIncludesDiv, indentation(2) + "void "+ renameThis.innerText + "();");
+					addLineOfCode(coreFile.independentCmdLoadingDiv, indentation(3) + renameThis.innerText + "();");
+				}
+				renameThese = file.outputNode.getElementsByClassName("loadInstanceCommandsFunctionName");
+				for(let nodeIndex = 0; nodeIndex < renameThese.length; ++nodeIndex)
+				{
+					let renameThis = renameThese.item(nodeIndex);
+					renameThis.innerText = file.name + renameThis.innerText;
+					addLineOfCode(coreFile.protectedIncludesDiv, indentation(2) + "void " + renameThis.innerText + "(" + vulkanNamespace + "::Instance instance);");
+					addLineOfCode(coreFile.instanceCmdLoadingDiv, indentation(3) + renameThis.innerText + "(instance);");
+				}
+			}
+			else
+			{
+				let procAddrRetrievalDiv = file.outputNode.getElementsByClassName("procAddrRetrieval").item(0);
+				procAddrRetrievalDiv.parentNode.removeChild(procAddrRetrievalDiv);
+			}
+		}
+
 		let fileLi = document.createElement("li");
 		fileUl.appendChild(fileLi);
 
@@ -1883,8 +1907,6 @@ function createHeader()
 		fileLi.appendChild(headerDownloadButton);
 		fileLi.appendChild(headerSelectButton);
 		fileLi.appendChild(headerCopyButton);
-
-		let fileName = "vulkan_ppc_" + file.name + ".h";
 
 		headerDownloadButton.download = fileName;
 		headerDownloadButton.title = fileName;
