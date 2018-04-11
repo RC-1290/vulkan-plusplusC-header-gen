@@ -83,8 +83,13 @@ var createHeaderButton =		document.getElementById("createHeaderButton");
 var setupStuff = 				document.getElementById("setupStuff");
 var setupPart2 =				document.getElementById("setupPart2");
 
-//setInitialHistory();
+var headerTemplate =			document.getElementById("vulkanHeader");
+
+headerTemplate.parentNode.removeChild(headerTemplate);
+
+setInitialHistory();
 window.addEventListener("popstate", onHistoryPop);
+createHeaderButton.addEventListener("click", createHeader);
 
 let ranBefore = localStorage.getItem("ranBefore");
 
@@ -117,24 +122,22 @@ else
 {
 	statusText.textContent = "XML textfield populated with cached contents.";
 }
-/*
+
 function setInitialHistory()
 {
 	let historyState = {};
 	historyState.status = statusText.textContent;
 	historyState.headerCreated = false;
-	historyState.header = vulkanHeaderDiv.innerHTML;
 	window.history.replaceState(historyState,"Start");
-}*/
+}
 
 function onHistoryPop(event)
 {
-	vulkanHeaderDiv.innerHTML = event.state.header;
 	statusText.textContent = event.state.status;
 	
 	if (event.state.headerCreated)
 	{
-		displayHeader(event.state.header);
+		displayHeader();
 	}
 	else
 	{
@@ -1151,7 +1154,6 @@ function listFeatures()
 		}
 	}
 
-	createHeaderButton.addEventListener("click", createHeader);
 	statusText.textContent = "Features listing complete. Select features and extensions and press \"Create Header\"...";
 }
 
@@ -1324,7 +1326,8 @@ function createHeader()
 	files.set("default", coreFile);
 
 	coreFile.name = "core";
-	coreFile.outputNode = document.getElementById("vulkanHeader");
+	let deep = true;
+	coreFile.outputNode = headerTemplate.cloneNode(deep);
 
 	coreFile.interfacesDiv = 			coreFile.outputNode.getElementsByClassName("interfaces").item(0);
 	coreFile.externPfnDiv =				coreFile.outputNode.getElementsByClassName("externPfns").item(0);
@@ -1856,9 +1859,11 @@ function createHeader()
 	statusText.textContent = "Setting up download buttons.";
 	
 	let platformStuffDiv = document.getElementById("platformStuff");
+	platformStuffDiv.innerText = "";
 
-	let fileUl = document.createElement("ul");
 	let fileButtons = document.getElementById("fileButtons");
+	fileButtons.innerText = "";
+	let fileUl = document.createElement("ul");
 	fileButtons.appendChild(fileUl);
 	
 	for (let file of files.values())
@@ -2203,8 +2208,6 @@ function hideHeaderShowSettings()
 function displayHeader(headerHTML)
 {
 	// window.scroll(0,150);
-	vulkanHeaderDiv.innerHTML = headerHTML;
-	setupDownload(vulkanHeaderDiv.innerText);
 	setupStuff.setAttribute("class", "hidden");
 	document.getElementById("hiddenUntilCreation").removeAttribute("class");
 }
