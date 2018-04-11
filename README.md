@@ -1,5 +1,5 @@
 # Vulkan ++C Header Generator
-This parser tries to turn [vk.xml](https://github.com/KhronosGroup/Vulkan-Docs/blob/master/src/spec/vk.xml) into a ++C header file and implementation file. It works on my machine™ (I've been using the latest version of Firefox, other browsers might not have matching tab sizes).
+This parser tries to turn [vk.xml](https://github.com/KhronosGroup/Vulkan-Docs/blob/master/xml/vk.xml) into a ++C header file and implementation file. It works on my machine™ (I've been using the latest version of Firefox, other browsers might not have matching tab sizes).
 
 # How to use?
 It works like a basic website, but doesn't require hosting.
