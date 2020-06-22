@@ -31,9 +31,11 @@ var tabSpaceWidth = 4;// If you change this, you might want to change the css to
 
 // Replacement Types:
 var x8 = "x8";// signed/undefined 8-bit (compiler dependent)
+var u16 = "u16";// unsigned 16-bit
 var u32 = "u32";// unsigned 32-bit
 var s32 = "s32";// signed 32-bit
 var u64 = "u64";// unsigned 64-bit
+var s64 = "s64"// signed 64-bit
 var f32 = "f32";// 32-bit floating point
 
 // Vulkan function call settings:
@@ -47,9 +49,11 @@ var headerVersion;
 
 initializeDefaultStore("typRepl char", x8);
 initializeDefaultStore("typRepl uint8_t", "u8");
+initializeDefaultStore("typRepl uint16_t", u16);
 initializeDefaultStore("typRepl uint32_t", u32);
 initializeDefaultStore("typRepl int32_t", s32);
 initializeDefaultStore("typRepl int", s32);
+initializeDefaultStore("typRepl int64_t", s64);
 initializeDefaultStore("typRepl uint64_t", u64);
 initializeDefaultStore("typRepl float", f32);
 
@@ -753,7 +757,9 @@ function parseEnums(enumsNode)
 
 			if (constantNode.hasAttribute("alias"))
 			{
-				console.error("Found alias attribute on: " + constant + ". When this generator was written, the xml didn't use this, so support was omitted");
+				constant.alias = constantNode.getAttribute("alias");
+				console.warn("Found alias attribute on: " + constant.name + ". Support is experimental");
+				//console.error("Found alias attribute on: " + constant.name + ". When this generator was written, the xml didn't use this, so support was omitted");
 			}
 			
 			if (cEnum.isBitMask)
@@ -1752,6 +1758,12 @@ function createHeader()
 				for( let j = 0; j < interf.constants.length; ++j)
 				{
 					let constant = interf.constants[j];
+					
+					if (constant.alias)
+					{
+						console.warn("Support for aliases in enums is untested.")
+						constant.value = constant.alias;
+					}
 					addLineOfCode(enumDiv,  padTabs(indentation(2) + constant.name + " =", 89) + constant.value + ",");
 				}
 				
@@ -1960,8 +1972,10 @@ function registerSymbol(symbolName)
 			{	
 				for (let i = 0; i < found.members.length; ++i)
 				{
-					// Let's hope there's no circular references in the XML, otherwise this won't complete.
 					let member = found.members[i];
+					
+					if (member.type == symbolName){ continue;}// avoid infinite loops
+
 					registerSymbol(member.type);
 					if (member.cEnum)
 					{
