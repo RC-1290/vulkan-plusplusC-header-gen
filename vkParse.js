@@ -1583,6 +1583,10 @@ function createHeader()
 					constant.name = stripEnumName(constant.name, interf.originalName);
 					typeReplacements.set(constant.originalName, interf.name + "::" + constant.name);
 
+					if (constant.alias)
+					{
+						constant.alias = stripEnumName(constant.alias, interf.originalName);
+					}
 					if (constant.isAlias)
 					{
 						constant.value = stripEnumName(constant.value, interf.originalName);
@@ -1845,6 +1849,7 @@ function createHeader()
 			{
 				addLineOfCode( selectedFile.interfacesDiv, padTabs(indentation(1) + "typedef " + interf.aliasFor, 68) + interf.name + ";" );
 			}
+			break;
 			case "constexpr":
 			{
 				let parameters = "";
