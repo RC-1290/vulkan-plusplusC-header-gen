@@ -862,6 +862,8 @@ function parseFeature(xml)
 	feature.version = xml.getAttribute("number");
 	feature.description = xml.getAttribute("comment");
 	
+	if (xml.hasAttribute("sortorder")){ console.warn("sortorder not yet implemented for features, but it is used by feature with the name: " + feature.name) }
+	
 	availableFeatures.set(feature.name, feature);
 	
 	feature.requires = parseRequires(xml.childNodes);
@@ -876,11 +878,13 @@ function parseExtension(xml)
 	extension.name = xml.getAttribute("name");
 	availableExtensions.set(extension.name, extension);
 	extension.number = parseInt(xml.getAttribute("number"));
+	extension.sortOrder = 0;
+	if (xml.hasAttribute("sortorder")){ extension.sortOrder = xml.getAttribute("sortorder"); }
 	extension.contact = xml.getAttribute("contact");
 	extension.type = xml.getAttribute("type");
 	extension.protect = xml.getAttribute("protect");
 	extension.platform = xml.getAttribute("platform");
-	
+
 	// Parse which other extensions are required
 	extension.requiredExtensions = xml.getAttribute("requires");
 	if (extension.requiredExtensions)
@@ -1320,6 +1324,11 @@ function registerRequires(requires)
 	}
 }
 
+function extensionSort(extensionA, extensionB)
+{
+	return extensionA.sortOrder - extensionB.sortOrder;
+}
+
 function createHeader()
 {
 	statusText.textContent = "Applying custom settings:";
@@ -1385,7 +1394,11 @@ function createHeader()
 	}
 
 	statusText.textContent = "Applying extensions";
-	for (let extension of availableExtensions.values())
+	let sortedAvailableExtensions = Array.from(availableExtensions.values());
+	sortedAvailableExtensions.sort(extensionSort);
+
+
+	for (let extension of sortedAvailableExtensions)
 	{
 		if (!extension.checkbox.checked) { continue; }
 		selectedExtensions += extension.name + ",";
@@ -1413,46 +1426,56 @@ function createHeader()
 		// Create an extra output file for the protect / platform specific code:
 		if (extension.platform || extension.protect)
 		{
-			let file = {};
-			file.name = extension.platform ? extension.platform : extension.protect;
-			
-			let deep = true;
-			file.outputNode = coreFile.outputNode.cloneNode(deep);
-
-			let callingConventionsDiv = file.outputNode.getElementsByClassName("callingConventions").item(0);
-			callingConventionsDiv.parentNode.removeChild(callingConventionsDiv);
-			
-			files.set(file.name, file);
-
-			file.interfacesDiv = 			file.outputNode.getElementsByClassName("interfaces").item(0);
-			file.interfacesAliasesDiv =		file.outputNode.getElementsByClassName("interfaceAliases").item(0);
-			file.externPfnDiv =				file.outputNode.getElementsByClassName("externPfns").item(0);
-			file.linkedFunctionsDiv =		file.outputNode.getElementsByClassName("linkedFunctions").item(0);
-			file.functionAliasesDiv =		file.outputNode.getElementsByClassName("functionAliases").item(0);
-			file.cmdDefsDiv =				file.outputNode.getElementsByClassName("cmdDefs").item(0);
-			file.independentCmdLoadingDiv =	file.outputNode.getElementsByClassName("independentCmdLoading").item(0);
-			file.instanceCmdLoadingDiv =	file.outputNode.getElementsByClassName("instanceCmdLoading").item(0);
-
-			file.independentCmdCount = 0;
-			file.instanceCmdCount = 0;
-
-			if (extension.platform && extension.protect)
+			if (extension.platform == "provisional")
 			{
-				console.error("When this generator was written, nothing used both protect and platform tags... so that's not supported. But used on"+ extension);
+				console.warn("Using provisional extension: " + extension.name);
+				extension.protect = "";
+				// provisional isn't really a platform that uses its own file. It is still part of core.
 			}
-			
-			if (extension.platform)
+			else
 			{
-				/*
-				// Look up the platform protect define.
-				let platform = availablePlatforms.get(extension.platform);
-				if (!platform)
+
+				let file = {};
+				file.name = extension.platform ? extension.platform : extension.protect;
+				
+				let deep = true;
+				file.outputNode = coreFile.outputNode.cloneNode(deep);
+
+				let callingConventionsDiv = file.outputNode.getElementsByClassName("callingConventions").item(0);
+				callingConventionsDiv.parentNode.removeChild(callingConventionsDiv);
+				
+				files.set(file.name, file);
+
+				file.interfacesDiv = 			file.outputNode.getElementsByClassName("interfaces").item(0);
+				file.interfacesAliasesDiv =		file.outputNode.getElementsByClassName("interfaceAliases").item(0);
+				file.externPfnDiv =				file.outputNode.getElementsByClassName("externPfns").item(0);
+				file.linkedFunctionsDiv =		file.outputNode.getElementsByClassName("linkedFunctions").item(0);
+				file.functionAliasesDiv =		file.outputNode.getElementsByClassName("functionAliases").item(0);
+				file.cmdDefsDiv =				file.outputNode.getElementsByClassName("cmdDefs").item(0);
+				file.independentCmdLoadingDiv =	file.outputNode.getElementsByClassName("independentCmdLoading").item(0);
+				file.instanceCmdLoadingDiv =	file.outputNode.getElementsByClassName("instanceCmdLoading").item(0);
+
+				file.independentCmdCount = 0;
+				file.instanceCmdCount = 0;
+
+				if (extension.platform && extension.protect)
 				{
-					console.error("The referenced platform could not be found: "+ extension.platform);
-					continue;
+					console.error("When this generator was written, nothing used both protect and platform tags... so that's not supported. But used on"+ extension);
 				}
-				extension.protect = platform.protectDefine;*/
-				extension.protect = extension.platform;
+				
+				if (extension.platform)
+				{
+					/*
+					// Look up the platform protect define.
+					let platform = availablePlatforms.get(extension.platform);
+					if (!platform)
+					{
+						console.error("The referenced platform could not be found: "+ extension.platform);
+						continue;
+					}
+					extension.protect = platform.protectDefine;*/
+					extension.protect = extension.platform;
+				}
 			}
 		}
 
@@ -1724,7 +1747,10 @@ function createHeader()
 			break;
 			case "basetype":
 			{
-				addLineOfCode( selectedFile.interfacesDiv, indentation(1));
+				if (lastCategory != interf.category)
+				{
+					addLineOfCode( selectedFile.interfacesDiv, indentation(1));
+				}
 				addLineOfCode( selectedFile.interfacesDiv, padTabs(indentation(1) + "typedef " + interf.type, 92) + interf.name + ";");
 			}
 			break;
