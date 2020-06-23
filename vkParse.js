@@ -1336,6 +1336,7 @@ function createHeader()
 	coreFile.outputNode = headerTemplate.cloneNode(deep);
 
 	coreFile.interfacesDiv = 			coreFile.outputNode.getElementsByClassName("interfaces").item(0);
+	coreFile.interfacesAliasesDiv =		coreFile.outputNode.getElementsByClassName("interfaceAliases").item(0);
 	coreFile.externPfnDiv =				coreFile.outputNode.getElementsByClassName("externPfns").item(0);
 	coreFile.linkedFunctionsDiv =		coreFile.outputNode.getElementsByClassName("linkedFunctions").item(0);
 	coreFile.functionAliasesDiv =		coreFile.outputNode.getElementsByClassName("functionAliases").item(0);
@@ -1424,6 +1425,7 @@ function createHeader()
 			files.set(file.name, file);
 
 			file.interfacesDiv = 			file.outputNode.getElementsByClassName("interfaces").item(0);
+			file.interfacesAliasesDiv =		file.outputNode.getElementsByClassName("interfaceAliases").item(0);
 			file.externPfnDiv =				file.outputNode.getElementsByClassName("externPfns").item(0);
 			file.linkedFunctionsDiv =		file.outputNode.getElementsByClassName("linkedFunctions").item(0);
 			file.functionAliasesDiv =		file.outputNode.getElementsByClassName("functionAliases").item(0);
@@ -1634,7 +1636,8 @@ function createHeader()
 				// Name changes:
 				interf.originalName = interf.name;
 				interf.name = stripVk(interf.name);
-				interf.aliasFor = typeReplacement(interf.aliasFor, typeReplacements);
+				typeReplacements.set(interf.originalName, interf.name);
+				interf.aliasFor = stripVk(interf.aliasFor);// Can't use typeReplacement yet, because the alias is required before the thing it aliases.
 			}
 			break;
 			case "constexpr":
@@ -1766,7 +1769,14 @@ function createHeader()
 					if (constant.alias)
 					{
 						console.warn("Support for aliases in enums is untested.")
-						constant.value = constant.alias;
+						if (constant.alias == constant.name)
+						{
+							continue;
+						}
+						else
+						{
+							constant.value = constant.alias;
+						}
 					}
 					addLineOfCode(enumDiv,  padTabs(indentation(2) + constant.name + " =", 89) + constant.value + ",");
 				}
@@ -1818,7 +1828,7 @@ function createHeader()
 				
 				if (interf.link == "lookup")
 				{
-					addLineOfCode( selectedFile.externPfnDiv, padTabs(indentation(1) + "extern PFN::" + interf.name, 68) + interf.name + ";");
+					addLineOfCode( selectedFile.externPfnDiv, padTabs(indentation(1) + "extern PFN::" + interf.name, 90) + interf.name + ";");
 					addLineOfCode( selectedFile.cmdDefsDiv,	padTabs(indentation(1) + "PFN::" + interf.name, 68) + interf.name + ";");
 					
 					if (interf.originalName == "vkEnumerateInstanceLayerProperties" || interf.originalName == "vkEnumerateInstanceExtensionProperties" || interf.originalName == "vkCreateInstance")
@@ -1847,7 +1857,11 @@ function createHeader()
 			break;
 			case "TYPE_ALIAS":
 			{
-				addLineOfCode( selectedFile.interfacesDiv, padTabs(indentation(1) + "typedef " + interf.aliasFor, 68) + interf.name + ";" );
+				if (lastCategory != interf.category)
+				{
+					addLineOfCode( selectedFile.interfacesAliasesDiv, indentation(1));
+				}
+				addLineOfCode( selectedFile.interfacesAliasesDiv, padTabs(indentation(1) + "typedef " + interf.aliasFor, 94) + interf.name + ";" );
 			}
 			break;
 			case "constexpr":
