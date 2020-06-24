@@ -1395,7 +1395,7 @@ function createHeader()
 
 	statusText.textContent = "Applying extensions";
 	let sortedAvailableExtensions = Array.from(availableExtensions.values());
-	sortedAvailableExtensions.sort(extensionSort);
+	//sortedAvailableExtensions.sort(extensionSort);
 
 
 	for (let extension of sortedAvailableExtensions)
@@ -1429,7 +1429,6 @@ function createHeader()
 			if (extension.platform == "provisional")
 			{
 				console.warn("Using provisional extension: " + extension.name);
-				extension.protect = "";
 				// provisional isn't really a platform that uses its own file. It is still part of core.
 			}
 			else
@@ -1527,10 +1526,27 @@ function createHeader()
 	u64 = localStorage.getItem("typRepl uint64_t");
 	f32 = localStorage.getItem("typRepl float");
 	
+	let vkFlags = stripVk(availableInterfaces.get("VkFlags").name);
+
 	for(let i = 0; i < flags.length; ++i)
 	{
 		let flag = flags[i];
-		typeReplacements.set(flag.name, u32);
+		let indexOfFlags = flag.name.lastIndexOf("Flags");
+		if (indexOfFlags < 0)
+		{
+			console.error("flag '" + flag.name + "' does not have Flags in the name, so it is unclear which enum it should point to.");
+			continue;
+		}
+		let replacement = flag.name.substring(2, indexOfFlags + 4) + "Bits"; // Remove Vk, replace "Flags" and everything after it with "FlagBits"
+		if (availableInterfaces.get(replacement))
+		{
+			typeReplacements.set(flag.name, replacement);
+		}
+		else
+		{
+			// Nog flag bits defined, likely just reserved for future use:
+			typeReplacements.set(flag.name, vkFlags);
+		}
 	}
 	for (let i = 0; i < interfaces.length; ++i)
 	{
@@ -1785,7 +1801,7 @@ function createHeader()
 				selectedFile.interfacesDiv.appendChild(enumDiv);
 				
 				addLineOfCode( enumDiv, indentation(1));
-				addLineOfCode( enumDiv, indentation(1) + "enum class " + interf.name);
+				addLineOfCode( enumDiv, indentation(1) + "enum class " + interf.name + " : " + vkFlags);
 				addLineOfCode( enumDiv, indentation(1) + "{");
 				
 				for( let j = 0; j < interf.constants.length; ++j)
