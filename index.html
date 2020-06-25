@@ -75,7 +75,7 @@
 // The generator code can be found at https://github.com/RC-1290/vulkan-plusplusC-header-gen/
 
 // Vulkan Header for C++ compilers.
-<div class="usageGuide">// A single translation unit (e.g.: a .cpp file) that includes this header, must have <span class="ProccAddrLookupImplDefine">IMPLEMENT_VK_FUNCTIONS</span> defined.
+<div class="usageGuide">// A single translation unit (e.g.: a .cpp file) that includes this header, must have <span class="FunctionImplementationDefine">IMPLEMENT_VK_FUNCTIONS</span> defined.
 // You can then call LoadIndependentCommands and LoadInstanceCommands, to load the ProcAddresses.
 </div>
 #pragma once
@@ -112,9 +112,17 @@ namespace <span class="namespaceVulkan">Vk</span>
 namespace <span class="namespaceVulkan">Vk</span>
 {<div class="functionAliases"></div>}
 
+namespace <span class="namespaceNewCode">CodeAnimo</span>
+{
+	namespace <span class="namespaceNewCode2">Vulkan</span>
+	{<div class="bitMaskOperatorDefinitions"></div>
+	}
+}
+
+
 <div class="procAddrRetrieval">
 // Proc address retrieval implementation:
-#ifdef <span class="ProcAddrLookupImplDefine">IMPLEMENT_VK_FUNCTIONS</span>
+#ifdef <span class="FunctionImplementationDefine">IMPLEMENT_VK_FUNCTIONS</span>
 
 namespace <span class="namespaceVulkan">Vk</span>
 {
@@ -127,6 +135,7 @@ namespace <span class="namespaceNewCode">CodeAnimo</span>
 		{<div class="independentCmdLoading"></div>		}
 		void <span class ="loadInstanceCommandsFunctionName">LoadInstanceCommands</span>( <span class="namespaceVulkan">Vk</span>::Instance instance )
 		{<div class="instanceCmdLoading"></div>		}
+	<div class="bitMaskOperatorImplementations"></div>
 	}
 }
 #endif</div>

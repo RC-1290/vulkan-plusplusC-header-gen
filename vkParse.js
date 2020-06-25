@@ -20,7 +20,7 @@ limitations under the License.
 var vulkanNamespace = "Vk";
 var newCodeNamespace = "CodeAnimo";
 var newCodeNamespace2 = "Vulkan";// nested namespace.
-var ProcAddrLookupImplDefine = "IMPLEMENT_VK_FUNCTIONS";
+var FunctionImplementationDefine = "IMPLEMENT_VK_FUNCTIONS";
 
 // 
 var max_enum = "0x7FFFFFFF";
@@ -1353,6 +1353,8 @@ function createHeader()
 	coreFile.independentCmdLoadingDiv =	coreFile.outputNode.getElementsByClassName("independentCmdLoading").item(0);
 	coreFile.instanceCmdLoadingDiv =	coreFile.outputNode.getElementsByClassName("instanceCmdLoading").item(0);
 	coreFile.protectedIncludesDiv = 	coreFile.outputNode.getElementsByClassName("protectedLookups").item(0);
+	coreFile.bitFieldOperatorsDefDiv =	coreFile.outputNode.getElementsByClassName("bitMaskOperatorDefinitions").item(0);
+	coreFile.bitFieldOperatorsDiv =		coreFile.outputNode.getElementsByClassName("bitMaskOperatorImplementations").item(0);
 
 	coreFile.independentCmdCount = 0;
 	coreFile.instanceCmdCount = 0;
@@ -1368,8 +1370,8 @@ function createHeader()
 	}
 	if (implementationDefineInput.value)
 	{
-		ProcAddrLookupImplDefine = implementationDefineInput.value;
-		replaceClassNodeContents("ProcAddrLookupImplDefine", ProcAddrLookupImplDefine);
+		FunctionImplementationDefine = implementationDefineInput.value;
+		replaceClassNodeContents("FunctionImplementationDefine", FunctionImplementationDefine);
 	}
 	funcRenaming = funcRenamingSelect.selectedOptions.item(0).value;
 	
@@ -1445,21 +1447,23 @@ function createHeader()
 				
 				files.set(file.name, file);
 
-				file.interfacesDiv = 			file.outputNode.getElementsByClassName("interfaces").item(0);
-				file.interfacesAliasesDiv =		file.outputNode.getElementsByClassName("interfaceAliases").item(0);
-				file.externPfnDiv =				file.outputNode.getElementsByClassName("externPfns").item(0);
-				file.linkedFunctionsDiv =		file.outputNode.getElementsByClassName("linkedFunctions").item(0);
-				file.functionAliasesDiv =		file.outputNode.getElementsByClassName("functionAliases").item(0);
-				file.cmdDefsDiv =				file.outputNode.getElementsByClassName("cmdDefs").item(0);
-				file.independentCmdLoadingDiv =	file.outputNode.getElementsByClassName("independentCmdLoading").item(0);
-				file.instanceCmdLoadingDiv =	file.outputNode.getElementsByClassName("instanceCmdLoading").item(0);
+				file.interfacesDiv 					= file.outputNode.getElementsByClassName("interfaces").item(0);
+				file.interfacesAliasesDiv			= file.outputNode.getElementsByClassName("interfaceAliases").item(0);
+				file.externPfnDiv					= file.outputNode.getElementsByClassName("externPfns").item(0);
+				file.linkedFunctionsDiv				= file.outputNode.getElementsByClassName("linkedFunctions").item(0);
+				file.functionAliasesDiv				= file.outputNode.getElementsByClassName("functionAliases").item(0);
+				file.cmdDefsDiv						= file.outputNode.getElementsByClassName("cmdDefs").item(0);
+				file.independentCmdLoadingDiv		= file.outputNode.getElementsByClassName("independentCmdLoading").item(0);
+				file.instanceCmdLoadingDiv			= file.outputNode.getElementsByClassName("instanceCmdLoading").item(0);
+				file.bitFieldOperatorsDefDiv		= file.outputNode.getElementsByClassName("bitMaskOperatorDefinitions").item(0);
+				file.bitFieldOperatorsDiv			= file.outputNode.getElementsByClassName("bitMaskOperatorImplementations").item(0);
 
 				file.independentCmdCount = 0;
 				file.instanceCmdCount = 0;
 
 				if (extension.platform && extension.protect)
 				{
-					console.error("When this generator was written, nothing used both protect and platform tags... so that's not supported. But used on"+ extension);
+					console.error("When this generator was written, nothing used both protect and platform tags... so that's not supported. But used on " + extension);
 				}
 				
 				if (extension.platform)
@@ -1843,7 +1847,17 @@ function createHeader()
 					addLineOfCode(enumDiv,  padTabs(indentation(2) + constant.name + " =", 89) + constant.value + ",");
 				}
 				
-				if (!interf.isBitMask)
+				if (interf.isBitMask)
+				{
+					let fullyQualifiedName = vulkanNamespace + "::" + interf.name;
+					
+					addLineOfCode(selectedFile.bitFieldOperatorsDefDiv, padTabs(indentation(2) + fullyQualifiedName, 69) + " operator| (" + fullyQualifiedName + " left, " + fullyQualifiedName + " right);");
+					addLineOfCode(selectedFile.bitFieldOperatorsDefDiv, padTabs(indentation(2) + fullyQualifiedName, 69) + " operator& (" + fullyQualifiedName + " left, " + fullyQualifiedName + " right);");
+
+					addLineOfCode(selectedFile.bitFieldOperatorsDiv, padTabs(indentation(2) + fullyQualifiedName, 69) + " operator| (" + fullyQualifiedName + " left, " + fullyQualifiedName + " right) { return (" + fullyQualifiedName + ")((" + u32 + ")left | (" + u32 + ") right); }");
+					addLineOfCode(selectedFile.bitFieldOperatorsDiv, padTabs(indentation(2) + fullyQualifiedName, 69) + " operator& (" + fullyQualifiedName + " left, " + fullyQualifiedName + " right) { return (" + fullyQualifiedName + ")((" + u32 + ")left & (" + u32 + ") right); }");
+				}
+				else
 				{
 					addLineOfCode( enumDiv, padTabs(indentation(2) + "BEGIN_RANGE =", 89) + interf.minName + ",");
 					addLineOfCode( enumDiv, padTabs(indentation(2) + "END_RANGE =", 89) + interf.maxName + ",");
