@@ -20,7 +20,7 @@ limitations under the License.
 var vulkanNamespace = "Vk";
 var newCodeNamespace = "CodeAnimo";
 var newCodeNamespace2 = "Vulkan";// nested namespace.
-var ProcAddrLookupImplDefine = "IMPLEMENT_VK_COMMAND_LOOKUP";
+var ProcAddrLookupImplDefine = "IMPLEMENT_VK_FUNCTIONS";
 
 // 
 var max_enum = "0x7FFFFFFF";
@@ -1526,7 +1526,7 @@ function createHeader()
 	u64 = localStorage.getItem("typRepl uint64_t");
 	f32 = localStorage.getItem("typRepl float");
 	
-	let vkFlags = stripVk(availableInterfaces.get("VkFlags").name);
+	let VkFlags = stripVk(availableInterfaces.get("VkFlags").name);
 
 	for (let i = 0; i < interfaces.length; ++i)
 	{
@@ -1643,7 +1643,7 @@ function createHeader()
 				{
 					// No flag bits defined, likely just reserved for future use:
 					interf.name = stripVk(interf.name);
-					typeReplacements.set(interf.originalName, vkFlags);
+					typeReplacements.set(interf.originalName, VkFlags);
 					interf.type = typeReplacement(interf.type, typeReplacements);
 				}
 			}
@@ -1813,9 +1813,15 @@ function createHeader()
 				let enumDiv = document.createElement("div");
 				enumDiv.setAttribute("id", interf.name);
 				selectedFile.interfacesDiv.appendChild(enumDiv);
+
+				let optionalType = "";
+				if (interf.isBitMask)
+				{
+					optionalType = " : " + VkFlags;
+				}
 				
 				addLineOfCode( enumDiv, indentation(1));
-				addLineOfCode( enumDiv, indentation(1) + "enum class " + interf.name + " : " + vkFlags);
+				addLineOfCode( enumDiv, indentation(1) + "enum class " + interf.name + optionalType);
 				addLineOfCode( enumDiv, indentation(1) + "{");
 				
 				for( let j = 0; j < interf.constants.length; ++j)
