@@ -1528,26 +1528,6 @@ function createHeader()
 	
 	let vkFlags = stripVk(availableInterfaces.get("VkFlags").name);
 
-	for(let i = 0; i < flags.length; ++i)
-	{
-		let flag = flags[i];
-		let indexOfFlags = flag.name.lastIndexOf("Flags");
-		if (indexOfFlags < 0)
-		{
-			console.error("flag '" + flag.name + "' does not have Flags in the name, so it is unclear which enum it should point to.");
-			continue;
-		}
-		let replacement = flag.name.substring(2, indexOfFlags + 4) + "Bits"; // Remove Vk, replace "Flags" and everything after it with "FlagBits"
-		if (availableInterfaces.get(replacement))
-		{
-			typeReplacements.set(flag.name, replacement);
-		}
-		else
-		{
-			// Nog flag bits defined, likely just reserved for future use:
-			typeReplacements.set(flag.name, vkFlags);
-		}
-	}
 	for (let i = 0; i < interfaces.length; ++i)
 	{
 		let interf = interfaces[i];
@@ -1642,6 +1622,32 @@ function createHeader()
 				typeReplacements.set(interf.originalName, interf.name);
 			}
 			break;
+			case "bitmask":
+			{
+				interf.originalName = interf.name;
+
+				let indexOfFlags = interf.name.lastIndexOf("Flags");
+				if (indexOfFlags < 0)
+				{
+					console.error("flag '" + interf.name + "' does not have Flags in the name, so it is unclear which enum it should point to.");
+					continue;
+				}
+				let expectedEnumName = interf.name.substring(0, indexOfFlags + 4) + "Bits"; // Replace "Flags" and everything after it with "FlagBits"
+				if (typeReplacements.has(expectedEnumName))
+				{
+					interf.name = typeReplacements.get(expectedEnumName);
+					typeReplacements.set(interf.originalName, interf.name);
+					interf.skip = true;
+				}
+				else
+				{
+					// No flag bits defined, likely just reserved for future use:
+					interf.name = stripVk(interf.name);
+					typeReplacements.set(interf.originalName, vkFlags);
+					interf.type = typeReplacement(interf.type, typeReplacements);
+				}
+			}
+			break;
 			case "handle":
 			{
 				interf.originalName = interf.name;
@@ -1676,7 +1682,15 @@ function createHeader()
 				interf.originalName = interf.name;
 				interf.name = stripVk(interf.name);
 				typeReplacements.set(interf.originalName, interf.name);
-				interf.aliasFor = stripVk(interf.aliasFor);// Can't use typeReplacement yet, because the alias is required before the thing it aliases.
+				if (typeReplacements.has(interf.aliasFor))
+				{
+					interf.aliasFor = typeReplacement(interf.aliasFor, typeReplacements);
+				}
+				else
+				{
+					console.warn("Could not do proper type replacement for '" + interf.aliasFor + "', while processing type alias '" + interf.name + "'. Best guess used.");
+					interf.aliasFor = stripVk(interf.aliasFor);// Can't use typeReplacement yet, because the alias is listed as a require before the thing it aliases.	
+				}
 			}
 			break;
 			case "constexpr":
@@ -1833,6 +1847,18 @@ function createHeader()
 				addLineOfCode( enumDiv, padTabs(indentation(2) + "MAX_ENUM =", 89) + max_enum);
 					
 				addLineOfCode( enumDiv, indentation(1) + "};");
+			}
+			break;
+			case "bitmask":
+			{
+				if (interf.skip){ break; }
+
+				let flagDiv = document.createElement("div");
+				flagDiv.setAttribute("id", interf.name);
+				selectedFile.interfacesDiv.appendChild(flagDiv);
+
+				addLineOfCode( flagDiv, indentation(1));
+				addLineOfCode( flagDiv, padTabs(indentation(1) + "typedef " + interf.type, 86) + interf.name + ";");
 			}
 			break;
 			case "handle":
@@ -2080,7 +2106,7 @@ function registerSymbol(symbolName)
 			}
 			break;
 			case "bitmask":
-				pushIfNew(flags, found);
+				pushIfNew(interfaces, found);
 			break;
 			case "constant":
 			{
