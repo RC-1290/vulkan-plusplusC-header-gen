@@ -1919,7 +1919,7 @@ function createHeader()
 					addLineOfCode( selectedFile.linkedFunctionsDiv, indentation(2) + VKAPI_ATTR + " " + interf.returnType + " " + VKAPI_CALL + " " + interf.originalName + "(" + parametersText + ");" );
 					addLineOfCode( selectedFile.linkedFunctionsDiv, indentation(2));
 					
-					addLineOfCode( selectedFile.functionAliasesDiv, padTabs(indentation(1) + "const PFN::" + interf.name, 68) + interf.name + " = " + interf.originalName + ";");
+					addLineOfCode( selectedFile.functionAliasesDiv, padTabs(indentation(1) + "const PFN::" + interf.name, 92) + interf.name + " = " + interf.originalName + ";");
 				}
 			}
 			break;
@@ -2287,9 +2287,10 @@ function indentation(count)
 	return text;
 }
 
-function padTabs(text, length)
+function padTabs(text, length, minimum = 1)
 {
 	var tabCount = Math.floor((length - text.length) / tabSpaceWidth);// Note, it would be more consistent by actually calculating character widths.
+	tabCount = tabCount < minimum ? minimum : tabCount;
 	return text + indentation(tabCount);
 }
 
