@@ -1277,8 +1277,7 @@ function registerRequires(requires)
 
 					if (interf.aliasFor)
 					{
-						constant.value = interf.aliasFor;
-						constant.isAlias = true;
+						constant.alias = interf.aliasFor;
 					}
 					else { constant.value = interf.value; }
 					
@@ -1324,9 +1323,15 @@ function registerRequires(requires)
 	}
 }
 
-function extensionSort(extensionA, extensionB)
+function orderExtensions(extensionA, extensionB)
 {
 	return extensionA.sortOrder - extensionB.sortOrder;
+}
+function orderEnumConstants(constantA, constantB)
+{
+	let aIsAlias = (typeof constantA.alias == "string") ? 1:0;
+	let bIsAlias = (typeof constantB.alias == "string") ? 1:0;
+	return aIsAlias - bIsAlias;
 }
 
 function createHeader()
@@ -1345,7 +1350,6 @@ function createHeader()
 	coreFile.outputNode = headerTemplate.cloneNode(deep);
 
 	coreFile.interfacesDiv = 			coreFile.outputNode.getElementsByClassName("interfaces").item(0);
-	coreFile.interfacesAliasesDiv =		coreFile.outputNode.getElementsByClassName("interfaceAliases").item(0);
 	coreFile.externPfnDiv =				coreFile.outputNode.getElementsByClassName("externPfns").item(0);
 	coreFile.linkedFunctionsDiv =		coreFile.outputNode.getElementsByClassName("linkedFunctions").item(0);
 	coreFile.functionAliasesDiv =		coreFile.outputNode.getElementsByClassName("functionAliases").item(0);
@@ -1397,7 +1401,7 @@ function createHeader()
 
 	statusText.textContent = "Applying extensions";
 	let sortedAvailableExtensions = Array.from(availableExtensions.values());
-	//sortedAvailableExtensions.sort(extensionSort);
+	sortedAvailableExtensions.sort(orderExtensions);
 
 
 	for (let extension of sortedAvailableExtensions)
@@ -1448,7 +1452,6 @@ function createHeader()
 				files.set(file.name, file);
 
 				file.interfacesDiv 					= file.outputNode.getElementsByClassName("interfaces").item(0);
-				file.interfacesAliasesDiv			= file.outputNode.getElementsByClassName("interfaceAliases").item(0);
 				file.externPfnDiv					= file.outputNode.getElementsByClassName("externPfns").item(0);
 				file.linkedFunctionsDiv				= file.outputNode.getElementsByClassName("linkedFunctions").item(0);
 				file.functionAliasesDiv				= file.outputNode.getElementsByClassName("functionAliases").item(0);
@@ -1591,15 +1594,14 @@ function createHeader()
 						interf.functionCalls[i].type = typeReplacement(interf.functionCalls[i].type, typeReplacements);
 					}
 				}
-				
-				// enum alias renaming:
-				interf.value = typeReplacement(interf.value, typeReplacements);
 			}
 			break;
 			case "enum":
 			{
 				interf.originalName = interf.name;
 				interf.name = stripVk(interf.name);
+
+				interf.constants.sort(orderEnumConstants);
 				
 				for (let j = 0; j < interf.constants.length; ++j)
 				{
@@ -1611,10 +1613,6 @@ function createHeader()
 					if (constant.alias)
 					{
 						constant.alias = stripEnumName(constant.alias, interf.originalName);
-					}
-					if (constant.isAlias)
-					{
-						constant.value = stripEnumName(constant.value, interf.originalName);
 					}
 				}
 				if (!interf.isBitMask)
@@ -1695,6 +1693,7 @@ function createHeader()
 					console.warn("Could not do proper type replacement for '" + interf.aliasFor + "', while processing type alias '" + interf.name + "'. Best guess used.");
 					interf.aliasFor = stripVk(interf.aliasFor);// Can't use typeReplacement yet, because the alias is listed as a require before the thing it aliases.	
 				}
+				//typeReplacements.set(interf.originalName, interf.aliasFor);
 			}
 			break;
 			case "constexpr":
@@ -1947,9 +1946,9 @@ function createHeader()
 			{
 				if (lastCategory != interf.category)
 				{
-					addLineOfCode( selectedFile.interfacesAliasesDiv, indentation(1));
+					addLineOfCode( selectedFile.interfacesDiv, indentation(1));
 				}
-				addLineOfCode( selectedFile.interfacesAliasesDiv, padTabs(indentation(1) + "typedef " + interf.aliasFor, 94) + interf.name + ";" );
+				addLineOfCode( selectedFile.interfacesDiv, padTabs(indentation(1) + "typedef " + interf.aliasFor, 94) + interf.name + ";" );
 			}
 			break;
 			case "constexpr":
