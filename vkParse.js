@@ -1193,141 +1193,6 @@ function parsePlatforms(xml)
 }
 
 //===== Header Creation =====
-
-function determineType(text)
-{
-	// naive type analysis that only recognizes ULL (unsigned 64), f (float) or " (char* / c-string)
-	for(let k = 0; k < text.length; ++k)
-	{					
-		switch(text[k])
-		{
-			case 'U':
-				if (k > 0 && !isNaN(text[k-1]) && text[k+1] == "L" && text[k+2] == "L")
-				{
-					return u64;
-				}
-			break;
-			case 'f':
-				return f32;
-			break;
-			case '"':
-				return "string";
-			break;
-		}
-	}
-	return u32;
-}
-
-function replaceClassNodeContents(className, value)
-{
-	let toReplaceNodes = document.getElementsByClassName(className);
-	for (let toReplace of toReplaceNodes)
-	{
-		toReplace.textContent = value;
-	}
-}
-
-function registerRequires(requires)
-{
-	for (let require of requires)
-	{
-		// Skip this require for extensions that aren't enabled.
-		if (require.onlyForExtension)
-		{
-			let found = availableExtensions.get((require.onlyForExtension));
-			if (!found){ continue; }
-			else if (!found.checkbox.checked){	continue;}
-		}
-		// Skip this require for features that aren't enabled.
-		if (require.onlyForFeature)
-		{
-			let found = availableFeatures.get((require.onlyForFeature));
-			if (!found){ continue; }
-			else if (!found.checkbox.checked){	continue;}
-		}
-		
-		for (let interf of require.interfaces)
-		{
-			switch(interf.form)
-			{
-				case "extensionEnum":
-				{
-					let cEnum = availableInterfaces.get(interf.extending);
-					if (!cEnum)
-					{
-						console.error("extended enum not found: " + interf.extending);
-						break;
-					}
-					let constant = {};
-					constant.name = interf.name;
-
-					// There are now duplicate enum entries in vk.xml, so we have to ignore those:
-					let uniqueConstant = true;
-					for (let i = 0; i < cEnum.constants.length; ++i)
-					{
-						if (cEnum.constants[i].name == constant.name){ uniqueConstant = false; break;}
-					}
-					if (!uniqueConstant){ break; }
-
-					if (interf.aliasFor)
-					{
-						constant.alias = interf.aliasFor;
-					}
-					else { constant.value = interf.value; }
-					
-					
-					cEnum.constants.push(constant);
-				}
-				break;
-				case "constant":
-				{
-					let constant = {};
-					constant.name = interf.name;
-					constant.category = "constant";
-					availableInterfaces.set(constant.name, constant);// make constants added by extensions available
-					registerSymbol(interf.name);
-					if (interf.aliasFor)
-					{
-						let aliasedConstant = availableInterfaces.get(interf.aliasFor);
-						if (!aliasedConstant)
-						{
-							console.error("Could not find referenced aliased constant with name: " + interf.aliasFor);
-						}
-						else
-						{
-							constant.value = interf.aliasFor;
-							constant.type = aliasedConstant.type;
-						}
-					}
-					else
-					{
-						constant.value = interf.value;
-						constant.type = determineType(constant.value);
-					}
-				}
-				break;
-				case "reference":
-					registerSymbol(interf.name);
-				break;
-				case "constEnumAlias":
-					// Ignore constant Enum aliases for now...
-				break;
-			}		
-		}
-	}
-}
-
-function orderExtensions(extensionA, extensionB)
-{
-	return extensionA.sortOrder - extensionB.sortOrder;
-}
-function orderEnumConstants(constantA, constantB)
-{
-	let aIsAlias = (typeof constantA.alias == "string") ? 1:0;
-	let bIsAlias = (typeof constantB.alias == "string") ? 1:0;
-	return aIsAlias - bIsAlias;
-}
-
 function createHeader()
 {
 	statusText.textContent = "Applying custom settings:";
@@ -2047,6 +1912,140 @@ function createHeader()
 	historyState.headerCreated = true;
 	historyState.header = coreFile.outputNode.innerText;
 	window.history.pushState(historyState, "Header displayed");
+}
+
+function determineType(text)
+{
+	// naive type analysis that only recognizes ULL (unsigned 64), f (float) or " (char* / c-string)
+	for(let k = 0; k < text.length; ++k)
+	{					
+		switch(text[k])
+		{
+			case 'U':
+				if (k > 0 && !isNaN(text[k-1]) && text[k+1] == "L" && text[k+2] == "L")
+				{
+					return u64;
+				}
+			break;
+			case 'f':
+				return f32;
+			break;
+			case '"':
+				return "string";
+			break;
+		}
+	}
+	return u32;
+}
+
+function replaceClassNodeContents(className, value)
+{
+	let toReplaceNodes = document.getElementsByClassName(className);
+	for (let toReplace of toReplaceNodes)
+	{
+		toReplace.textContent = value;
+	}
+}
+
+function registerRequires(requires)
+{
+	for (let require of requires)
+	{
+		// Skip this require for extensions that aren't enabled.
+		if (require.onlyForExtension)
+		{
+			let found = availableExtensions.get((require.onlyForExtension));
+			if (!found){ continue; }
+			else if (!found.checkbox.checked){	continue;}
+		}
+		// Skip this require for features that aren't enabled.
+		if (require.onlyForFeature)
+		{
+			let found = availableFeatures.get((require.onlyForFeature));
+			if (!found){ continue; }
+			else if (!found.checkbox.checked){	continue;}
+		}
+		
+		for (let interf of require.interfaces)
+		{
+			switch(interf.form)
+			{
+				case "extensionEnum":
+				{
+					let cEnum = availableInterfaces.get(interf.extending);
+					if (!cEnum)
+					{
+						console.error("extended enum not found: " + interf.extending);
+						break;
+					}
+					let constant = {};
+					constant.name = interf.name;
+
+					// There are now duplicate enum entries in vk.xml, so we have to ignore those:
+					let uniqueConstant = true;
+					for (let i = 0; i < cEnum.constants.length; ++i)
+					{
+						if (cEnum.constants[i].name == constant.name){ uniqueConstant = false; break;}
+					}
+					if (!uniqueConstant){ break; }
+
+					if (interf.aliasFor)
+					{
+						constant.alias = interf.aliasFor;
+					}
+					else { constant.value = interf.value; }
+					
+					
+					cEnum.constants.push(constant);
+				}
+				break;
+				case "constant":
+				{
+					let constant = {};
+					constant.name = interf.name;
+					constant.category = "constant";
+					availableInterfaces.set(constant.name, constant);// make constants added by extensions available
+					registerSymbol(interf.name);
+					if (interf.aliasFor)
+					{
+						let aliasedConstant = availableInterfaces.get(interf.aliasFor);
+						if (!aliasedConstant)
+						{
+							console.error("Could not find referenced aliased constant with name: " + interf.aliasFor);
+						}
+						else
+						{
+							constant.value = interf.aliasFor;
+							constant.type = aliasedConstant.type;
+						}
+					}
+					else
+					{
+						constant.value = interf.value;
+						constant.type = determineType(constant.value);
+					}
+				}
+				break;
+				case "reference":
+					registerSymbol(interf.name);
+				break;
+				case "constEnumAlias":
+					// Ignore constant Enum aliases for now...
+				break;
+			}		
+		}
+	}
+}
+
+function orderExtensions(extensionA, extensionB)
+{
+	return extensionA.sortOrder - extensionB.sortOrder;
+}
+function orderEnumConstants(constantA, constantB)
+{
+	let aIsAlias = (typeof constantA.alias == "string") ? 1:0;
+	let bIsAlias = (typeof constantB.alias == "string") ? 1:0;
+	return aIsAlias - bIsAlias;
 }
 
 function typeReplacement(original, map)
