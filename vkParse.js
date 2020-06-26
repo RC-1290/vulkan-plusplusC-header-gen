@@ -377,6 +377,7 @@ function parseTypes(xml)
 		if (typeNode.hasAttribute("alias"))
 		{
 			namedThing.aliasFor = typeNode.getAttribute("alias");
+			namedThing.category =  typeNode.getAttribute("category");
 			namedThing.category = "TYPE_ALIAS";
 		}
 		else if (typeNode.hasAttribute("category"))
