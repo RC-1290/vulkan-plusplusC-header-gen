@@ -226,23 +226,6 @@ function loadTextXhr(url)
 	xhr.send();
 }
 
-function parseText()
-{
-	setupPart2.removeAttribute("class");
-	
-	statusText.textContent = "Trying to open vk.xml";
-	let xmlParser = new DOMParser();
-	let vkxml = xmlParser.parseFromString(vkxmlTextInput.value, "application/xml");
-	if (vkxml.documentElement.nodeName != "parsererror")
-	{	
-		readXML(vkxml);
-	}
-	else
-	{
-		statusText.textContent = "Could not parse xml, are you sure it is valid xml?";
-	}
-}
-
 function onXhrLoad()
 {
 	if (this.status === 200)
@@ -264,26 +247,225 @@ function onXhrLoad()
 	}
 }
 
-function readXML(vkxml)
-{
-	// Clear placeholder text and previous lists
-	featureList.textContent = "";
-	extensionList.textContent = "";
-	typeReplacementList.textContent = "";
-	
-	availableFeatures = new Map();
-	availableExtensions = new Map();
-	availableInterfaces = new Map();
-	availablePlatforms = new Map();
-	headerVersion = "";
-	for (let node of vkxml.childNodes.values())
+function checkAllExtensions()
+{	
+	for(let extension of availableExtensions.values())
 	{
-		if (!node.nodeType == Node.ELEMENT_NODE) { continue; }
-		
-		if (node.tagName == "registry") { parseRegistry(node); }
+		extension.checkbox.checked = true;
 	}
+}
+
+function uncheckAllExtensions()
+{
+	for(let extension of availableExtensions.values())
+	{
+		extension.checkbox.checked = false;
+	}
+}
+
+function checkboxChanged()
+{
+	statusText.textContent = "Checkbox Selection updated, checking dependencies... (Note: Header creation saves changes.)"
+	var changedExtension = availableExtensions.get(this.getAttribute("extensionName"));
 	
-	listFeatures();
+	updateExtensionDependencies(changedExtension);
+}
+
+function updateExtensionDependencies(changedExtension)
+{
+	// Select extensions this depends on.
+	if (changedExtension.checkbox.checked)
+	{
+		if (!changedExtension.dependencies){ return; }
+		for (let dependencyName of changedExtension.dependencies)
+		{
+			let dependency = availableExtensions.get(dependencyName);
+			if (dependency)
+			{
+				dependency.checkbox.checked = true;
+				updateExtensionDependencies( dependency);
+			}
+		}
+	}
+	else // De-select extensions that depend on this.
+	{
+		for (let extension of availableExtensions.values())
+		{
+			if (!extension.dependencies){ continue; }
+			for (let dependencyName of extension.dependencies)
+			{
+				if (dependencyName == changedExtension.name)
+				{
+					extension.checkbox.checked = false;
+					updateExtensionDependencies(extension);
+				}
+			}
+		}
+	}
+}
+
+function parseText()
+{
+	setupPart2.removeAttribute("class");
+	
+	statusText.textContent = "Trying to open vk.xml";
+	let xmlParser = new DOMParser();
+	let vkxml = xmlParser.parseFromString(vkxmlTextInput.value, "application/xml");
+	if (vkxml.documentElement.nodeName == "parsererror")
+	{	
+		statusText.textContent = "Could not parse xml, are you sure it is valid xml?";
+	}
+	else
+	{
+		//== Parse XML ==
+		// Clear placeholder text and previous lists
+		featureList.textContent = "";
+		extensionList.textContent = "";
+		typeReplacementList.textContent = "";
+		
+		availableFeatures = new Map();
+		availableExtensions = new Map();
+		availableInterfaces = new Map();
+		availablePlatforms = new Map();
+		headerVersion = "";
+		for (let node of vkxml.childNodes.values())
+		{
+			if (!node.nodeType == Node.ELEMENT_NODE) { continue; }
+			
+			if (node.tagName == "registry") { parseRegistry(node); }
+		}
+		
+		//== Parse Features ==
+		// Restoring previous selection:
+		let selectedFeatures = localStorage.getItem("selectedFeatures");
+		let selectedExtensions = localStorage.getItem("selectedExtensions");
+		let ranBefore = localStorage.getItem("ranBefore");
+		
+		let featureSelectionMap = new Map();
+		if (selectedFeatures)
+		{
+			for (let feature of selectedFeatures.split(","))
+			{
+				featureSelectionMap.set(feature, true);
+			}
+		}
+		let extensionSelectionMap = new Map();
+		if (selectedExtensions)
+		{
+			for (let extension of selectedExtensions.split(","))
+			{
+				extensionSelectionMap.set(extension, true);
+			}
+		}
+		
+		// List features:
+		statusText.textContent = "Listing Features...";
+		headerVersionSpan.textContent = headerVersion;
+		
+		var featureUl = document.createElement("ul");
+		featureUl.setAttribute("class", "autoColumn");
+		featureList.appendChild(featureUl);
+		for (let feature of availableFeatures.values())
+		{
+			var featureLi = document.createElement("li");
+			featureUl.appendChild(featureLi);
+			feature.checkbox = addCheckbox(featureLi, feature.name, feature.description, feature.name + ", version: " + feature.version);
+			
+			if (ranBefore)
+			{
+				if (featureSelectionMap.get(feature.name)){	feature.checkbox.checked = true;	}
+			}
+			else 
+			{
+				feature.checkbox.checked = true;
+			}
+		}
+
+		var extensionUl = document.createElement("ul");
+		extensionUl.setAttribute("class", "autoColumn");
+		extensionList.appendChild(extensionUl);	
+		for(let extension of availableExtensions.values())
+		{
+			var extensionLi = document.createElement("li");
+			extensionUl.appendChild(extensionLi);
+			
+			let tooltip = "[Type: " + extension.type + "] [Contact: " + extension.contact + "]";
+			if (extension.requiredExtensions)
+			{
+				tooltip += " [Requires: " + extension.requiredExtensions + "]";
+			}
+			if (extension.platform)
+			{
+				tooltip += " [Platform: " + extension.platform + "]";
+			}
+			if (extension.protect)
+			{
+				tooltip += " [Protect: " + extension.protect + "]";
+			}
+			
+			extension.checkbox = addCheckbox(extensionLi, extension.name, extension.name, tooltip);
+			extension.checkbox.setAttribute("extensionName", extension.name);
+			
+			if (ranBefore)
+			{
+				if (extensionSelectionMap.get(extension.name)){	extension.checkbox.checked = true;	}
+			}
+			else 
+			{
+				extension.checkbox.checked = true;
+			}
+			
+			extension.checkbox.addEventListener("change", checkboxChanged);
+		}
+		
+		let checkAllButton = document.createElement("button");
+		checkAllButton.textContent = "Check all";
+		checkAllButton.addEventListener("click", checkAllExtensions);
+		
+		let uncheckAllButton = document.createElement("button");
+		uncheckAllButton.textContent = "Uncheck all";
+		uncheckAllButton.addEventListener("click", uncheckAllExtensions);
+		
+		extensionList.appendChild(checkAllButton);
+		extensionList.appendChild(uncheckAllButton);
+
+		
+		// Type replacement interface:
+		for( let interf of availableInterfaces.values())
+		{
+			if (interf.category == "EXTERNAL")
+			{
+				let typeEntry = document.createElement("li");
+				typeEntry.title = interf.name;
+				if (interf.requires)
+				{
+					typeEntry.title += " originally defined by: " + interf.requires;
+				}
+				
+				let interfaceLabel = document.createElement("label");
+				interf.input = document.createElement("Input");
+				
+				interfaceLabel.setAttribute("for", interf.name);
+				interfaceLabel.textContent = interf.name;
+				
+				interf.input.setAttribute("id", interf.name);
+				interf.input.setAttribute("type", "text");
+				interf.input.value = localStorage.getItem("typRepl " + interf.name);
+				if (!interf.input.value)
+				{
+					interf.input.value = interf.name;
+				}
+				
+				typeEntry.appendChild(interfaceLabel);
+				typeEntry.appendChild(interf.input);
+				
+				typeReplacementList.appendChild(typeEntry);
+				
+			}
+		}
+
+		statusText.textContent = "Features listing complete. Select features and extensions and press \"Create Header\"...";
+	}
 }
 
 function parseRegistry(xml)
@@ -377,7 +559,7 @@ function parseTypes(xml)
 		if (typeNode.hasAttribute("alias"))
 		{
 			namedThing.aliasFor = typeNode.getAttribute("alias");
-			namedThing.category =  typeNode.getAttribute("category");
+			namedThing.category = typeNode.getAttribute("category");
 			namedThing.category = "TYPE_ALIAS";
 		}
 		else if (typeNode.hasAttribute("category"))
@@ -1010,6 +1192,7 @@ function parsePlatforms(xml)
 	}
 }
 
+//===== Header Creation =====
 
 function determineType(text)
 {
@@ -1033,196 +1216,6 @@ function determineType(text)
 		}
 	}
 	return u32;
-}
-
-function listFeatures()
-{
-	// Restoring previous selection:
-	let selectedFeatures = localStorage.getItem("selectedFeatures");
-	let selectedExtensions = localStorage.getItem("selectedExtensions");
-	let ranBefore = localStorage.getItem("ranBefore");
-	
-	let featureSelectionMap = new Map();
-	if (selectedFeatures)
-	{
-		for (let feature of selectedFeatures.split(","))
-		{
-			featureSelectionMap.set(feature, true);
-		}
-	}
-	let extensionSelectionMap = new Map();
-	if (selectedExtensions)
-	{
-		for (let extension of selectedExtensions.split(","))
-		{
-			extensionSelectionMap.set(extension, true);
-		}
-	}
-	
-	// List features:
-	statusText.textContent = "Listing Features...";
-	headerVersionSpan.textContent = headerVersion;
-	
-	var featureUl = document.createElement("ul");
-	featureUl.setAttribute("class", "autoColumn");
-	featureList.appendChild(featureUl);
-	for (let feature of availableFeatures.values())
-	{
-		var featureLi = document.createElement("li");
-		featureUl.appendChild(featureLi);
-		feature.checkbox = addCheckbox(featureLi, feature.name, feature.description, feature.name + ", version: " + feature.version);
-		
-		if (ranBefore)
-		{
-			if (featureSelectionMap.get(feature.name)){	feature.checkbox.checked = true;	}
-		}
-		else 
-		{
-			feature.checkbox.checked = true;
-		}
-	}
-
-	var extensionUl = document.createElement("ul");
-	extensionUl.setAttribute("class", "autoColumn");
-	extensionList.appendChild(extensionUl);	
-	for(let extension of availableExtensions.values())
-	{
-		var extensionLi = document.createElement("li");
-		extensionUl.appendChild(extensionLi);
-		
-		let tooltip = "[Type: " + extension.type + "] [Contact: " + extension.contact + "]";
-		if (extension.requiredExtensions)
-		{
-			tooltip += " [Requires: " + extension.requiredExtensions + "]";
-		}
-		if (extension.platform)
-		{
-			tooltip += " [Platform: " + extension.platform + "]";
-		}
-		if (extension.protect)
-		{
-			tooltip += " [Protect: " + extension.protect + "]";
-		}
-		
-		extension.checkbox = addCheckbox(extensionLi, extension.name, extension.name, tooltip);
-		extension.checkbox.setAttribute("extensionName", extension.name);
-		
-		if (ranBefore)
-		{
-			if (extensionSelectionMap.get(extension.name)){	extension.checkbox.checked = true;	}
-		}
-		else 
-		{
-			extension.checkbox.checked = true;
-		}
-		
-		extension.checkbox.addEventListener("change", checkboxChanged);
-	}
-	
-	let checkAllButton = document.createElement("button");
-	checkAllButton.textContent = "Check all";
-	checkAllButton.addEventListener("click", checkAllExtensions);
-	
-	let uncheckAllButton = document.createElement("button");
-	uncheckAllButton.textContent = "Uncheck all";
-	uncheckAllButton.addEventListener("click", uncheckAllExtensions);
-	
-	extensionList.appendChild(checkAllButton);
-	extensionList.appendChild(uncheckAllButton);
-
-	
-	// Type replacement interface:
-	for( let interf of availableInterfaces.values())
-	{
-		if (interf.category == "EXTERNAL")
-		{
-			let typeEntry = document.createElement("li");
-			typeEntry.title = interf.name;
-			if (interf.requires)
-			{
-				typeEntry.title += " originally defined by: " + interf.requires;
-			}
-			
-			let interfaceLabel = document.createElement("label");
-			interf.input = document.createElement("Input");
-			
-			interfaceLabel.setAttribute("for", interf.name);
-			interfaceLabel.textContent = interf.name;
-			
-			interf.input.setAttribute("id", interf.name);
-			interf.input.setAttribute("type", "text");
-			interf.input.value = localStorage.getItem("typRepl " + interf.name);
-			if (!interf.input.value)
-			{
-				interf.input.value = interf.name;
-			}
-			
-			typeEntry.appendChild(interfaceLabel);
-			typeEntry.appendChild(interf.input);
-			
-			typeReplacementList.appendChild(typeEntry);
-			
-		}
-	}
-
-	statusText.textContent = "Features listing complete. Select features and extensions and press \"Create Header\"...";
-}
-
-function checkAllExtensions()
-{	
-	for(let extension of availableExtensions.values())
-	{
-		extension.checkbox.checked = true;
-	}
-}
-
-function uncheckAllExtensions()
-{
-	for(let extension of availableExtensions.values())
-	{
-		extension.checkbox.checked = false;
-	}
-}
-
-function checkboxChanged()
-{
-	statusText.textContent = "Checkbox Selection updated, checking dependencies... (Note: Header creation saves changes.)"
-	var changedExtension = availableExtensions.get(this.getAttribute("extensionName"));
-	
-	updateExtensionDependencies(changedExtension);
-}
-
-function updateExtensionDependencies(changedExtension)
-{
-	// Select extensions this depends on.
-	if (changedExtension.checkbox.checked)
-	{
-		if (!changedExtension.dependencies){ return; }
-		for (let dependencyName of changedExtension.dependencies)
-		{
-			let dependency = availableExtensions.get(dependencyName);
-			if (dependency)
-			{
-				dependency.checkbox.checked = true;
-				updateExtensionDependencies( dependency);
-			}
-		}
-	}
-	else // De-select extensions that depend on this.
-	{
-		for (let extension of availableExtensions.values())
-		{
-			if (!extension.dependencies){ continue; }
-			for (let dependencyName of extension.dependencies)
-			{
-				if (dependencyName == changedExtension.name)
-				{
-					extension.checkbox.checked = false;
-					updateExtensionDependencies(extension);
-				}
-			}
-		}
-	}
 }
 
 function replaceClassNodeContents(className, value)
