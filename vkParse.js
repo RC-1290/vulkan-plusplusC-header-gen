@@ -561,6 +561,7 @@ function parseTypes(xml)
 			namedThing.aliasFor = typeNode.getAttribute("alias");
 			namedThing.category = typeNode.getAttribute("category");
 			namedThing.category = "TYPE_ALIAS";
+			namedThing.requiredTypes = namedThing.aliasFor;
 		}
 		else if (typeNode.hasAttribute("category"))
 		{
@@ -940,7 +941,7 @@ function parseEnums(enumsNode)
 
 			if (constantNode.hasAttribute("alias"))
 			{
-				constant.alias = constantNode.getAttribute("alias");
+				constant.aliasFor = constantNode.getAttribute("alias");
 				console.warn("Found alias attribute on: " + constant.name + ". Support is experimental");
 				//console.error("Found alias attribute on: " + constant.name + ". When this generator was written, the xml didn't use this, so support was omitted");
 			}
@@ -1469,9 +1470,9 @@ function createHeader()
 					constant.name = stripEnumName(constant.name, interf.originalName);
 					typeReplacements.set(constant.originalName, interf.name + "::" + constant.name);
 
-					if (constant.alias)
+					if (constant.aliasFor)
 					{
-						constant.alias = stripEnumName(constant.alias, interf.originalName);
+						constant.aliasFor = stripEnumName(constant.aliasFor, interf.originalName);
 					}
 				}
 				if (!interf.isBitMask)
@@ -1690,16 +1691,16 @@ function createHeader()
 				{
 					let constant = interf.constants[j];
 					
-					if (constant.alias)
+					if (constant.aliasFor)
 					{
 						console.warn("Support for aliases in enums is untested.")
-						if (constant.alias == constant.name)
+						if (constant.aliasFor == constant.name)
 						{
 							continue;
 						}
 						else
 						{
-							constant.value = constant.alias;
+							constant.value = constant.aliasFor;
 						}
 					}
 					addLineOfCode(enumDiv,  padTabs(indentation(2) + constant.name + " =", 89) + constant.value + ",");
@@ -1989,11 +1990,8 @@ function registerRequires(requires)
 					}
 					if (!uniqueConstant){ break; }
 
-					if (interf.aliasFor)
-					{
-						constant.alias = interf.aliasFor;
-					}
-					else { constant.value = interf.value; }
+					if (typeof interf.aliasFor == "undefined"){ constant.value = interf.value; }
+					else { constant.aliasFor = interf.aliasFor;}
 					
 					
 					cEnum.constants.push(constant);
@@ -2043,8 +2041,8 @@ function orderExtensions(extensionA, extensionB)
 }
 function orderEnumConstants(constantA, constantB)
 {
-	let aIsAlias = (typeof constantA.alias == "string") ? 1:0;
-	let bIsAlias = (typeof constantB.alias == "string") ? 1:0;
+	let aIsAlias = (typeof constantA.aliasFor == "string") ? 1:0;
+	let bIsAlias = (typeof constantB.aliasFor == "string") ? 1:0;
 	return aIsAlias - bIsAlias;
 }
 
