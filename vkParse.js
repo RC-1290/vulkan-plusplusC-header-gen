@@ -895,6 +895,7 @@ function parseEnums(enumsNode)
 			{
 				constant.category = "CONSTANT_ALIAS";
 				constant.aliasFor = constantNode.getAttribute("alias");
+				constant.requiredTypes = constant.aliasFor;
 			}
 			else
 			{
@@ -1446,6 +1447,11 @@ function createHeader()
 				interf.originalName = interf.name;
 				interf.name = stripVk(interf.name);
 				typeReplacements.set(interf.originalName, interf.name);
+
+				if (typeof interf.aliasFor != "undefined")
+				{
+					interf.value = typeReplacement(interf.aliasFor, typeReplacements);
+				}
 
 				if (interf.functionCalls)
 				{
@@ -2003,7 +2009,7 @@ function registerRequires(requires)
 					constant.name = interf.name;
 					constant.category = "constant";
 					availableInterfaces.set(constant.name, constant);// make constants added by extensions available
-					registerSymbol(interf.name);
+					
 					if (interf.aliasFor)
 					{
 						let aliasedConstant = availableInterfaces.get(interf.aliasFor);
@@ -2013,7 +2019,8 @@ function registerRequires(requires)
 						}
 						else
 						{
-							constant.value = interf.aliasFor;
+							registerSymbol(interf.aliasFor);
+							constant.aliasFor = interf.aliasFor;
 							constant.type = aliasedConstant.type;
 						}
 					}
@@ -2022,6 +2029,7 @@ function registerRequires(requires)
 						constant.value = interf.value;
 						constant.type = determineType(constant.value);
 					}
+					registerSymbol(interf.name);
 				}
 				break;
 				case "reference":
