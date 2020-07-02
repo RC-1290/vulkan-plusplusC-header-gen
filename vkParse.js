@@ -944,8 +944,6 @@ function parseEnums(enumsNode)
 			if (constantNode.hasAttribute("alias"))
 			{
 				constant.aliasFor = constantNode.getAttribute("alias");
-				console.warn("Found alias attribute on: " + constant.name + ". Support is experimental");
-				//console.error("Found alias attribute on: " + constant.name + ". When this generator was written, the xml didn't use this, so support was omitted");
 			}
 			
 			if (cEnum.isBitMask)
@@ -1560,7 +1558,6 @@ function createHeader()
 					console.warn("Could not do proper type replacement for '" + interf.aliasFor + "', while processing type alias '" + interf.name + "'. Best guess used.");
 					interf.aliasFor = stripVk(interf.aliasFor);// Can't use typeReplacement yet, because the alias is listed as a require before the thing it aliases.	
 				}
-				//typeReplacements.set(interf.originalName, interf.aliasFor);
 			}
 			break;
 			case "constexpr":
@@ -1700,7 +1697,6 @@ function createHeader()
 					
 					if (constant.aliasFor)
 					{
-						console.warn("Support for aliases in enums is untested.")
 						if (constant.aliasFor == constant.name)
 						{
 							continue;
