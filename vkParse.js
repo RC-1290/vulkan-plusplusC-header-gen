@@ -59,6 +59,7 @@ initializeDefaultStore("typRepl float", f32);
 
 initializeDefaultStore("typRepl HANDLE", "Windows::Handle");
 initializeDefaultStore("typRepl HINSTANCE", "Windows::Handle");
+initializeDefaultStore("typRepl HMONITOR", "Windows::Handle");
 initializeDefaultStore("typRepl HWND", "Windows::Handle");
 initializeDefaultStore("typRepl SECURITY_ATTRIBUTES", "Windows::SecurityAttributes");
 initializeDefaultStore("typRepl DWORD", u32);
