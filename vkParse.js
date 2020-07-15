@@ -1712,12 +1712,13 @@ function createHeader()
 				if (interf.isBitMask)
 				{
 					let fullyQualifiedName = vulkanNamespace + "::" + interf.name;
+					let fullyQualifiedFlagsName = vulkanNamespace + "::" + VkFlags;
 					
 					addLineOfCode(selectedFile.bitFieldOperatorsDefDiv, padTabs(indentation(2) + fullyQualifiedName, 69) + " operator| (" + fullyQualifiedName + " left, " + fullyQualifiedName + " right);");
 					addLineOfCode(selectedFile.bitFieldOperatorsDefDiv, padTabs(indentation(2) + fullyQualifiedName, 69) + " operator& (" + fullyQualifiedName + " left, " + fullyQualifiedName + " right);");
 
-					addLineOfCode(selectedFile.bitFieldOperatorsDiv, padTabs(indentation(2) + fullyQualifiedName, 69) + " operator| (" + fullyQualifiedName + " left, " + fullyQualifiedName + " right) { return (" + fullyQualifiedName + ")((" + u32 + ")left | (" + u32 + ") right); }");
-					addLineOfCode(selectedFile.bitFieldOperatorsDiv, padTabs(indentation(2) + fullyQualifiedName, 69) + " operator& (" + fullyQualifiedName + " left, " + fullyQualifiedName + " right) { return (" + fullyQualifiedName + ")((" + u32 + ")left & (" + u32 + ") right); }");
+					addLineOfCode(selectedFile.bitFieldOperatorsDiv, padTabs(indentation(2) + fullyQualifiedName, 69) + " operator| (" + fullyQualifiedName + " left, " + fullyQualifiedName + " right) { return (" + fullyQualifiedName + ")((" + fullyQualifiedFlagsName + ")left | (" + fullyQualifiedFlagsName + ") right); }");
+					addLineOfCode(selectedFile.bitFieldOperatorsDiv, padTabs(indentation(2) + fullyQualifiedName, 69) + " operator& (" + fullyQualifiedName + " left, " + fullyQualifiedName + " right) { return (" + fullyQualifiedName + ")((" + fullyQualifiedFlagsName + ")left & (" + fullyQualifiedFlagsName + ") right); }");
 				}
 				else
 				{
