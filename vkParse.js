@@ -1622,7 +1622,7 @@ function createHeader()
 	let selectedFile;
 
 	let smallLeftColumnWidth = 464;
-	let leftColumnWidth = 745;
+	let leftColumnWidth = 742;
 
 	let lastCategory = "";
 	for (let i = 0; i < interfaces.length; ++i)
