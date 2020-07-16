@@ -7,7 +7,6 @@
 </head>
 
 <body>
-
 <h1>Vulkan Header Generator</h1>
 <p>This generator tries to turn <a href="https://github.com/KhronosGroup/Vulkan-Docs/blob/master/xml/vk.xml">vk.xml</a> into a ++C header file (for C++11 compilers) and implementation file. It works on my machine™ (I've been using the latest version of Firefox, other browsers might not display matching tab sizes). You can find more information, and the files of the generator on <a href="https://github.com/RC-1290/vulkan-plusplusC-header-gen/">GitHub</a>.</p>
 
@@ -78,6 +77,7 @@
 <div class="usageGuide">// A single translation unit (e.g.: a .cpp file) that includes this header, must have <span class="FunctionImplementationDefine">IMPLEMENT_VK_FUNCTIONS</span> defined.
 // You can then call LoadIndependentCommands and LoadInstanceCommands, to load the ProcAddresses.
 </div>
+<div class="versionInfo"></div>
 #pragma once
 
 <div class="callingConventions">// Calling conventions:
@@ -97,24 +97,22 @@
     #define VKAPI_PTR
 #endif</div>
 
-namespace <span class="namespaceVulkan">Vk</span>
-{	<div class="interfaces"></div>
+namespace <span class="namespaceVulkan">Vk</span> {
+<div class="interfaces"></div>
 	<div class="externPfns"></div>	// Linked functions:
-	namespace
-	{
-	extern "C"
-	{<div class="linkedFunctions"></div>	}
+	namespace {
+	extern "C" {
+	<div class="linkedFunctions"></div>	}
 	}
 }
 
 // function aliases
-namespace <span class="namespaceVulkan">Vk</span>
-{<div class="functionAliases"></div>}
+namespace <span class="namespaceVulkan">Vk</span> {
+<div class="functionAliases"></div>}
 
-namespace <span class="namespaceNewCode">CodeAnimo</span>
-{
-	namespace <span class="namespaceNewCode2">Vulkan</span>
-	{<div class="bitMaskOperatorDefinitions"></div>
+namespace <span class="namespaceNewCode">CodeAnimo</span> {
+	namespace <span class="namespaceNewCode2">Vulkan</span> {
+	<div class="bitMaskOperatorDefinitions"></div>
 	}
 }
 
@@ -123,17 +121,16 @@ namespace <span class="namespaceNewCode">CodeAnimo</span>
 // Proc address retrieval implementation:
 #ifdef <span class="FunctionImplementationDefine">IMPLEMENT_VK_FUNCTIONS</span>
 
-namespace <span class="namespaceVulkan">Vk</span>
-{
+namespace <span class="namespaceVulkan">Vk</span> {
+
 	<div class="cmdDefs"></div>}
-namespace <span class="namespaceNewCode">CodeAnimo</span>
-{
-	namespace <span class="namespaceNewCode2">Vulkan</span>
-	{<div class="protectedLookups"></div>
-		void <span class ="loadIndependentCommandsFunctionName">LoadIndependentCommands</span>()
-		{<div class="independentCmdLoading"></div>		}
-		void <span class ="loadInstanceCommandsFunctionName">LoadInstanceCommands</span>( <span class="namespaceVulkan">Vk</span>::Instance instance )
-		{<div class="instanceCmdLoading"></div>		}
+namespace <span class="namespaceNewCode">CodeAnimo</span> {
+	namespace <span class="namespaceNewCode2">Vulkan</span> {
+	<div class="protectedLookups"></div>
+		void <span class ="loadIndependentCommandsFunctionName">LoadIndependentCommands</span>() {
+		<div class="independentCmdLoading"></div>		}
+		void <span class ="loadInstanceCommandsFunctionName">LoadInstanceCommands</span>( <span class="namespaceVulkan">Vk</span>::Instance instance ) {
+		<div class="instanceCmdLoading"></div>		}
 	<div class="bitMaskOperatorImplementations"></div>
 	}
 }
@@ -143,7 +140,7 @@ namespace <span class="namespaceNewCode">CodeAnimo</span>
 </div>
 
 <div id="CodeAnimo">Created by Laurens Mathot (<a href="http://codeanimo.com">Code Animo</a>)</div>
-
+<pre><code id="ruler"></code></pre>
 <script src="vkParse.js" type="text/javascript"></script>
 </body>
 </html>

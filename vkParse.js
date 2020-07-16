@@ -25,10 +25,6 @@ var FunctionImplementationDefine = "IMPLEMENT_VK_FUNCTIONS";
 // 
 var max_enum = "0x7FFFFFFF";
 
-// Formatting settings:
-var tab = "	";
-var tabSpaceWidth = 4;// If you change this, you might want to change the css too.
-
 // Replacement Types:
 var x8 = "x8";// signed/undefined 8-bit (compiler dependent)
 var u16 = "u16";// unsigned 16-bit
@@ -65,30 +61,35 @@ initializeDefaultStore("typRepl SECURITY_ATTRIBUTES", "Windows::SecurityAttribut
 initializeDefaultStore("typRepl DWORD", u32);
 initializeDefaultStore("typRepl LPCWSTR", "const u16*");
 
-var statusText =				document.getElementById("statusText");
-var featureList =				document.getElementById("featureSelection");
-var extensionList = 			document.getElementById("extensionSelection");
-var headerVersionSpan =			document.getElementById("headerVersion"); 
+var statusText					= document.getElementById("statusText");
+var featureList					= document.getElementById("featureSelection");
+var extensionList				= document.getElementById("extensionSelection");
+var headerVersionSpan			= document.getElementById("headerVersion"); 
 
 //
-var parseTextButton =			document.getElementById("parseTextButton");
-var localVkXmlBtn =				document.getElementById("localVkXmlBtn");
-var clearXmlTextBtn =			document.getElementById("clearXmlTextBtn");
-var loadRawGithubBtn =			document.getElementById("loadRawGithubBtn");
+var parseTextButton				= document.getElementById("parseTextButton");
+var localVkXmlBtn				= document.getElementById("localVkXmlBtn");
+var clearXmlTextBtn				= document.getElementById("clearXmlTextBtn");
+var loadRawGithubBtn			= document.getElementById("loadRawGithubBtn");
 
-var vkxmlTextInput = 			document.getElementById("vkxmlText");
-var vulkanNamespaceInput =		document.getElementById("vulkanNamespace");
-var implementationDefineInput =	document.getElementById("implementationDefine");
-var funcRenamingSelect =		document.getElementById("funcRenaming");
+var vkxmlTextInput				= document.getElementById("vkxmlText");
+var vulkanNamespaceInput		= document.getElementById("vulkanNamespace");
+var implementationDefineInput	= document.getElementById("implementationDefine");
+var funcRenamingSelect			= document.getElementById("funcRenaming");
 
-var typeReplacementList =		document.getElementById("typeReplacement");
+var typeReplacementList			= document.getElementById("typeReplacement");
 
-var createHeaderButton =		document.getElementById("createHeaderButton");
+var createHeaderButton			= document.getElementById("createHeaderButton");
 
-var setupStuff = 				document.getElementById("setupStuff");
-var setupPart2 =				document.getElementById("setupPart2");
+var setupStuff					= document.getElementById("setupStuff");
+var setupPart2					= document.getElementById("setupPart2");
 
-var headerTemplate =			document.getElementById("vulkanHeader");
+var headerTemplate				= document.getElementById("vulkanHeader");
+var ruler						= document.getElementById("ruler");
+
+// Formatting settings:
+var tab = "	";
+var tabSpaceWidth = estimateStringWidth(tab);
 
 headerTemplate.parentNode.removeChild(headerTemplate);
 
@@ -1209,16 +1210,17 @@ function createHeader()
 	let deep = true;
 	coreFile.outputNode = headerTemplate.cloneNode(deep);
 
-	coreFile.interfacesDiv = 			coreFile.outputNode.getElementsByClassName("interfaces").item(0);
-	coreFile.externPfnDiv =				coreFile.outputNode.getElementsByClassName("externPfns").item(0);
-	coreFile.linkedFunctionsDiv =		coreFile.outputNode.getElementsByClassName("linkedFunctions").item(0);
-	coreFile.functionAliasesDiv =		coreFile.outputNode.getElementsByClassName("functionAliases").item(0);
-	coreFile.cmdDefsDiv =				coreFile.outputNode.getElementsByClassName("cmdDefs").item(0);
-	coreFile.independentCmdLoadingDiv =	coreFile.outputNode.getElementsByClassName("independentCmdLoading").item(0);
-	coreFile.instanceCmdLoadingDiv =	coreFile.outputNode.getElementsByClassName("instanceCmdLoading").item(0);
-	coreFile.protectedIncludesDiv = 	coreFile.outputNode.getElementsByClassName("protectedLookups").item(0);
-	coreFile.bitFieldOperatorsDefDiv =	coreFile.outputNode.getElementsByClassName("bitMaskOperatorDefinitions").item(0);
-	coreFile.bitFieldOperatorsDiv =		coreFile.outputNode.getElementsByClassName("bitMaskOperatorImplementations").item(0);
+	coreFile.versionInfo				= coreFile.outputNode.getElementsByClassName("versionInfo").item(0);
+	coreFile.interfacesDiv				= coreFile.outputNode.getElementsByClassName("interfaces").item(0);
+	coreFile.externPfnDiv				= coreFile.outputNode.getElementsByClassName("externPfns").item(0);
+	coreFile.linkedFunctionsDiv			= coreFile.outputNode.getElementsByClassName("linkedFunctions").item(0);
+	coreFile.functionAliasesDiv			= coreFile.outputNode.getElementsByClassName("functionAliases").item(0);
+	coreFile.cmdDefsDiv					= coreFile.outputNode.getElementsByClassName("cmdDefs").item(0);
+	coreFile.independentCmdLoadingDiv	= coreFile.outputNode.getElementsByClassName("independentCmdLoading").item(0);
+	coreFile.instanceCmdLoadingDiv		= coreFile.outputNode.getElementsByClassName("instanceCmdLoading").item(0);
+	coreFile.protectedIncludesDiv		= coreFile.outputNode.getElementsByClassName("protectedLookups").item(0);
+	coreFile.bitFieldOperatorsDefDiv	= coreFile.outputNode.getElementsByClassName("bitMaskOperatorDefinitions").item(0);
+	coreFile.bitFieldOperatorsDiv		= coreFile.outputNode.getElementsByClassName("bitMaskOperatorImplementations").item(0);
 
 	coreFile.independentCmdCount = 0;
 	coreFile.instanceCmdCount = 0;
@@ -1311,6 +1313,7 @@ function createHeader()
 				
 				files.set(file.name, file);
 
+				file.versionInfo					= file.outputNode.getElementsByClassName("versionInfo").item(0);
 				file.interfacesDiv 					= file.outputNode.getElementsByClassName("interfaces").item(0);
 				file.externPfnDiv					= file.outputNode.getElementsByClassName("externPfns").item(0);
 				file.linkedFunctionsDiv				= file.outputNode.getElementsByClassName("linkedFunctions").item(0);
@@ -1360,6 +1363,36 @@ function createHeader()
 			}
 		}
 	}
+
+	statusText.textContent = "Writing version information...";
+
+	for (let file of files.values())
+	{
+		addLineOfCode( file.versionInfo, "// Header Version: " + headerVersion);
+		addLineOfCode( file.versionInfo, "// Included features: " + selectedFeatures);
+		addLineOfCode( file.versionInfo, "// Included extensions: ");
+		let currentLine = null;
+		let column = 0;
+		for (let extension of sortedAvailableExtensions)
+		{
+			++column;
+			if (!extension.checkbox.checked) { continue; }
+			if (!currentLine)
+			{
+				currentLine = addLineOfCode( file.versionInfo, padTabs("// " + extension.name, 400));
+			}
+			else
+			{
+				currentLine.textContent = padTabs(currentLine.textContent + extension.name, (column) * 405);
+				if (column > 3)
+				{
+					column = 0;
+					currentLine = null;
+				}
+			}
+		}
+	}
+
 
 	statusText.textContent = "Saving state for next run...";
 	
@@ -1588,6 +1621,9 @@ function createHeader()
 	
 	let selectedFile;
 
+	let smallLeftColumnWidth = 464;
+	let leftColumnWidth = 745;
+
 	let lastCategory = "";
 	for (let i = 0; i < interfaces.length; ++i)
 	{
@@ -1613,7 +1649,7 @@ function createHeader()
 				for (let j = 0; j < interf.members.length; ++j)
 				{
 					let member = interf.members[j];
-					addLineOfCode( selectedFile.interfacesDiv, padTabs(indentation(2) + member.preType + member.type + member.postType, 89) + member.name + member.preEnum + member.cEnum + member.postEnum + ";");
+					addLineOfCode( selectedFile.interfacesDiv, padTabs(indentation(2) + member.preType + member.type + member.postType, leftColumnWidth) + member.name + member.preEnum + member.cEnum + member.postEnum + ";");
 				}
 				addLineOfCode( selectedFile.interfacesDiv, indentation(1) + "};");
 			}
@@ -1633,7 +1669,7 @@ function createHeader()
 				for(let j= 0; j < interf.parameters.length; ++j)
 				{
 					let parameter = interf.parameters[j];
-					addLineOfCode( selectedFile.interfacesDiv, padTabs(indentation(3) + parameter.preType + parameter.type + parameter.postType, 86) + parameter.name);
+					addLineOfCode( selectedFile.interfacesDiv, padTabs(indentation(3) + parameter.preType + parameter.type + parameter.postType, leftColumnWidth) + parameter.name);
 				}
 				
 				if (nextIndex >= interfaces.length || interfaces[nextIndex].category != interf.category)
@@ -1648,7 +1684,7 @@ function createHeader()
 				{
 					addLineOfCode( selectedFile.interfacesDiv, indentation(1));
 				}
-				addLineOfCode( selectedFile.interfacesDiv, padTabs(indentation(1) + "typedef " + interf.type, 92) + interf.name + ";");
+				addLineOfCode( selectedFile.interfacesDiv, padTabs(indentation(1) + "typedef " + interf.type, leftColumnWidth) + interf.name + ";");
 			}
 			break;
 			case "constant":
@@ -1672,7 +1708,7 @@ function createHeader()
 					if (interf.functionCalls[0].comment) comment += "//" + interf.functionCalls[0].comment;
 				}
 
-				addLineOfCode(selectedFile.interfacesDiv, padTabs(padTabs(indentation(1) + "const " + interf.type, 16) + interf.name + postName + " = ", 90) + interf.value + ";" + comment);
+				addLineOfCode(selectedFile.interfacesDiv, padTabs(padTabs(indentation(1) + "const " + interf.type, 133) + interf.name + postName + " = ", leftColumnWidth) + interf.value + ";" + comment);
 			}
 			break;
 			case "enum":
@@ -1688,8 +1724,7 @@ function createHeader()
 				}
 				
 				addLineOfCode( enumDiv, indentation(1));
-				addLineOfCode( enumDiv, indentation(1) + "enum class " + interf.name + optionalType);
-				addLineOfCode( enumDiv, indentation(1) + "{");
+				addLineOfCode( enumDiv, indentation(1) + "enum class " + interf.name + optionalType + " {");
 				
 				for( let j = 0; j < interf.constants.length; ++j)
 				{
@@ -1719,7 +1754,7 @@ function createHeader()
 							constant.value = constant.aliasFor;
 						}
 					}
-					addLineOfCode(enumDiv,  padTabs(indentation(2) + constant.name + " =", 89) + constant.value + ",");
+					addLineOfCode(enumDiv,  padTabs(indentation(2) + constant.name, leftColumnWidth) + "= " + constant.value + ",");
 				}
 				
 				if (interf.isBitMask)
@@ -1727,20 +1762,20 @@ function createHeader()
 					let fullyQualifiedName = vulkanNamespace + "::" + interf.name;
 					let fullyQualifiedFlagsName = vulkanNamespace + "::" + VkFlags;
 					
-					addLineOfCode(selectedFile.bitFieldOperatorsDefDiv, padTabs(indentation(2) + fullyQualifiedName, 69) + " operator| (" + fullyQualifiedName + " left, " + fullyQualifiedName + " right);");
-					addLineOfCode(selectedFile.bitFieldOperatorsDefDiv, padTabs(indentation(2) + fullyQualifiedName, 69) + " operator& (" + fullyQualifiedName + " left, " + fullyQualifiedName + " right);");
+					addLineOfCode(selectedFile.bitFieldOperatorsDefDiv, padTabs(indentation(2) + fullyQualifiedName, smallLeftColumnWidth) + "operator| (" + fullyQualifiedName + " left, " + fullyQualifiedName + " right);");
+					addLineOfCode(selectedFile.bitFieldOperatorsDefDiv, padTabs(indentation(2) + fullyQualifiedName, smallLeftColumnWidth) + "operator& (" + fullyQualifiedName + " left, " + fullyQualifiedName + " right);");
 
-					addLineOfCode(selectedFile.bitFieldOperatorsDiv, padTabs(indentation(2) + fullyQualifiedName, 69) + " operator| (" + fullyQualifiedName + " left, " + fullyQualifiedName + " right) { return (" + fullyQualifiedName + ")((" + fullyQualifiedFlagsName + ")left | (" + fullyQualifiedFlagsName + ") right); }");
-					addLineOfCode(selectedFile.bitFieldOperatorsDiv, padTabs(indentation(2) + fullyQualifiedName, 69) + " operator& (" + fullyQualifiedName + " left, " + fullyQualifiedName + " right) { return (" + fullyQualifiedName + ")((" + fullyQualifiedFlagsName + ")left & (" + fullyQualifiedFlagsName + ") right); }");
+					addLineOfCode(selectedFile.bitFieldOperatorsDiv, padTabs(padTabs(indentation(2) + fullyQualifiedName, smallLeftColumnWidth) + "operator| (" + fullyQualifiedName + " left, " + fullyQualifiedName + " right)", 1369) +"{ return (" + fullyQualifiedName + ")((" + fullyQualifiedFlagsName + ")left | (" + fullyQualifiedFlagsName + ") right); }");
+					addLineOfCode(selectedFile.bitFieldOperatorsDiv, padTabs(padTabs(indentation(2) + fullyQualifiedName, smallLeftColumnWidth) + "operator& (" + fullyQualifiedName + " left, " + fullyQualifiedName + " right)", 1369) +"{ return (" + fullyQualifiedName + ")((" + fullyQualifiedFlagsName + ")left & (" + fullyQualifiedFlagsName + ") right); }");
 				}
 				else
 				{
-					addLineOfCode( enumDiv, padTabs(indentation(2) + "BEGIN_RANGE =", 89) + interf.minName + ",");
-					addLineOfCode( enumDiv, padTabs(indentation(2) + "END_RANGE =", 89) + interf.maxName + ",");
-					addLineOfCode( enumDiv, padTabs(indentation(2) + "RANGE_SIZE =", 89) + "(" + interf.maxName + " - " + interf.minName + " + 1),");
+					addLineOfCode( enumDiv, padTabs(indentation(2) + "BEGIN_RANGE", leftColumnWidth) + "= " + interf.minName + ",");
+					addLineOfCode( enumDiv, padTabs(indentation(2) + "END_RANGE", leftColumnWidth) + "= " +interf.maxName + ",");
+					addLineOfCode( enumDiv, padTabs(indentation(2) + "RANGE_SIZE", leftColumnWidth) + "= (" + interf.maxName + " - " + interf.minName + " + 1),");
 				}
 				
-				addLineOfCode( enumDiv, padTabs(indentation(2) + "MAX_ENUM =", 89) + max_enum);
+				addLineOfCode( enumDiv, padTabs(indentation(2) + "MAX_ENUM", leftColumnWidth) + "= " + max_enum);
 					
 				addLineOfCode( enumDiv, indentation(1) + "};");
 			}
@@ -1754,7 +1789,7 @@ function createHeader()
 				selectedFile.interfacesDiv.appendChild(flagDiv);
 
 				addLineOfCode( flagDiv, indentation(1));
-				addLineOfCode( flagDiv, padTabs(indentation(1) + "typedef " + interf.type, 86) + interf.name + ";");
+				addLineOfCode( flagDiv, padTabs(indentation(1) + "typedef " + interf.type, leftColumnWidth) + interf.name + ";");
 			}
 			break;
 			case "handle":
@@ -1764,7 +1799,7 @@ function createHeader()
 					addLineOfCode( selectedFile.interfacesDiv, indentation(1));
 				}
 				let handleName = interf.name;
-				addLineOfCode( selectedFile.interfacesDiv, padTabs(indentation(1) + "typedef struct " + handleName + "_Handle*", 92) + handleName + ";");
+				addLineOfCode( selectedFile.interfacesDiv, padTabs(indentation(1) + "typedef struct " + handleName + "_Handle*", leftColumnWidth) + handleName + ";");
 			}
 			break;
 			case "command":
@@ -1779,10 +1814,10 @@ function createHeader()
 				{
 					if (j > 0) { parametersText += ","; }
 					let parameter = interf.parameters[j];
-					parametersText += "\n" + padTabs(indentation(3) + parameter.preType + parameter.type + parameter.postType, 86) + parameter.name;
+					parametersText += "\n" + padTabs(indentation(3) + parameter.preType + parameter.type + parameter.postType, leftColumnWidth) + parameter.name;
 				}
 				
-				addLineOfCode( selectedFile.interfacesDiv, padTabs(indentation(2) + "typedef " + interf.returnType, 24) + "(" + VKAPI_PTR + " *" + interf.name + ")(" + parametersText + ");" );
+				addLineOfCode( selectedFile.interfacesDiv, padTabs(indentation(2) + "typedef " + interf.returnType, 200) + "(" + VKAPI_PTR + " *" + interf.name + ")(" + parametersText + ");" );
 				addLineOfCode( selectedFile.interfacesDiv, indentation(2));
 				
 				if (nextIndex >= interfaces.length || interfaces[nextIndex].category != interf.category)
@@ -1792,8 +1827,8 @@ function createHeader()
 				
 				if (interf.link == "lookup")
 				{
-					addLineOfCode( selectedFile.externPfnDiv, padTabs(indentation(1) + "extern PFN::" + interf.name, 90) + interf.name + ";");
-					addLineOfCode( selectedFile.cmdDefsDiv,	padTabs(indentation(1) + "PFN::" + interf.name, 68) + interf.name + ";");
+					addLineOfCode( selectedFile.externPfnDiv, padTabs(indentation(1) + "extern PFN::" + interf.name, leftColumnWidth) + interf.name + ";");
+					addLineOfCode( selectedFile.cmdDefsDiv,	padTabs(indentation(1) + "PFN::" + interf.name, leftColumnWidth) + interf.name + ";");
 					
 					if (interf.originalName == "vkEnumerateInstanceLayerProperties" || interf.originalName == "vkEnumerateInstanceExtensionProperties" || interf.originalName == "vkCreateInstance")
 					{
@@ -1815,7 +1850,7 @@ function createHeader()
 					addLineOfCode( selectedFile.linkedFunctionsDiv, indentation(2) + VKAPI_ATTR + " " + interf.returnType + " " + VKAPI_CALL + " " + interf.originalName + "(" + parametersText + ");" );
 					addLineOfCode( selectedFile.linkedFunctionsDiv, indentation(2));
 					
-					addLineOfCode( selectedFile.functionAliasesDiv, padTabs(indentation(1) + "const PFN::" + interf.name, 92) + interf.name + " = " + interf.originalName + ";");
+					addLineOfCode( selectedFile.functionAliasesDiv, padTabs(indentation(1) + "const PFN::" + interf.name, leftColumnWidth) + interf.name + " = " + interf.originalName + ";");
 				}
 			}
 			break;
@@ -1825,7 +1860,7 @@ function createHeader()
 				{
 					addLineOfCode( selectedFile.interfacesDiv, indentation(1));
 				}
-				addLineOfCode( selectedFile.interfacesDiv, padTabs(indentation(1) + "typedef " + interf.aliasFor, 94) + interf.name + ";" );
+				addLineOfCode( selectedFile.interfacesDiv, padTabs(indentation(1) + "typedef " + interf.aliasFor, leftColumnWidth) + interf.name + ";" );
 			}
 			break;
 			case "constexpr":
@@ -2316,9 +2351,10 @@ function indentation(count)
 	return text;
 }
 
-function padTabs(text, length, minimum = 1)
+function padTabs(text, desiredWidth, minimum = 1)
 {
-	var tabCount = Math.floor((length - text.length) / tabSpaceWidth);// Note, it would be more consistent by actually calculating character widths.
+	let textWidth = estimateStringWidth(text);
+	var tabCount = Math.floor((desiredWidth - textWidth) / tabSpaceWidth);
 	tabCount = tabCount < minimum ? minimum : tabCount;
 	return text + indentation(tabCount);
 }
@@ -2341,4 +2377,12 @@ function displayHeader(headerHTML)
 	// window.scroll(0,150);
 	setupStuff.setAttribute("class", "hidden");
 	document.getElementById("hiddenUntilCreation").removeAttribute("class");
+}
+
+function estimateStringWidth(text)
+{
+	ruler.textContent = text;
+	let width = ruler.getBoundingClientRect().width;
+	ruler.textContent = "";
+	return width;
 }
