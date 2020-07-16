@@ -1697,6 +1697,19 @@ function createHeader()
 					
 					if (constant.aliasFor)
 					{
+						// Only include the alias if the original is actually listed:
+						let foundAliased = false;
+						for (let i = 0; i < interf.constants.length; ++i)
+						{
+							if( interf.constants[i].name == constant.aliasFor) { foundAliased = true; break; }
+						}
+						if (!foundAliased)
+						{
+							console.log("Enumerator '" + constant.name + "' skipped, because the aliased enumerator '" + constant.aliasFor + "' could not be found. It might just not be part of the selected features & extensions.");
+							continue;
+						}
+
+						// Only include the alias if there's still a difference after rename procedures:
 						if (constant.aliasFor == constant.name)
 						{
 							continue;
