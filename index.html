@@ -25,6 +25,11 @@
 	<button id="parseTextButton" title="Show a list of all the features and extension available in the xml above.">List Features/Extensions</button>
 	<div id="setupPart2" class="hidden">
 		<p>Header version: <span id="headerVersion"></span></p>
+		<h2>Find Required Features & Extensions (optional)</h2>
+		<label for="requiredFeaturesAndExtensionsFinder">Write a function name or type</label>
+		<input id="requiredFeaturesAndExtensionsFinder" type="text">
+		<button id="requiredFeaturesAndExtensionsFinderBtn"  title="Highlights Features and Extensions that directly require the inclusion of this interface.">Highlight</button>
+		<span id="requiredFeaturesAndExtensionsFinderOutput"></span>
 		<h2>Features</h2>
 		<div id="featureSelection">This is where features should show up (using Javascript) once the vk.xml has been parsed.</div>
 		<h2>Extensions</h2>

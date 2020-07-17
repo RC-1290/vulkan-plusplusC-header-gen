@@ -71,11 +71,13 @@ var parseTextButton				= document.getElementById("parseTextButton");
 var localVkXmlBtn				= document.getElementById("localVkXmlBtn");
 var clearXmlTextBtn				= document.getElementById("clearXmlTextBtn");
 var loadRawGithubBtn			= document.getElementById("loadRawGithubBtn");
+var findRequireBtn				= document.getElementById("requiredFeaturesAndExtensionsFinderBtn");
 
 var vkxmlTextInput				= document.getElementById("vkxmlText");
 var vulkanNamespaceInput		= document.getElementById("vulkanNamespace");
 var implementationDefineInput	= document.getElementById("implementationDefine");
 var funcRenamingSelect			= document.getElementById("funcRenaming");
+var findRequireInput			= document.getElementById("requiredFeaturesAndExtensionsFinder");
 
 var typeReplacementList			= document.getElementById("typeReplacement");
 
@@ -119,6 +121,7 @@ clearXmlTextBtn.addEventListener("click", clearText);
 parseTextButton.addEventListener("click", parseText);
 localVkXmlBtn.addEventListener("click", loadLocal);
 loadRawGithubBtn.addEventListener("click", loadFromGithub);
+findRequireBtn.addEventListener("click", findRequire);
 
 if (!vkxmlTextInput.value)
 {
@@ -216,6 +219,76 @@ function loadFromGithub()
 {
 	xmlSource = "GitHub";
 	loadTextXhr("https://raw.githubusercontent.com/KhronosGroup/Vulkan-Docs/master/xml/vk.xml");
+}
+
+function findRequire()
+{
+	let thingToFind = findRequireInput.value;
+	let featuresRequiringIt = [];
+	for (let feature of availableFeatures.values())
+	{
+		let foundInFeature = false;
+		for (let required of feature.requires)
+		{
+			for (let anInterface of required.interfaces)
+			{
+				if (anInterface.name)
+				{
+					if (anInterface.name == thingToFind || stripVk(anInterface.name) == thingToFind)
+					{
+						featuresRequiringIt.push(feature);
+						foundInFeature = true;
+						break;
+					}
+				}
+			}
+			if (foundInFeature){break;}
+		}
+	}
+
+	let extensionsRequiringIt = [];
+	for (let extension of availableExtensions.values())
+	{
+		let foundInExtension = false;
+		for (let required of extension.requires)
+		{
+			for (let anInterface of required.interfaces)
+			{
+				if (anInterface.name)
+				{
+					if (anInterface.name == thingToFind || stripVk(anInterface.name) == thingToFind)
+					{
+						extensionsRequiringIt.push(extension);
+						foundInExtension = true;
+						break;
+					}
+				}
+			}
+			if (foundInExtension){break;}
+		}
+	}
+
+	let highlightClassName = "highlighted";
+
+	// Clear previous highlights:
+	for (let aFeature of availableFeatures.values())
+	{
+		aFeature.checkbox.label.classList.remove(highlightClassName);
+	}
+	for (let extension of extensionsRequiringIt.values())
+	{
+		extension.checkbox.label.classList.remove(highlightClassName);
+	}
+
+	// Highlight labels for features & extensions that require the given interface:
+	for (let aFeature of featuresRequiringIt)
+	{
+		aFeature.checkbox.label.classList.add(highlightClassName);
+	}
+	for (let extension of extensionsRequiringIt)
+	{
+		extension.checkbox.label.classList.add(highlightClassName);
+	}
 }
 
 
@@ -2320,13 +2393,13 @@ function addCheckbox(parent, name, label, tooltip)
 	var featureCheckbox = document.createElement("input");
 	featureCheckbox.setAttribute("type", "checkbox");
 	featureCheckbox.setAttribute("id", checkboxId);
-	var featureLabel = document.createElement("label");
-	featureLabel.setAttribute("for", checkboxId);
-	featureLabel.setAttribute("title", tooltip);
-	featureLabel.textContent = label;
+	featureCheckbox.label = document.createElement("label");
+	featureCheckbox.label.setAttribute("for", checkboxId);
+	featureCheckbox.label.setAttribute("title", tooltip);
+	featureCheckbox.label.textContent = label;
 	
 	parent.appendChild(featureCheckbox);
-	parent.appendChild(featureLabel);
+	parent.appendChild(featureCheckbox.label);
 	
 	return featureCheckbox;
 }
