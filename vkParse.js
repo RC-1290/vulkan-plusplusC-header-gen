@@ -78,6 +78,7 @@ var vulkanNamespaceInput		= document.getElementById("vulkanNamespace");
 var implementationDefineInput	= document.getElementById("implementationDefine");
 var funcRenamingSelect			= document.getElementById("funcRenaming");
 var findRequireInput			= document.getElementById("requiredFeaturesAndExtensionsFinder");
+var findRequireOutput			= document.getElementById("requiredFeaturesAndExtensionsFinderOutput");
 
 var typeReplacementList			= document.getElementById("typeReplacement");
 
@@ -289,6 +290,16 @@ function findRequire()
 	{
 		extension.checkbox.label.classList.add(highlightClassName);
 	}
+
+	if (featuresRequiringIt.size > 0 || extensionsRequiringIt.size > 0)
+	{
+		findRequireOutput.textContent = "Highlighted features and/or extensions that require this interface.";
+	}
+	else
+	{
+		findRequireOutput.textContent = "No features or extensions found that require this interface directly.";
+	}
+
 }
 
 
@@ -781,6 +792,11 @@ function parseTypes(xml)
 					member.cEnum = "";
 					member.postEnum = "";
 					namedThing.members.push(member);
+
+					if (memberNode.hasAttribute("values"))
+					{
+						member.values = memberNode.getAttribute("values").split(",");
+					}
 
 					var memberTags = memberNode.childNodes;
 					for(var h = 0; h < memberTags.length; ++h)
@@ -1520,6 +1536,14 @@ function createHeader()
 					{
 						member.cEnum = typeReplacement(member.cEnum, typeReplacements);
 					}
+					if (typeof member.values != "undefined")
+					{
+						if (member.values.length > 1)
+						{
+							console.warn("Default member values ignored for '" + member.name + "'' of the struct or enum '" + interf.name + ", because there is more than 1");
+						}
+						member.defaultValue = typeReplacement(member.values[0], typeReplacements);
+					}
 				}
 				
 				typeReplacements.set(interf.originalName, interf.name);
@@ -1722,7 +1746,14 @@ function createHeader()
 				for (let j = 0; j < interf.members.length; ++j)
 				{
 					let member = interf.members[j];
-					addLineOfCode( selectedFile.interfacesDiv, padTabs(indentation(2) + member.preType + member.type + member.postType, leftColumnWidth) + member.name + member.preEnum + member.cEnum + member.postEnum + ";");
+
+					let knownValue = "";
+					if (typeof member.defaultValue != "undefined")
+					{
+						knownValue = " = " + member.defaultValue;
+					}
+
+					addLineOfCode( selectedFile.interfacesDiv, padTabs(indentation(2) + member.preType + member.type + member.postType, leftColumnWidth) + member.name + member.preEnum + member.cEnum + member.postEnum + knownValue + ";");
 				}
 				addLineOfCode( selectedFile.interfacesDiv, indentation(1) + "};");
 			}
